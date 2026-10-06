@@ -1,0 +1,5 @@
+-r requirements-web.in
+httpx2==2.13.1
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-timeout==2.4.0

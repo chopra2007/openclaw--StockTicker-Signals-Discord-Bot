@@ -52,6 +52,8 @@ def fetch_history(ticker: str, *, period=None, start=None, end=None, interval: s
             log.debug("schwab pricehistory failed for %s: %s", ticker, ex)
 
     # yfinance fallback — the pre-#57 behaviour, unchanged.
+    from consensus_engine.utils.provider_budget import require_mapped_sdk
+    require_mapped_sdk('yahoo')
     import yfinance as yf
     t = yf.Ticker(ticker)
     kwargs = {"interval": interval, "prepost": extended_hours}

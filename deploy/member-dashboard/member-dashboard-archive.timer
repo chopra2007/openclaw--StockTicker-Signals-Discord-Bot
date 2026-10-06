@@ -1,0 +1,8 @@
+# REVIEW TEMPLATE. No Install section; never enabled automatically.
+[Unit]
+Description=Member dashboard bounded archive maintenance
+ConditionPathExists=UNCONFIGURED_OWNER_APPROVED_ACTIVATION
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1h
+Unit=member-dashboard-archive.service

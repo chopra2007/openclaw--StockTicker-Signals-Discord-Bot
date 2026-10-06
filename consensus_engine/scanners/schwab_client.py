@@ -27,7 +27,6 @@ per-strike chain; user-facing callers render derived summaries only.
 """
 
 import datetime
-import fcntl
 import gzip
 import json
 import logging
@@ -41,7 +40,24 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from consensus_engine import config
+from consensus_engine.utils.provider_budget import budgeted_request
+
+
+class _BotConfig:
+    def get_api_key(self, name):
+        from consensus_engine import config as default_config
+        return default_config.get_api_key(name)
+
+
+class _BotFcntl:
+    def __getattr__(self, name):
+        if name not in {'flock', 'LOCK_EX', 'LOCK_UN'}: raise AttributeError(name)
+        import fcntl as default_fcntl
+        return getattr(default_fcntl, name)
+
+
+config = _BotConfig()
+fcntl = _BotFcntl()
 
 log = logging.getLogger("consensus_engine.scanner.schwab")
 
@@ -222,7 +238,7 @@ def get_access_token() -> str:
 
             refresh_token = doc["token"]["refresh_token"]
             key, secret = _creds()
-            resp = requests.post(
+            resp = budgeted_request(requests.post, 'POST',
                 TOKEN_URL,
                 auth=(key, secret),
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -262,7 +278,7 @@ def _get(path: str, params: dict | None = None) -> dict:
         raise SchwabError("schwab cooldown active (recent 429)")
     _bucket.acquire()
     token = get_access_token()
-    resp = requests.get(
+    resp = budgeted_request(requests.get, 'GET',
         f"{MD_BASE}{path}",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         params=params or {},
@@ -396,6 +412,7 @@ class Chain:
     underlying_price: float
     is_delayed: bool
     expirations: list = field(default_factory=list)
+    underlying_quote_time: float | None = None  # explicit provider observation, epoch seconds
 
     def by_expiry(self, exp: str):
         """Return a yfinance-option_chain-shaped namespace for one expiry."""
@@ -630,6 +647,11 @@ def get_price_history(symbol: str, *, period: Optional[str] = None,
         symbol, period=period, interval=interval, start=start, end=end,
         extended_hours=extended_hours,
     )
+    return _history_frame(d)
+
+
+def _history_frame(d):
+    import pandas as pd
     candles = d.get("candles", []) or []
     if not candles:
         return None
@@ -642,3 +664,213 @@ def get_price_history(symbol: str, *, period: Optional[str] = None,
     df = df[keep]
     df.index.name = "Date"
     return df
+
+
+# Instance API: no fallback to any of the bot defaults above.
+from contextlib import contextmanager
+from pathlib import Path
+import stat
+import math
+
+
+class PrivateTokenStore:
+    """Explicit private directory, no environment/path discovery or symlink traversal."""
+    def __init__(self, directory):
+        self.directory = Path(directory).absolute()
+        if not self.directory.is_dir() or self.directory.is_symlink():
+            raise ValueError('Private state directory required')
+        for parent in (self.directory, *self.directory.parents):
+            if parent.is_symlink(): raise ValueError('State symlink forbidden')
+        self._check(self.directory, directory=True)
+        self.token = self.directory / 'token.json'
+        self.lock_path = self.directory / 'refresh.lock'
+        self.marker = self.directory / 'reauth.json'
+        self._thread_lock = threading.Lock()
+
+    def _check(self, path, *, directory=False):
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)):
+            raise ValueError('Invalid private state object')
+        if os.name == 'posix' and (info.st_uid != os.geteuid() or info.st_mode & 0o077):
+            raise ValueError('Private state ownership/mode required')
+
+    def load(self):
+        self._check(self.directory, directory=True)
+        self._check(self.token)
+        with self.token.open(encoding='utf-8') as source: return json.load(source)
+
+    def write(self, document):
+        self._check(self.directory, directory=True)
+        if self.token.exists(): self._check(self.token)
+        temporary = self.directory / 'token.pending'
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as target:
+                json.dump(document, target, allow_nan=False)
+                target.flush()
+                os.fsync(target.fileno())
+            os.replace(temporary, self.token)
+        finally:
+            if temporary.exists(): temporary.unlink()
+
+    def mark_expired(self, epoch):
+        self._check(self.directory, directory=True)
+        if self.marker.exists(): self._check(self.marker)
+        fd = os.open(self.marker, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8') as target:
+            json.dump({'reason_code':'refresh_expired','observed_at':epoch}, target)
+
+    @contextmanager
+    def locked(self):
+        with self._thread_lock:
+            self._check(self.directory, directory=True)
+            if self.lock_path.exists(): self._check(self.lock_path)
+            fd = os.open(self.lock_path, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+            try:
+                if os.name == 'posix':
+                    import fcntl as local_fcntl
+                    local_fcntl.flock(fd, local_fcntl.LOCK_EX)
+                else:
+                    import msvcrt
+                    if os.fstat(fd).st_size == 0: os.write(fd, b'0')
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+                yield
+            finally:
+                if os.name == 'posix': local_fcntl.flock(fd, local_fcntl.LOCK_UN)
+                else:
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                os.close(fd)
+
+
+@dataclass(frozen=True)
+class SchwabContext:
+    key: str = field(repr=False)
+    secret: str = field(repr=False)
+    state: PrivateTokenStore
+    budget: object
+    clock: object
+    token_url: str
+    market_url: str
+
+
+class SchwabClient:
+    def __init__(self, context):
+        from consensus_engine.utils.provider_budget import TransportBudget
+        if not isinstance(context, SchwabContext) or not context.key or not context.secret:
+            raise ValueError('Explicit isolated credentials required')
+        if not isinstance(context.state, PrivateTokenStore) or not isinstance(context.budget, TransportBudget) or context.budget.caller != 'dashboard':
+            raise ValueError('Explicit isolated state and dashboard budget required')
+        self.context = context
+        self._now()
+        self._session = requests.Session()
+        self._session.trust_env = False
+
+    def close(self): self._session.close()
+
+    def _now(self):
+        now = self.context.clock()
+        if not isinstance(now, datetime.datetime) or now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError('Aware client clock required')
+        return now
+
+    def _request(self, method, url, **kwargs):
+        # This owned session has no caller-provided adapters, implicit retries,
+        # ambient proxy/netrc discovery, redirects or streaming responses.
+        if self._session.trust_env or any(type(adapter) is not requests.adapters.HTTPAdapter or adapter.max_retries.total != 0 for adapter in self._session.adapters.values()):
+            raise SchwabError('unverified_transport')
+        return self.context.budget.request(getattr(self._session, method.lower()), method, url, timeout=15, **kwargs)
+
+    def get_access_token(self):
+        with self.context.state.locked():
+            document = self.context.state.load()
+            now = self._now().timestamp()
+            token = document.get('token', {})
+            created = document.get('creation_timestamp')
+            ttl = token.get('expires_in')
+            if not all(type(v) in (int, float) and math.isfinite(v) for v in (created, ttl)):
+                raise SchwabError('invalid_token_state')
+            if now < created + ttl - REFRESH_EARLY:
+                access = token.get('access_token')
+                if not isinstance(access, str) or not access: raise SchwabError('invalid_token_state')
+                return access
+            frozen = _refresh_created(document)
+            if not math.isfinite(frozen) or now >= frozen + REFRESH_TTL:
+                self.context.state.mark_expired(now)
+                raise SchwabRefreshTokenExpired('refresh_expired')
+            refresh = token.get('refresh_token')
+            if not isinstance(refresh,str) or not refresh: raise SchwabRefreshTokenExpired('refresh_missing')
+            response = self._request('POST', self.context.token_url, auth=(self.context.key,self.context.secret),
+                                     data={'grant_type':'refresh_token','refresh_token':refresh})
+            if response.status_code != 200:
+                if response.status_code in (400,401,403):
+                    self.context.state.mark_expired(now)
+                    raise SchwabRefreshTokenExpired('refresh_expired')
+                raise SchwabError('refresh_unavailable')
+            value = json.loads(_decode_body(response))
+            if not isinstance(value.get('access_token'),str) or not value['access_token'] or type(value.get('expires_in')) not in (int,float) or not math.isfinite(value['expires_in']) or value['expires_in'] <= REFRESH_EARLY:
+                raise SchwabError('invalid_refresh_response')
+            value.setdefault('refresh_token',refresh)
+            self.context.state.write({'token':value,'creation_timestamp':now,'_refresh_created':frozen})
+            if self.context.state.marker.exists():
+                self.context.state._check(self.context.state.marker)
+                self.context.state.marker.unlink()
+            return value['access_token']
+
+    def _get(self, path, params=None):
+        token = self.get_access_token()
+        response = self._request('GET',self.context.market_url+path,
+                                 headers={'Authorization':'Bearer '+token,'Accept':'application/json'}, params=params or {})
+        if response.status_code != 200: raise SchwabError('market_data_unavailable')
+        data = response.json()
+        if not isinstance(data,dict): raise SchwabError('invalid_market_response')
+        return data
+
+    def get_expirations(self, symbol):
+        data = self._get('/expirationchain',{'symbol':to_schwab_symbol(symbol)})
+        values = data.get('expirationList')
+        if not isinstance(values,list): raise SchwabError('invalid_expiration_response')
+        result = sorted({row['expirationDate'] for row in values})
+        for value in result: datetime.date.fromisoformat(value)
+        return result
+
+    def get_option_chain(self, symbol, *, nearest=2, from_date=None, to_date=None):
+        if not 1 <= nearest <= 8: raise ValueError('Bounded expiration count required')
+        if not to_date:
+            today = self._now().astimezone(ZoneInfo('America/New_York')).date().isoformat()
+            expirations = [value for value in self.get_expirations(symbol) if value >= today]
+            if not expirations: return None
+            to_date = expirations[min(nearest,len(expirations))-1]
+        params={'symbol':to_schwab_symbol(symbol),'contractType':'ALL','toDate':to_date}
+        if from_date: params['fromDate']=from_date
+        data = self._get('/chains',params)
+        if data.get('status') not in ('SUCCESS',None): raise SchwabError('chain_unavailable')
+        if not isinstance(data.get('callExpDateMap'),dict) or not isinstance(data.get('putExpDateMap'),dict):
+            raise SchwabError('invalid_chain_response')
+        calls,puts = _chain_map_to_df(data['callExpDateMap']),_chain_map_to_df(data['putExpDateMap'])
+        if calls.empty and puts.empty: return None
+        expirations=sorted(set(calls.get('expiry',[])).union(puts.get('expiry',[])))
+        # Member-only metadata: no collection-time or last-trade substitution.
+        underlying=data.get('underlying')
+        quote_time=underlying.get('quoteTime') if isinstance(underlying,dict) else None
+        observed=quote_time/1000 if type(quote_time) in (int,float) and math.isfinite(quote_time) and quote_time>0 else None
+        return Chain(calls,puts,_num(data.get('underlyingPrice')),bool(data.get('isDelayed',True)),expirations,observed)
+
+    def get_quote(self, symbol):
+        value = self._get('/quotes',{'symbols':to_schwab_symbol(symbol)})
+        entry=value.get(to_schwab_symbol(symbol))
+        return _map_quote(entry) if isinstance(entry,dict) else None
+
+    def get_price_history(self, symbol, *, period='5d', interval='1d', extended_hours=False):
+        frequency, count = _FREQ_MAP.get(interval,('daily',1))
+        params={'symbol':to_schwab_symbol(symbol),'frequencyType':frequency,'frequency':count,
+                'needExtendedHoursData':'true' if extended_hours else 'false'}
+        if frequency in ('daily','weekly','monthly'):
+            params.update(periodType='year',startDate=int((self._now()-datetime.timedelta(days=_period_to_calendar_days(period))).timestamp()*1000))
+        else:
+            kind,value=_PERIOD_MAP.get(period,('day',5))
+            params.update(periodType='day',period=value if kind == 'day' else 10)
+        data=self._get('/pricehistory',params)
+        if not isinstance(data.get('candles'),list): raise SchwabError('invalid_history_response')
+        return _history_frame(data)

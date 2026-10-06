@@ -1,0 +1,35 @@
+# No PartOf/BindsTo web units: retain this broker while bot clients depend on it.
+[Unit]
+Description=Independent member dashboard quota admission (unconfigured)
+[Service]
+Type=simple
+ExecCondition=/usr/bin/false
+User=UNCONFIGURED_QUOTA_USER
+Group=UNCONFIGURED_QUOTA_GROUP
+WorkingDirectory=/opt/member-dashboard/current
+ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations quota --config /etc/member-dashboard/quota.json
+Slice=member-dashboard.slice
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+ReadWritePaths=/var/lib/member-dashboard/quota /run/member-dashboard-quota
+ReadOnlyPaths=/etc/member-dashboard/quota.json
+InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard/web /etc/member-dashboard/providers
+TasksMax=8
+MemoryMax=256M
+KillMode=control-group
+TimeoutStopSec=10
+Restart=no
+StandardOutput=journal
+StandardError=journal
+LogNamespace=member-dashboard

@@ -11,9 +11,17 @@ import logging
 import time
 from typing import Optional
 
-from consensus_engine import config as _cfg
+class _BotConfig:
+    def get(self, *args, **kwargs):
+        from consensus_engine import config
+        return config.get(*args, **kwargs)
+
+
+_cfg = _BotConfig()
 from consensus_engine.models import OptionsResult, FlowHit
-from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore  # C20
+def get_yahoo_semaphore():
+    from consensus_engine.utils.yahoo_limit import get_yahoo_semaphore as default_semaphore
+    return default_semaphore()
 
 log = logging.getLogger("consensus_engine.scanner.options")
 
@@ -227,6 +235,8 @@ async def check_unusual_options(ticker: str, executor, nearest: int = 1) -> Opti
 
     def _fetch():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             expirations = t.options
@@ -354,6 +364,7 @@ def _scan_chain_for_flow(
     ticker, chain, expiry, spot, *,
     min_vol_oi, min_volume, min_premium, max_stale_sec, now,
     relative_baseline_enabled=False, relative_multiplier=3.0, baseline=None,
+    staleness_failclosed=None,
 ) -> list:
     """Pull qualifying FlowHits out of one expiry's calls+puts DataFrames.
 
@@ -398,7 +409,7 @@ def _scan_chain_for_flow(
             # real instant-flow signal); when the flag is on we TAG it as
             # unverified (surfaced in the alert) and log it. Flag OFF = unchanged.
             staleness_unverified = False
-            if max_stale_sec and not lt and _cfg.get("options_flow.staleness_failclosed", False):
+            if max_stale_sec and not lt and (staleness_failclosed if staleness_failclosed is not None else _cfg.get("options_flow.staleness_failclosed", False)):
                 staleness_unverified = True
                 log.warning(
                     "options_flow: %s %s unverifiable lastTradeDate "
@@ -431,6 +442,8 @@ async def _fetch_flow_chains(ticker: str, executor, nearest: int, use_schwab: bo
 
     def _f():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             exps = t.options
@@ -1041,6 +1054,8 @@ async def compute_max_pain(ticker: str, executor=None) -> Optional[dict]:
 
     def _f():
         try:
+            from consensus_engine.utils.provider_budget import require_mapped_sdk
+            require_mapped_sdk('yahoo')
             import yfinance as yf
             t = yf.Ticker(ticker)
             exps = list(t.options or [])

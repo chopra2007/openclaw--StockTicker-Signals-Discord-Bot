@@ -34,10 +34,20 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from consensus_engine import config as _cfg
-from consensus_engine.utils import prices  # #57 OHLCV choke-point (Schwab primary)
+class _BotConfig:
+    def get(self, *args, **kwargs):
+        from consensus_engine import config
+        return config.get(*args, **kwargs)
 
-from consensus_engine import config as cfg
+
+class _BotPrices:
+    def fetch_history(self, *args, **kwargs):
+        from consensus_engine.utils import prices as default_prices
+        return default_prices.fetch_history(*args, **kwargs)
+
+
+_cfg = cfg = _BotConfig()
+prices = _BotPrices()
 
 log = logging.getLogger("consensus_engine.scanners.expected_move")
 
@@ -434,6 +444,8 @@ def _schwab_bundle(ticker: str, now_et: datetime, horizon: str = "daily") -> Opt
 def _yfinance_bundle(ticker: str, now_et: datetime,
                      horizon: str = "daily") -> dict:
     """Blocking delayed-data fallback with the same shape as _schwab_bundle."""
+    from consensus_engine.utils.provider_budget import require_mapped_sdk
+    require_mapped_sdk('yahoo')
     import yfinance as yf
     t = yf.Ticker(ticker)
 
@@ -573,6 +585,40 @@ async def compute_em(ticker: str, executor=None,
         bundle = fallback
         spot = fallback_spot
         call, put = fallback_call, fallback_put
+    return _assemble_em(ticker, bundle, now_et, horizon, spot, call, put, multiplier)
+
+
+@dataclass(frozen=True)
+class ExpectedMoveSettings:
+    min_open_interest: float = 100.0
+    multiplier: float = 0.85
+    max_spread_pct: float = 0.25
+    max_strike_distance_pct: float = 0.05
+
+    def __post_init__(self):
+        if not all(math.isfinite(value) and value >= 0 for value in (
+            self.min_open_interest, self.multiplier, self.max_spread_pct,
+            self.max_strike_distance_pct)):
+            raise ValueError('Finite expected-move settings required')
+
+
+def compute_em_from_bundle(ticker, bundle, settings, now, horizon='daily') -> ExpectedMoveResult:
+    """Pure original arithmetic using explicit inputs; no collection or defaults."""
+    from zoneinfo import ZoneInfo
+    if horizon not in HORIZONS or not isinstance(settings, ExpectedMoveSettings):
+        raise ValueError('Explicit horizon/settings required')
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError('Aware calculation clock required')
+    now_et = now.astimezone(ZoneInfo('America/New_York'))
+    spot = bundle['spot']
+    call, put = select_atm(bundle['calls'], bundle['puts'], spot,
+                          max_spread_pct=settings.max_spread_pct,
+                          min_open_interest=settings.min_open_interest,
+                          max_strike_distance_pct=settings.max_strike_distance_pct)
+    return _assemble_em(ticker.upper(), bundle, now_et, horizon, spot, call, put, settings.multiplier)
+
+
+def _assemble_em(ticker, bundle, now_et, horizon, spot, call, put, multiplier):
     tte = time_to_expiration(bundle["expiration"], now_et)
     em = calculate_expected_moves(spot, call, put, tte, multiplier)
 

@@ -23,38 +23,10 @@ from consensus_engine.models import (
 from consensus_engine.scanners.news import news_cascade
 from consensus_engine.analysis.technical import verify_technical
 from consensus_engine.analysis.llm_scorer import score_confidence
+from consensus_engine.analysis import research_compute as _research
+from consensus_engine.analysis.research_contracts import ScoreTickerResult, _SecGraduation, _BurstAnalysis
 
 
-@dataclass
-class ScoreTickerResult:
-    """Tweetless scoring result wrapping the parallel-gather + ScoreBreakdown.
-
-    Returned by `score_ticker()`; `cross_reference()` decorates this into a
-    `CrossReferenceResult` with tweet-specific fields.
-    """
-    ticker: str
-    breakdown: ScoreBreakdown
-    catalyst: Optional[CatalystResult] = None
-    technical: Optional[TechnicalResult] = None
-    options: Optional[OptionsResult] = None
-    youtube: Optional[YouTubeContext] = None
-    social_data: dict = field(default_factory=dict)
-    sec_hit: bool = False
-    sec_summary: str = ""
-    other_analysts: list = field(default_factory=list)
-    llm_reasoning: str = ""
-    consolidation_result: Optional[object] = None
-    metrics: dict = field(default_factory=dict)
-    # I3 producer (signal-features-2026-06-09): 0=unanimous, 1=perfectly split.
-    # Computed in score_ticker; 0.0 until features.contradiction_index_live.enabled.
-    contradiction_index: float = 0.0
-    # I3: distinct opposing sources (youtube/options/sec) disagreeing with the tweet
-    # direction. Persisted for forward backtesting of the >=2-actor downgrade gate.
-    n_opposing: int = 0
-
-    @property
-    def final_score(self) -> int:
-        return self.breakdown.total
 
 log = logging.getLogger("consensus_engine.cross_reference")
 
@@ -79,12 +51,7 @@ def _resolve_catalyst_type(news_catalyst_type: str, sec_hit: bool) -> str:
 
 
 def compute_technical_score(technical: Optional[TechnicalResult]) -> int:
-    """Compute score from technical filters. +2 per passing filter, max 12."""
-    if not technical or not technical.filters:
-        return 0
-    per_filter = cfg.get("scoring.multipliers.technical_per_filter", 2)
-    max_pts = cfg.get("scoring.multipliers.technical_max", 12)
-    return min(technical.passed_count * per_filter, max_pts)
+    return _research.compute_technical_score(technical, settings=cfg, now=time.time())
 
 
 def _compute_apewisdom_zscore_pts(
@@ -94,97 +61,11 @@ def _compute_apewisdom_zscore_pts(
     catalyst_passed: bool,
     technical_pts: int,
 ) -> int:
-    """I13: z-score gate for the social_apewisdom term.
-
-    Called only when ``features.apewisdom_zscore.enabled`` is True.
-
-    Gate conditions (ALL must pass for +10):
-      1. Ticker has >= min_baseline_days distinct calendar days of baseline.
-      2. Current mentions > z_threshold sigma above the baseline mean.
-      3. At least one actor-independent hard corroborator agrees:
-           - SEC buy (sec_hit=True)
-           - hard news catalyst (catalyst_passed=True)
-           - technical breakout (technical_pts >= 2 filters, per I10 definition)
-      4. Mention data is fresh (recency_window "apewisdom" cap, 1440 min by default).
-         Freshness is checked against apewisdom_captured_at in social_data.
-         If not present / None -> stale -> 0.
-
-    Returns 0 when any gate fails. Never subtracts.
-    """
-    min_days = int(cfg.get("features.apewisdom_zscore.min_baseline_days", 14))
-    z_threshold = float(cfg.get("features.apewisdom_zscore.z_threshold", 2.0))
-    m = cfg.get("scoring.multipliers", {})
-    pts = m.get("social_apewisdom", 10)
-
-    # Gate 1: baseline must be mature enough to be trustworthy.
-    baseline = social_data.get("apewisdom_baseline") or {}
-    sample_days = int(baseline.get("sample_days", 0))
-    if sample_days < min_days:
-        log.debug(
-            "[I13] thin baseline (sample_days=%d < %d) -> 0", sample_days, min_days
-        )
-        return 0
-
-    # Gate 2: z-score must exceed threshold.
-    current_mentions = int(social_data.get("apewisdom_mentions", 0))
-    baseline_mean = float(baseline.get("mean", 0.0))
-    baseline_std = float(baseline.get("std", 0.0))
-    if baseline_std <= 0:
-        # Zero-variance baseline -> divide-by-zero guard -> use raw count as floor.
-        # With zero std the ticker has been perfectly flat; any positive count is
-        # "infinite sigma" — new-ticker hole: treat as stale/insufficient.
-        log.debug("[I13] zero-std baseline -> 0")
-        return 0
-    z_score = (current_mentions - baseline_mean) / baseline_std
-    if z_score <= z_threshold:
-        log.debug(
-            "[I13] z_score=%.2f <= threshold=%.2f -> 0", z_score, z_threshold
-        )
-        return 0
-
-    # Gate 3: actor-independent hard corroborator required.
-    min_tech_filters = int(cfg.get("features.strong_requires_hard_evidence.min_technical_filters", 2))
-    has_corroborator = (
-        sec_hit
-        or catalyst_passed
-        or technical_pts >= min_tech_filters
-    )
-    if not has_corroborator:
-        log.debug(
-            "[I13] z_score=%.2f but NO hard corroborator (sec=%s catalyst=%s tech_pts=%d) -> 0",
-            z_score, sec_hit, catalyst_passed, technical_pts,
-        )
-        return 0
-
-    # Gate 4: freshness check via recency_window.
-    from consensus_engine.analysis.recency_window import is_fresh  # local import: avoids circular
-    captured_at = social_data.get("apewisdom_captured_at")
-    if not is_fresh("apewisdom", captured_at):
-        log.debug("[I13] stale apewisdom data (captured_at=%s) -> 0", captured_at)
-        return 0
-
-    log.info(
-        "[I13] z_score=%.2f (mentions=%d mean=%.1f std=%.1f days=%d) + "
-        "corroborator(sec=%s cat=%s tech=%d) -> +%d",
-        z_score, current_mentions, baseline_mean, baseline_std,
-        sample_days, sec_hit, catalyst_passed, technical_pts, pts,
-    )
-    return pts
+    return _research._compute_apewisdom_zscore_pts(social_data, sec_hit=sec_hit, catalyst_passed=catalyst_passed, technical_pts=technical_pts, settings=cfg, now=time.time())
 
 
 def compute_social_score(social_data: dict[str, int]) -> int:
-    """Compute social cross-reference score from platform signal counts."""
-    score = 0
-    m = cfg.get("scoring.multipliers", {})
-    if social_data.get("apewisdom", 0) >= 1:
-        score += m.get("social_apewisdom", 10)
-    if social_data.get("stocktwits", 0) >= 1:
-        score += m.get("social_stocktwits", 10)
-    if social_data.get("reddit", 0) >= 2:
-        score += m.get("social_reddit", 10)
-    if social_data.get("google_trends", 0) >= 1:
-        score += m.get("google_trends", 5)
-    return score
+    return _research.compute_social_score(social_data, settings=cfg, now=time.time())
 
 
 def _compute_social_breakdown(
@@ -194,66 +75,7 @@ def _compute_social_breakdown(
     catalyst_passed: bool = False,
     technical_pts: int = 0,
 ) -> dict[str, int]:
-    """Return per-source social points for the ScoreBreakdown.
-
-    I13 (signal-features-2026-06-09, flag OFF default): when
-    ``features.apewisdom_zscore.enabled`` is True, the ``social_apewisdom``
-    term is replaced with a z-score gate that awards +10 ONLY when:
-      (a) the ticker has >= min_baseline_days (14) distinct calendar days
-          of baseline data in apewisdom_mentions,
-      (b) today's mention count is > z_threshold (2.0) sigma above the
-          per-ticker baseline mean,
-      (c) at least ONE actor-independent hard source already agrees on
-          direction: SEC buy (sec_hit), hard news catalyst (catalyst_passed),
-          or technical breakout (technical_pts >= 2 filters).
-    A pure Reddit/ApeWisdom spike with no hard corroborator earns 0.
-    Below min_baseline_days -> 0 (NOT the old presence +10).
-    Stale mention data (recency_window apewisdom cap, 1440 min) -> 0.
-    Flag OFF -> byte-identical (presence-only +10).
-    """
-    m = cfg.get("scoring.multipliers", {})
-    aw_pts = m.get("social_apewisdom", 10) if social_data.get("apewisdom", 0) >= 1 else 0
-
-    # I13 z-score gate — runs ONLY when the flag is ON.
-    if cfg.get("features.apewisdom_zscore.enabled", False):
-        aw_pts = _compute_apewisdom_zscore_pts(
-            social_data,
-            sec_hit=sec_hit,
-            catalyst_passed=catalyst_passed,
-            technical_pts=technical_pts,
-        )
-
-    breakdown = {
-        "social_apewisdom": aw_pts,
-        "social_stocktwits": m.get("social_stocktwits", 10) if social_data.get("stocktwits", 0) >= 1 else 0,
-        "social_reddit": m.get("social_reddit", 10) if social_data.get("reddit", 0) >= 2 else 0,
-        "google_trends": m.get("google_trends", 5) if social_data.get("google_trends", 0) >= 1 else 0,
-    }
-
-    # #65 Fix 2 (social-family de-dup, flag OFF default): ApeWisdom, StockTwits and
-    # Reddit are the SAME retail crowd, so counting all three inflates "independent"
-    # agreement. When the flag is ON, each source family collapses to ONE vote — keep
-    # the single highest-scoring member of a family, zero the rest. Demotion-only: it
-    # can never create an alert, only shrink an over-counted one. Flag OFF -> byte-identical.
-    if cfg.get("features.social_family_dedup.enabled", False):
-        families = cfg.get("features.social_family_dedup.families", {
-            "social_apewisdom": "retail_crowd",
-            "social_stocktwits": "retail_crowd",
-            "social_reddit": "retail_crowd",
-            "google_trends": "search",
-        })
-        # For each family, keep the single highest-scoring member; zero the rest.
-        best_in_family: dict[str, tuple[str, int]] = {}  # fam -> (key, score)
-        for key, fam in families.items():
-            score = breakdown.get(key, 0)
-            if fam not in best_in_family or score > best_in_family[fam][1]:
-                best_in_family[fam] = (key, score)
-        winners = {k for (k, _s) in best_in_family.values()}
-        for key in families:
-            if key not in winners:
-                breakdown[key] = 0
-
-    return breakdown
+    return _research._compute_social_breakdown(social_data, sec_hit=sec_hit, catalyst_passed=catalyst_passed, technical_pts=technical_pts, settings=cfg, now=time.time())
 
 
 def _compute_finra_short_volume_pts(
@@ -263,67 +85,7 @@ def _compute_finra_short_volume_pts(
     *,
     direction: str = "long",
 ) -> int:
-    """E1: z-score confluence term for FINRA daily short-volume.
-
-    Returns a small positive term (cap from config, default +5) ONLY when:
-      1. The ticker's latest short_pct is >2 sigma above its own 30-day baseline.
-      2. The row is fresh (recency_window "finra_short_volume" cap, 1440 min default).
-      3. The direction is direction-compatible (spec: confluence-only, not standalone).
-         Short-volume spike is ambiguous w.r.t. direction — it can mean bearish
-         institutional flow OR MM hedging.  We add the term ONLY on the bullish
-         path (high short-pct can precede a short-squeeze on long signals); on a
-         short-signal it would be directionally redundant so we skip it.
-      4. baseline has >= 30 sample days (30-day baseline requirement from spec).
-
-    Flag OFF -> returns 0 without reading the DB (the DB read is skipped entirely
-    on the hot path; this function is never called when flag is OFF).
-
-    Provenance label (hard render rule, never mutate):
-        ``FINRA_SHORT_VOL_PROVENANCE = "short-volume %, MM-hedging-inflated proxy"``
-    """
-    # Freshness check via recency_window
-    from consensus_engine.analysis.recency_window import is_fresh
-    if not is_fresh("finra_short_volume", finra_published_at):
-        log.debug("[E1] stale finra row (published_at=%s) -> 0", finra_published_at)
-        return 0
-
-    # sample_days counts TRADING days (one row per trade_date). The 45-calendar-
-    # day baseline window holds ~31 trading days; require >=20 so the gate can
-    # open after a 30-trading-day backfill (a 30 floor on a 30-calendar-day
-    # window could never fire — ~21 trading days max).
-    sample_days = int(baseline.get("sample_days", 0))
-    min_days = int(cfg.get("features.finra_short_volume.min_baseline_days", 20))
-    if sample_days < min_days:
-        log.debug("[E1] thin baseline (%d days < %d) -> 0", sample_days, min_days)
-        return 0
-
-    mean = float(baseline.get("mean", 0.0))
-    std = float(baseline.get("std", 0.0))
-    if std <= 0.0:
-        log.debug("[E1] zero std baseline -> 0 (new-ticker guard)")
-        return 0
-
-    z = (short_pct - mean) / std
-    z_threshold = float(cfg.get("features.finra_short_volume.z_threshold", 2.0))
-    if z <= z_threshold:
-        log.debug("[E1] z=%.2f <= %.2f threshold -> 0", z, z_threshold)
-        return 0
-
-    # Direction-compatibility: only add on long signals (short-vol spike can
-    # indicate MM hedging / short-squeeze setup; on short it's redundant).
-    if direction.lower() != "long":
-        log.debug("[E1] non-long direction (%s) -> 0 (confluence-only)", direction)
-        return 0
-
-    cap = int(cfg.get("features.finra_short_volume.term_cap", 5))
-    log.info(
-        "[E1] $%s short_pct=%.3f z=%.2f (mean=%.3f std=%.3f sample_days=%d) -> +%d "
-        "provenance='%s'",
-        "",  # ticker logged by caller
-        short_pct, z, mean, std, sample_days, cap,
-        "short-volume %, MM-hedging-inflated proxy",
-    )
-    return cap
+    return _research._compute_finra_short_volume_pts(short_pct, baseline, finra_published_at, direction=direction, settings=cfg, now=time.time())
 
 
 def _compute_days_to_cover_pts(
@@ -331,36 +93,7 @@ def _compute_days_to_cover_pts(
     *,
     direction: str = "long",
 ) -> int:
-    """r12: settlement short-interest days-to-cover confluence term.
-
-    Returns a small capped positive term (config, default +3) ONLY when:
-      1. The row is fresh (recency_window "short_interest" cap).
-      2. days_to_cover >= min_days_to_cover (real squeeze fuel, default 3.0).
-      3. Short interest is RISING vs the prior settlement (pct_change > 0) when
-         require_rising is set — a growing crowded short is the squeeze setup.
-      4. The direction is long (confluence-only; on a short signal a crowded short
-         is directionally redundant, so we skip it — mirrors the E1 short-vol leg).
-
-    Flag OFF -> this function is never called (no DB read on the hot path).
-    Distinct from snapshot.py's single yfinance short-interest point: this keys off
-    the official FINRA settlement series + its bi-monthly change.
-    """
-    from consensus_engine.analysis.recency_window import is_fresh
-    if not is_fresh("short_interest", si_row.get("published_at")):
-        return 0
-    dtc = si_row.get("days_to_cover")
-    if dtc is None:
-        return 0
-    min_dtc = float(cfg.get("features.short_interest.min_days_to_cover", 3.0))
-    if float(dtc) < min_dtc:
-        return 0
-    if cfg.get("features.short_interest.require_rising", True):
-        pct = si_row.get("pct_change")
-        if pct is None or float(pct) <= 0.0:
-            return 0
-    if direction.lower() != "long":
-        return 0
-    return int(cfg.get("features.short_interest.term_cap", 3))
+    return _research._compute_days_to_cover_pts(si_row, direction=direction, settings=cfg, now=time.time())
 
 
 def _compute_pead_pts(
@@ -368,32 +101,11 @@ def _compute_pead_pts(
     *,
     direction: str = "long",
 ) -> int:
-    """r17: post-earnings-drift confluence term.
-
-    Returns a small capped positive term (config, default +3) ONLY when the PEAD
-    read is drift-CONSISTENT (post-print continuation) AND its continuation
-    direction matches the signal direction. Faded/reversed drift -> 0. Confluence
-    LIFT only on an already-triggered signal — never a standalone trigger.
-
-    pead_result is computed only AFTER earnings_magnitude's 5-day window (enforced
-    in pead.classify_pead), so this leg can never double-count that bonus.
-    """
-    if not pead_result:
-        return 0
-    if pead_result.get("classification") != "drift-consistent":
-        return 0
-    if (pead_result.get("direction") or "").lower() != direction.lower():
-        return 0
-    return int(cfg.get("features.pead.term_cap", 3))
+    return _research._compute_pead_pts(pead_result, direction=direction, settings=cfg, now=time.time())
 
 
 def _get_catalyst_score(catalyst_type: str) -> int:
-    """Look up tiered score for a catalyst type. Defaults to medium (15)."""
-    tiers = cfg.get("scoring.catalyst_tiers", {})
-    for tier_data in tiers.values():
-        if catalyst_type in tier_data.get("types", []):
-            return tier_data.get("score", 15)
-    return tiers.get("medium", {}).get("score", 15)
+    return _research._get_catalyst_score(catalyst_type, settings=cfg, now=time.time())
 
 
 async def _run_news_cascade(ticker: str) -> Optional[CatalystResult]:
@@ -535,16 +247,6 @@ def _canonicalize_sec_role(title: str) -> str:
     return "other"
 
 
-@dataclass
-class _SecGraduation:
-    """Parsed Form-4 facts the I5 graduation tier needs. Defaults = no signal."""
-    has_form4: bool = False
-    max_buy_dollars: float = 0.0      # largest single-insider open-market BUY ($)
-    reporter_role: str = "other"      # canonicalized role of the top buyer
-    is_planned: bool = False          # 10b5-1 / pre-arranged plan footnote present
-    plan_flag_seen: bool = False      # a footnote was parseable for the top buy
-    txn_date: str = ""                # transaction date of the top buy (YYYY-MM-DD)
-    net_selling: bool = False         # open-market sells present with no qualifying buy
 
 
 def _parse_form4_for_graduation(raw_xml: str) -> Optional[dict]:
@@ -696,142 +398,20 @@ async def _run_sec_graduation(ticker: str) -> _SecGraduation:
 
 
 def _is_txn_recent(txn_date: str, recency_days: int) -> bool:
-    """True if the transaction date is within recency_days of now (UTC).
-
-    SEC Form-4 transactionDate is always `YYYY-MM-DD`. An empty or unparseable
-    date counts as NOT recent (stale -> no graduation), so an already-priced old
-    buy can't inflate a fresh alert.
-    """
-    if not txn_date:
-        return False
-    from datetime import datetime, timezone, timedelta
-    try:
-        dt = datetime.strptime(txn_date[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except ValueError:
-        return False
-    return (datetime.now(timezone.utc) - dt) <= timedelta(days=recency_days)
+    return _research._is_txn_recent(txn_date, recency_days, settings=cfg, now=time.time())
 
 
 def _graduate_sec_pts(grad: _SecGraduation, flat_pts: int) -> int:
-    """Compute the I5 graduated SEC points from parsed Form-4 facts.
-
-    Tiers (all additive, never negative):
-      +base_pts (8)  any Form-4 present (the floor)
-      +large_buy_pts (15)  open-market BUY > _MIN_PURCHASE_DOLLARS ($250k)
-      +csuite_pts (20)  the same large buy by a canonical C-suite role
-
-    Safeguards:
-      - plan flag ABSENT (footnote not parseable) -> cap at +8 (no +20 tier).
-      - 10b5-1 / planned buy -> cap at +8 (a pre-arranged trade is not a signal).
-      - net selling -> withhold the buy credit (stays at +8), NEVER subtract.
-      - stale transaction date (recency gate applied by caller) -> already
-        downgraded to a non-large grad before this call.
-      - unknown role -> 'other' -> +15 max, never +20.
-    """
-    if not grad.has_form4:
-        return 0
-    base = int(cfg.get("features.sec_graduated_scoring.base_pts", 8))
-    large = int(cfg.get("features.sec_graduated_scoring.large_buy_pts", 15))
-    csuite = int(cfg.get("features.sec_graduated_scoring.csuite_pts", 20))
-
     from consensus_engine.scanners.sec_form4_cluster import _MIN_PURCHASE_DOLLARS
-
-    qualifying_buy = (
-        grad.max_buy_dollars > _MIN_PURCHASE_DOLLARS
-        and not grad.net_selling
-    )
-    # Plan-flag safeguard: a planned (10b5-1) buy, OR a buy whose footnote we
-    # could not parse at all, cannot earn above the +8 floor.
-    plan_clean = grad.plan_flag_seen and not grad.is_planned
-    if not qualifying_buy or not plan_clean:
-        return base
-    if grad.reporter_role == "csuite":
-        return csuite
-    return large
+    return _research._graduate_sec_pts(grad, flat_pts, min_purchase_dollars=_MIN_PURCHASE_DOLLARS, settings=cfg, now=time.time())
 
 
 def _earnings_magnitude_bonus(catalyst: "CatalystResult") -> int:
-    """I12: magnitude bonus added ON TOP of the base catalyst tier.
-
-    A +40% blowout beat and an in-line print currently score the same catalyst
-    tier. This adds `+per_10pct (5) per 10% surprise, capped at cap (+15)` when
-    the catalyst is a FRESH earnings print carrying a numeric surprise %.
-
-    Safeguards (all mandatory, additive only — never subtracts):
-      - absolute-$ surprise floor: |eps_surprise_pct| must exceed `min_abs_eps`
-        (default 0.02 => 2%). A near-zero surprise earns 0.
-      - sane-denominator guard: `eps_estimate` must be a non-trivial denominator
-        (>= min_abs_eps in absolute terms). A $0.01 beat on a $0.001 estimate
-        cannot manufacture a +900%-style bonus.
-      - cap: the bonus is clamped to `cap` (default +15).
-      - freshness gate: the recap's quarter `eps_period` must be within
-        `recency_days` (default 5) of now; a stale recap earns 0 so an
-        already-priced old print can't inflate a fresh alert.
-      - missing/None surprise % -> 0 (base tier only).
-    """
-    if not catalyst:
-        return 0
-    surprise = catalyst.eps_surprise_pct
-    estimate = catalyst.eps_estimate
-    if surprise is None:
-        return 0
-    min_abs_eps = float(cfg.get("features.earnings_magnitude.min_abs_eps", 0.02))
-    # sane-denominator guard: need a real estimate to trust the % surprise.
-    if estimate is None or abs(estimate) < min_abs_eps:
-        return 0
-    # absolute-magnitude floor: a near-zero surprise % earns nothing.
-    if abs(surprise) <= min_abs_eps:
-        return 0
-    # freshness gate: only a recent post-print recap may add the bonus.
-    recency_days = int(cfg.get("features.earnings_magnitude.recency_days", 5))
-    if not _is_txn_recent(catalyst.eps_period, recency_days):
-        return 0
-    per_10pct = int(cfg.get("features.earnings_magnitude.per_10pct", 5))
-    cap = int(cfg.get("features.earnings_magnitude.cap", 15))
-    bonus = int(abs(surprise) / 10.0 * per_10pct)
-    return min(bonus, cap)
+    return _research._earnings_magnitude_bonus(catalyst, settings=cfg, now=time.time())
 
 
 def _graduate_options_pts(options: "OptionsResult", direction: str) -> int:
-    """I6: graduate options_pts by premium ALIGNED with the tweet direction.
-
-    Returns (SAME-DIRECTION confluence only):
-      +10  a >$250k single-strike dominant-side premium ALIGNED with `direction`
-           (long<->call, short<->put)
-      +6   aligned dominant side but premium <= $250k (the small-flow nudge)
-      0    opposing OR ambiguous dominant side, OR a stale snapshot
-
-    Safeguards (E4 — all mandatory):
-      - the opposing/negative branch is DROPPED entirely: an OPPOSING dominant
-        side (e.g. a put-wall on a long) contributes 0, NEVER a negative sign —
-        public single-leg side inference is the refuted Pan-Poteshman fallacy.
-      - an AMBIGUOUS dominant side ("" — call/put premium tie or no unusual
-        contract) contributes 0, never a sign.
-      - stale / after-hours snapshot (dominant last trade older than the #18
-        watcher's max_staleness_min, or no timestamp) -> 0.
-      - magnitude-capped low: the return is at most aligned_pts (default +10);
-        this term is a confluence nudge, never solo-STRONG.
-    """
-    unusual = int(cfg.get("features.options_graduated_scoring.unusual_pts", 6))
-    aligned = int(cfg.get("features.options_graduated_scoring.aligned_pts", 10))
-    large_premium = float(cfg.get("options_flow.min_premium_usd", 250_000.0))
-    max_staleness_min = int(cfg.get("options_flow.max_staleness_min", 60))
-
-    # Staleness gate: reuse the #18 watcher cap. A snapshot whose dominant
-    # contract last traded outside the window (e.g. a prior-session / after-hours
-    # print) contributes 0. No timestamp at all -> treat as stale -> 0.
-    if max_staleness_min:
-        ts = options.dominant_last_trade_ts
-        if not ts or (time.time() - ts) > max_staleness_min * 60:
-            return 0
-
-    # Alignment: long pairs with call flow, short pairs with put flow. An
-    # opposing or ambiguous ("") dominant side is NOT a confluence signal -> 0.
-    aligned_side = "call" if direction == "long" else "put" if direction == "short" else ""
-    if aligned_side == "" or options.dominant_side != aligned_side:
-        return 0
-    pts = aligned if options.premium_notional > large_premium else unusual
-    return min(pts, aligned)  # magnitude cap (never above the aligned ceiling)
+    return _research._graduate_options_pts(options, direction, settings=cfg, now=time.time())
 
 
 # ---------------------------------------------------------------------------
@@ -853,17 +433,11 @@ _E6_MIN_ACCOUNTS_DEFAULT = 2    # minimum distinct accounts to flag a burst
 
 
 def _word_set(text: str) -> frozenset:
-    """Cheap normalised word-set for Jaccard similarity (no LLM)."""
-    return frozenset(re.sub(r"[^a-z0-9$#]", " ", text.lower()).split())
+    return _research._word_set(text, settings=cfg, now=time.time())
 
 
 def _jaccard(a: frozenset, b: frozenset) -> float:
-    """Jaccard similarity of two word-sets."""
-    if not a or not b:
-        return 0.0
-    inter = len(a & b)
-    union = len(a | b)
-    return inter / union if union > 0 else 0.0
+    return _research._jaccard(a, b, settings=cfg, now=time.time())
 
 
 async def _fetch_analyst_signals_for_burst(ticker: str, window_sec: int) -> list[dict]:
@@ -879,14 +453,6 @@ async def _fetch_analyst_signals_for_burst(ticker: str, window_sec: int) -> list
         return []
 
 
-@dataclass
-class _BurstAnalysis:
-    """Result of E6 manufactured-agreement scan over analyst signal texts."""
-    burst_detected: bool = False
-    burst_actor_ids: frozenset = field(default_factory=frozenset)
-    has_independent_corroboration: bool = False
-    # True when burst detected AND no independent corroboration yet.
-    boost_gated: bool = False
 
 
 def _analyse_burst(
@@ -896,43 +462,7 @@ def _analyse_burst(
     burst_window_sec: float = _E6_BURST_WINDOW_SEC_DEFAULT,
     min_accounts: int = _E6_MIN_ACCOUNTS_DEFAULT,
 ) -> tuple[bool, frozenset]:
-    """Scan signal_rows for a near-simultaneous near-duplicate wording burst.
-
-    Algorithm (cheap — no LLM):
-      1. Filter rows with usable text + timestamp + account id.
-      2. Sort by detected_at.
-      3. For every pair within burst_window_sec, compute word-set Jaccard.
-      4. Collect involved accounts into a burst cluster.
-      5. A burst requires >= min_accounts distinct accounts.
-
-    Returns (burst_detected, frozenset_of_burst_account_ids).
-    """
-    if len(signal_rows) < min_accounts:
-        return False, frozenset()
-
-    valid = [
-        r for r in signal_rows
-        if r.get("raw_text") and r.get("detected_at") and r.get("source_detail")
-    ]
-    if len(valid) < min_accounts:
-        return False, frozenset()
-
-    valid.sort(key=lambda r: float(r["detected_at"]))
-    word_sets = [_word_set(str(r["raw_text"])) for r in valid]
-
-    burst_accounts: set[str] = set()
-    n = len(valid)
-    for i in range(n):
-        for j in range(i + 1, n):
-            if float(valid[j]["detected_at"]) - float(valid[i]["detected_at"]) > burst_window_sec:
-                break  # sorted: all further j are outside the window
-            if _jaccard(word_sets[i], word_sets[j]) >= similarity_threshold:
-                burst_accounts.add(str(valid[i]["source_detail"]))
-                burst_accounts.add(str(valid[j]["source_detail"]))
-
-    if len(burst_accounts) < min_accounts:
-        return False, frozenset()
-    return True, frozenset(burst_accounts)
+    return _research._analyse_burst(signal_rows, similarity_threshold=similarity_threshold, burst_window_sec=burst_window_sec, min_accounts=min_accounts, settings=cfg, now=time.time())
 
 
 def _check_e6_corroboration(
@@ -942,15 +472,7 @@ def _check_e6_corroboration(
     catalyst_passed: bool,
     options_has_activity: bool,
 ) -> bool:
-    """True when an independent non-burst source corroborates.
-
-    Independent sources: SEC filing, hard news catalyst, or options activity.
-    Any one of these lifts the E6 gate (they are actor-independent from the
-    Twitter/analyst channel).
-    """
-    if not burst_detected:
-        return True  # no gate needed
-    return sec_hit or catalyst_passed or options_has_activity
+    return _research._check_e6_corroboration(burst_detected, sec_hit=sec_hit, catalyst_passed=catalyst_passed, options_has_activity=options_has_activity, settings=cfg, now=time.time())
 
 
 # ---------------------------------------------------------------------------
@@ -977,107 +499,7 @@ def _compute_contradiction_index(
     sec_pts: int,
     burst_analysis: Optional["_BurstAnalysis"] = None,
 ) -> float:
-    """Compute contradiction_index in [0,1] from SIGNED sources only.
-
-    Logic: index = min(opposing_weight, supporting_weight) / total_weight
-
-    Signed sources (only when they carry a clear direction):
-      - analyst cluster (tweet trigger + other_analysts): always SUPPORTING
-        (they cited the same ticker; analyst_pts > 0 means they contributed)
-      - youtube consensus_dir: SUPPORTING when matches tweet_direction,
-        OPPOSING when opposite; NEUTRAL -> no sign -> no contribution
-      - options dominant_side: SUPPORTING (call=long, put=short match) or
-        OPPOSING; ambiguous ("") -> no contribution (I6 safeguard preserved)
-      - SEC: SUPPORTING when sec_pts > 0 + tweet is long (a buy confirms
-        bullish); OPPOSING when tweet is short + sec is a buy signal
-
-    Actor-identity (I3 safeguard — distinct independent actors):
-      - analyst cluster = ONE actor ("analyst")
-      - youtube = ONE actor ("youtube")
-      - options = ONE actor ("options")
-      - SEC = ONE actor ("sec")
-
-    E6 reconciliation: burst accounts already collapsed to one actor by the
-    time I3 runs (E6 runs first and burst_analysis carries the collapsed set).
-
-    Safeguards:
-      - <2 fresh signed legs -> index 0 (no fabricated split)
-      - NaN/empty -> 0; abs-magnitude math; clamp [0,1]
-      - stale legs excluded via recency_window filter_fresh
-      - 0-pts contribution is unsigned -> no leg added
-    """
-    from consensus_engine.analysis.recency_window import SourceLeg, filter_fresh
-    import datetime as _dt
-
-    now = _dt.datetime.now(_dt.timezone.utc)
-    tweet_dir = tweet_direction.lower()
-    supporting_options_side = "call" if tweet_dir == "long" else "put" if tweet_dir == "short" else ""
-
-    legs: list[SourceLeg] = []
-
-    # Analyst cluster: always supporting (they corroborate the alert direction)
-    if analyst_pts > 0:
-        legs.append(SourceLeg(
-            source="tweet",
-            as_of=now,
-            weight=float(analyst_pts),
-            direction="supporting",
-            actor="analyst",
-        ))
-
-    # YouTube: only contributes a sign when direction is not neutral
-    if youtube is not None and youtube_pts != 0:
-        yt_dir = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
-        if yt_dir != "neutral" and yt_dir != "":
-            yt_sign = "supporting" if yt_dir == tweet_dir else "opposing"
-            legs.append(SourceLeg(
-                source="youtube",
-                as_of=now,
-                weight=float(abs(youtube_pts)),
-                direction=yt_sign,
-                actor="youtube",
-            ))
-
-    # Options: only when dominant_side is unambiguous (I6 / E4 safeguard)
-    if options is not None and options_pts != 0 and supporting_options_side != "":
-        dominant = options.dominant_side
-        if dominant in ("call", "put"):
-            opt_sign = "supporting" if dominant == supporting_options_side else "opposing"
-            legs.append(SourceLeg(
-                source="options",
-                as_of=now,
-                weight=float(abs(options_pts)),
-                direction=opt_sign,
-                actor="options",
-            ))
-
-    # SEC: sec_pts > 0 = a buy signal; supporting on long, opposing on short
-    if sec_hit and sec_pts > 0 and tweet_dir in ("long", "short"):
-        sec_sign = "supporting" if tweet_dir == "long" else "opposing"
-        legs.append(SourceLeg(
-            source="sec",
-            as_of=now,
-            weight=float(sec_pts),
-            direction=sec_sign,
-            actor="sec",
-        ))
-
-    # Recency filter: drop any leg outside its source's freshness cap
-    fresh_legs = filter_fresh(legs, now=now)
-
-    # Require >= 2 signed sources to compute a meaningful index
-    if len(fresh_legs) < 2:
-        return 0.0
-
-    supporting_weight = sum(leg.weight for leg in fresh_legs if leg.direction == "supporting")
-    opposing_weight = sum(leg.weight for leg in fresh_legs if leg.direction == "opposing")
-    total_weight = supporting_weight + opposing_weight
-
-    if total_weight <= 0.0:
-        return 0.0
-
-    raw_index = min(opposing_weight, supporting_weight) / total_weight
-    return max(0.0, min(1.0, raw_index))
+    return _research._compute_contradiction_index(tweet_direction=tweet_direction, analyst_pts=analyst_pts, other_analysts=other_analysts, options=options, options_pts=options_pts, youtube=youtube, youtube_pts=youtube_pts, sec_hit=sec_hit, sec_pts=sec_pts, burst_analysis=burst_analysis, settings=cfg, now=time.time())
 
 
 def _count_opposing_actors(
@@ -1091,30 +513,7 @@ def _count_opposing_actors(
     sec_pts: int,
     burst_analysis: Optional["_BurstAnalysis"] = None,
 ) -> int:
-    """Count DISTINCT opposing actors (for the I3 downgrade-gate check).
-
-    An index >= downgrade_threshold requires >= min_actors distinct opposing
-    actors. A single injected source should not solo-trigger a downgrade.
-    Burst accounts (E6) already collapsed to one actor.
-    """
-    tweet_dir = tweet_direction.lower()
-    supporting_options_side = "call" if tweet_dir == "long" else "put" if tweet_dir == "short" else ""
-    opposing_actors: set[str] = set()
-
-    if youtube is not None and youtube_pts != 0:
-        yt_dir = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
-        if yt_dir not in ("neutral", "", tweet_dir):
-            opposing_actors.add("youtube")
-
-    if options is not None and options_pts != 0 and supporting_options_side != "":
-        if options.dominant_side in ("call", "put") and options.dominant_side != supporting_options_side:
-            opposing_actors.add("options")
-
-    # SEC buy on a short-direction tweet = opposing actor
-    if sec_hit and sec_pts > 0 and tweet_dir == "short":
-        opposing_actors.add("sec")
-
-    return len(opposing_actors)
+    return _research._count_opposing_actors(tweet_direction=tweet_direction, options=options, options_pts=options_pts, youtube=youtube, youtube_pts=youtube_pts, sec_hit=sec_hit, sec_pts=sec_pts, burst_analysis=burst_analysis, settings=cfg, now=time.time())
 
 
 async def _run_social_check(ticker: str) -> dict:
@@ -1465,456 +864,74 @@ async def score_ticker(
             _with_timeout(_timed(_get_youtube_context(ticker), metrics, "youtube_ms"), 8.0, None, "youtube"),
         )
 
-    # Cheap subtotals (no LLM) are computed BEFORE the LLM guard so the
-    # flag-gated skip below can decide whether the LLM call could ever change
-    # the alert outcome. (Reorder for #16 — math is unchanged.)
-    if isinstance(analyst_groups, dict):
-        opposing_analysts = list(dict.fromkeys(analyst_groups.get("opposing", [])))
-        opposing_set = set(opposing_analysts)
-        other_analysts = [
-            analyst for analyst in dict.fromkeys(analyst_groups.get("aligned", []))
-            if analyst not in opposing_set
-        ]
-    else:
-        # Identity-only rows carry no direction and cannot count as agreement.
-        other_analysts = []
-        opposing_analysts = []
-    max_analysts = cfg.get("scoring.multipliers.max_additional_analysts", 3)
-    per_analyst = m.get("additional_analyst", 20)
-    flat_analyst_pts = min(len(other_analysts), max_analysts) * per_analyst
-    analyst_pts = flat_analyst_pts
-    # I2 (signal-features-2026-06-09, flag OFF default): weight each contributing
-    # analyst by track record. Flag OFF -> analyst_pts stays the flat
-    # min(len,3)*20 above (byte-identical). With the flag on, sum 20*weight per
-    # analyst where weight = clamp(2 * wilson_lb, discount_floor, weight_cap):
-    # a Wilson lower-bound of 0.5 -> weight 1.0 (neutral 20); sample_count<min_n
-    # (10) -> precision None -> neutral 20; a chronic loser floors at 0.5x.
-    if cfg.get("features.analyst_accuracy_weight.enabled", False) and other_analysts:
-        min_n = int(cfg.get("features.analyst_accuracy_weight.min_n", 10))
-        discount_floor = float(cfg.get("features.analyst_accuracy_weight.discount_floor", 0.5))
-        weight_cap = float(cfg.get("features.analyst_accuracy_weight.weight_cap", 1.5))
-        weighted = 0.0
-        for analyst in other_analysts[:max_analysts]:
-            # #62: horizon resolves via db.analyst_horizon() — '1h' (no rows, so
-            # neutral) until scoring.analyst_accuracy_weight.enabled flips it to 24h.
-            lb = await db.get_analyst_precision_lb(analyst, min_n=min_n)
-            if lb is None:
-                weight = 1.0  # thin/absent record -> neutral 20
-            else:
-                weight = max(discount_floor, min(weight_cap, 2.0 * lb))
-            weighted += per_analyst * weight
-        # Per-call notional cap: banked accuracy can't be fully spent on one pump.
-        # Cap the uplift above the flat baseline so a stack of high-track-record
-        # analysts can't run away (default cap = one extra analyst-unit, 20).
-        uplift_cap = float(cfg.get("features.analyst_accuracy_weight.uplift_cap", per_analyst))
-        analyst_pts = int(round(min(weighted, flat_analyst_pts + uplift_cap)))
-        log.info(
-            "[I2 shadow] $%s analyst_pts weighted=%d flat=%d (n_analysts=%d)",
-            ticker, analyst_pts, flat_analyst_pts, len(other_analysts),
-        )
-    # Opposing signed calls are disagreement, never agreement. Apply the same
-    # per-analyst magnitude as a subtraction, capped by the existing analyst cap.
-    analyst_pts -= min(len(opposing_analysts), max_analysts) * per_analyst
-    news_pts = _get_catalyst_score(catalyst.catalyst_type) if (catalyst and catalyst.passed) else 0
-    # I12 (signal-features-2026-06-09, flag OFF default): add a magnitude bonus
-    # on TOP of the base catalyst tier for a FRESH earnings print carrying a
-    # numeric surprise %. Flag OFF -> news_pts stays the base tier above
-    # (byte-identical; this block never runs). With the flag on: +5 per 10%
-    # surprise, cap +15, behind an absolute-$/denominator floor and a freshness
-    # gate (a near-zero or $0.01/$0.001 beat, or a stale recap, adds 0).
-    if (
-        cfg.get("features.earnings_magnitude.enabled", False)
-        and catalyst and catalyst.passed
-        and catalyst.catalyst_type in ("Earnings Report", "Earnings Beat")
-    ):
-        magnitude_bonus = _earnings_magnitude_bonus(catalyst)
-        if magnitude_bonus:
-            news_pts += magnitude_bonus
-            log.info(
-                "[I12 shadow] $%s news_pts=%d (+%d magnitude on %s, surprise=%.1f%% est=%s period=%s)",
-                ticker, news_pts, magnitude_bonus, catalyst.catalyst_type,
-                catalyst.eps_surprise_pct, catalyst.eps_estimate, catalyst.eps_period,
-            )
-    sec_pts = m.get("sec_filing", 15) if sec_hit else 0
-    # I5 (signal-features-2026-06-09, flag OFF default): graduate sec_pts by
-    # insider role + open-market BUY $ instead of the flat +15. Flag OFF -> the
-    # flat `m.get("sec_filing",15) if sec_hit else 0` above is byte-identical
-    # (this block never runs). With the flag on: +8 any Form-4, +15 a >$250k
-    # open-market buy, +20 a C-suite buy; plan-flag absent or 10b5-1 caps at +8;
-    # net selling withholds the buy credit (never subtracts); a stale
-    # transaction date (older than recency_days) is demoted to the +8 floor.
-    if cfg.get("features.sec_graduated_scoring.enabled", False) and sec_hit:
-        grad = await _run_sec_graduation(ticker)
-        recency_days = int(cfg.get("features.sec_graduated_scoring.recency_days", 5))
-        if grad.max_buy_dollars > 0 and not _is_txn_recent(grad.txn_date, recency_days):
-            # Stale buy -> drop the large/csuite eligibility, keep the Form-4 floor.
-            grad.max_buy_dollars = 0.0
-        sec_pts = _graduate_sec_pts(grad, sec_pts)
-        log.info(
-            "[I5 shadow] $%s sec_pts graduated=%d (role=%s buy$=%.0f planned=%s "
-            "plan_seen=%s net_sell=%s date=%s)",
-            ticker, sec_pts, grad.reporter_role, grad.max_buy_dollars,
-            grad.is_planned, grad.plan_flag_seen, grad.net_selling, grad.txn_date,
-        )
-    tech_pts = compute_technical_score(technical)
-    # I13 (signal-features-2026-06-09): thread corroborators into the social
-    # breakdown so the z-score gate can require a hard independent source.
-    # Flag OFF -> extra kwargs are default (False/0) -> byte-identical path.
-    social_breakdown = _compute_social_breakdown(
-        social_data,
-        sec_hit=sec_hit,
-        catalyst_passed=bool(catalyst and catalyst.passed),
-        technical_pts=tech_pts,
+    from types import SimpleNamespace
+    inputs = SimpleNamespace(catalyst=catalyst, sec_hit=sec_hit, sec_summary=sec_summary,
+                             social_data=social_data, technical=technical,
+                             analyst_groups=analyst_groups, options=options, youtube=youtube)
+    calculation = _research.score_calculation(
+        ticker, inputs, base_score=base_score, direction=direction,
+        settings=cfg, now=time.time(),
     )
+    response = None
+    pending_error = None
+    while True:
+        try:
+            request = calculation.throw(pending_error) if pending_error else calculation.send(response)
+        except StopIteration as finished:
+            result = finished.value
+            result.metrics = metrics
+            return result
+        pending_error = None
+        try:
+            response = await _collect_score_request(
+                request, ticker, catalyst, technical, sec_summary, metrics, executor)
+        except Exception as exc:
+            # Preserve the generator's original local FINRA/PEAD exception gates.
+            pending_error = exc
 
-    llm_max = m.get("llm_boost_max", 15)
 
-    options_pts = m.get("options_flow", 10) if (options and options.has_unusual_activity) else 0
-    # I6 (signal-features-2026-06-09, flag OFF default): graduate options_pts by
-    # premium ALIGNED with the tweet direction instead of the flat +10. Flag OFF
-    # -> the flat `m.get("options_flow",10) if has_unusual else 0` above is
-    # byte-identical (this block never runs). With the flag on:
-    #   +6  any unusual activity (the confluence-nudge floor)
-    #   +10 a >$250k single-strike premium whose dominant side is ALIGNED with
-    #       the tweet direction (long<->call, short<->put)
-    # SAFEGUARDS (E4): the opposing/negative branch is DROPPED entirely — an
-    # ambiguous or opposing dominant side contributes 0, NEVER a negative sign
-    # (public single-leg side inference is the refuted Pan-Poteshman fallacy);
-    # the term is magnitude-capped low (max +10, a confluence nudge never a
-    # solo-STRONG driver); a stale/after-hours snapshot (dominant last trade
-    # older than the #18 watcher's max_staleness_min) contributes 0. The
-    # contribution carries the intraday/1-2d horizon attribute (options.horizon).
-    if (cfg.get("features.options_graduated_scoring.enabled", False)
-            and options and options.has_unusual_activity):
-        options_pts = _graduate_options_pts(options, direction)
-        options.horizon = cfg.get("features.options_graduated_scoring.horizon", "1-2d")
-        log.info(
-            "[I6 shadow] $%s options_pts graduated=%d (dir=%s side=%s prem$=%.0f "
-            "stale_ts=%.0f horizon=%s)",
-            ticker, options_pts, direction, options.dominant_side,
-            options.premium_notional, options.dominant_last_trade_ts, options.horizon,
-        )
-
-    youtube_pts = youtube.score_boost if youtube else 0
-
-    # #12 level-confluence (flag features.youtube_score.level_confluence, default
-    # OFF): award a small capped bonus to youtube_pts when a YouTube-cited level
-    # price sits within confluence_band_pct of the technical price ±1 ATR band.
-    # Signed to MATCH the boost direction (bearish YouTube boost is negative when
-    # #9 is also on) so confluence never flips a bear into a bull. Flag OFF -> no
-    # bonus -> byte-identical. Inside score_ticker the only technical anchor is
-    # technical.price ± atr14 (no S/R list here) — an ATR-band proximity proxy.
-    if cfg.get("features.youtube_score.level_confluence", False) and youtube and youtube_pts and technical:
-        tech_price = getattr(technical, "price", 0.0) or 0.0
-        atr = getattr(technical, "atr14", None)
-        if tech_price > 0 and atr:
-            band_pct = float(cfg.get("features.youtube_score.confluence_band_pct", 0.015))
-            bonus_unit = int(cfg.get("features.youtube_score.confluence_bonus", 3))
-            cap = int(cfg.get("features.youtube_score.confluence_cap", 6))
-            tol = max(tech_price * band_pct, float(atr))
-            hits = 0
-            for lvl in (youtube.levels or []):
-                lvl_price = lvl.get("price")
-                if lvl_price is None:
-                    continue
-                if abs(float(lvl_price) - tech_price) <= tol:
-                    hits += 1
-            if hits:
-                raw_bonus = min(hits * bonus_unit, cap)
-                sign = 1 if youtube_pts >= 0 else -1
-                youtube_pts += sign * raw_bonus
-
-    llm_score, llm_reasoning = 0.0, ""
-    # Decision-safe LLM skip (#16, flag-gated, default OFF): if even the maximum
-    # possible LLM boost cannot push base + cheap subtotals up to the alert line
-    # (medium_confidence), the LLM call cannot change the WATCHLIST/IGNORE
-    # outcome, so skip it. Flag OFF → this is always False → byte-identical.
-    skip_llm = False
-    if cfg.get("scoring.skip_llm_below_threshold", False):
-        cheap_subtotal = analyst_pts + news_pts + sec_pts + tech_pts + youtube_pts + options_pts
-        medium_confidence = cfg.get("precision_engine.thresholds.medium_confidence", 65)
-        if base_score + cheap_subtotal + llm_max < medium_confidence:
-            skip_llm = True
-            log.info("skipped LLM scorer (cannot reach threshold) for $%s", ticker)
-
-    if (technical or catalyst) and not skip_llm:
+async def _collect_score_request(request, ticker, catalyst, technical, sec_summary, metrics, executor):
+    if request.kind == "precision":
+        return await db.get_analyst_precision_lb(request.arguments[0], min_n=request.arguments[1])
+    if request.kind == "sec_graduation":
+        from consensus_engine.scanners.sec_form4_cluster import _MIN_PURCHASE_DOLLARS
+        return await _run_sec_graduation(ticker), _MIN_PURCHASE_DOLLARS
+    if request.kind == "llm_score":
         t0 = time.perf_counter()
+        response = (0.0, "")
         try:
             async with _sem_llm:
-                llm_score, llm_reasoning = await asyncio.wait_for(
-                    _run_llm_score(ticker, catalyst, technical, sec_summary), timeout=15.0
-                )
+                response = await asyncio.wait_for(
+                    _run_llm_score(ticker, catalyst, technical, sec_summary), timeout=15.0)
         except asyncio.TimeoutError:
             log.warning("LLM scorer timed out after 15s for $%s", ticker)
         metrics["llm_score_ms"] = int((time.perf_counter() - t0) * 1000)
-
-    llm_pts = int(llm_score / 100 * llm_max)
-
-    # A3: Bayesian multi-source consolidation (always runs for shadow data)
-    from consensus_engine.analysis.consolidation import consolidate_for_ticker
-    shadow_only = not cfg.get("features.cross_source_consolidation.enabled", False)
-    try:
-        cons_result = await consolidate_for_ticker(ticker, window_minutes=15, shadow_only=shadow_only)
-        consensus_boost = cons_result.consensus_boost if not shadow_only else 0
-    except Exception as _cons_exc:
-        log.warning("[A3] consolidate_for_ticker failed for $%s: %s", ticker, _cons_exc)
-        from consensus_engine.analysis.consolidation import ConsolidationResult
-        cons_result = ConsolidationResult(
-            fired=False, consolidated_id=None, effective_n_clusters=0,
-            combined_log_odds=0.0, consensus_boost=0, sources_seen=[], reason="disabled",
-        )
-        consensus_boost = 0
-
-    breakdown = ScoreBreakdown(
-        base=base_score,
-        additional_analysts=analyst_pts,
-        news_catalyst=news_pts,
-        sec_filing=sec_pts,
-        technical=tech_pts,
-        llm_boost=llm_pts,
-        options_flow=options_pts,
-        consensus_boost=consensus_boost,
-        **social_breakdown,
-    )
-    # YouTube boost as its own breakdown term (visible as `yt=N` in the footer).
-    # Kept inside the total so the numeric score is unchanged vs. the old
-    # llm_boost merge; see _BULLISH_BIASED_FIELDS for the direction-sum parity.
-    breakdown.youtube = youtube_pts
-
-    # -----------------------------------------------------------------
-    # E6 — manufactured-agreement gate (signal-features-2026-06-09)
-    # flag: features.manufactured_agreement_gate.enabled (default OFF)
-    #
-    # A near-duplicate analyst burst cannot ADD confluence points until
-    # >= 1 independent non-burst source corroborates. Flag OFF -> byte-
-    # identical (consensus_boost unchanged, burst_analysis stays None).
-    # E6 runs BEFORE I3 so burst accounts collapse to one actor in I3.
-    # -----------------------------------------------------------------
-    burst_analysis: Optional[_BurstAnalysis] = None
-    if cfg.get("features.manufactured_agreement_gate.enabled", False) and consensus_boost > 0:
-        e6_window = int(cfg.get(
-            "features.manufactured_agreement_gate.burst_window_sec",
-            _E6_BURST_WINDOW_SEC_DEFAULT,
-        ))
-        e6_thresh = float(cfg.get(
-            "features.manufactured_agreement_gate.similarity_threshold",
-            _E6_SIMILARITY_DEFAULT,
-        ))
-        e6_min_accts = int(cfg.get(
-            "features.manufactured_agreement_gate.min_accounts",
-            _E6_MIN_ACCOUNTS_DEFAULT,
-        ))
-        signal_rows = await _fetch_analyst_signals_for_burst(ticker, window_sec=e6_window)
-        burst_detected, burst_accounts = _analyse_burst(
-            signal_rows,
-            similarity_threshold=e6_thresh,
-            burst_window_sec=float(e6_window),
-            min_accounts=e6_min_accts,
-        )
-        has_corroboration = _check_e6_corroboration(
-            burst_detected,
-            sec_hit=sec_hit,
-            catalyst_passed=bool(catalyst and catalyst.passed),
-            options_has_activity=bool(options and options.has_unusual_activity),
-        )
-        boost_gated = burst_detected and not has_corroboration
-        burst_analysis = _BurstAnalysis(
-            burst_detected=burst_detected,
-            burst_actor_ids=burst_accounts,
-            has_independent_corroboration=has_corroboration,
-            boost_gated=boost_gated,
-        )
-        if boost_gated:
-            # Gate the crowd-agreement credit. Signals are NOT dropped.
-            consensus_boost = 0
-            breakdown.consensus_boost = 0
-            log.info(
-                "[E6] $%s burst detected (accounts=%d), consensus_boost gated "
-                "(no independent corroboration)",
-                ticker, len(burst_accounts),
-            )
-        elif burst_detected:
-            log.info(
-                "[E6] $%s burst detected (accounts=%d), boost KEPT "
-                "(independent corroboration present)",
-                ticker, len(burst_accounts),
-            )
-
-    # -----------------------------------------------------------------
-    # I3 — contradiction_index PRODUCER (signal-features-2026-06-09)
-    # flag: features.contradiction_index_live.enabled (default OFF)
-    #
-    # Computes the index from SIGNED sources already gathered above.
-    # Always computes for the shadow log; writes onto result ONLY when
-    # flag is ON (flag OFF -> result.contradiction_index stays 0.0 ->
-    # consumer is a verbatim no-op -> existing tests unchanged).
-    # E6 reconciliation: burst_analysis passed so burst accounts count
-    # as one actor in the opposing-actor tally.
-    # -----------------------------------------------------------------
-    computed_ci = _compute_contradiction_index(
-        tweet_direction=direction,
-        analyst_pts=analyst_pts,
-        other_analysts=other_analysts,
-        options=options,
-        options_pts=options_pts,
-        youtube=youtube,
-        youtube_pts=youtube_pts,
-        sec_hit=sec_hit,
-        sec_pts=sec_pts,
-        burst_analysis=burst_analysis,
-    )
-    n_opposing = _count_opposing_actors(
-        tweet_direction=direction,
-        options=options,
-        options_pts=options_pts,
-        youtube=youtube,
-        youtube_pts=youtube_pts,
-        sec_hit=sec_hit,
-        sec_pts=sec_pts,
-        burst_analysis=burst_analysis,
-    )
-    if opposing_analysts:
-        n_opposing += 1
-    # Count signed legs (rough proxy for shadow log)
-    yt_dir_val = ""
-    if youtube is not None:
-        yt_dir_val = youtube.direction.value if hasattr(youtube.direction, "value") else str(youtube.direction)
-    n_signed = sum([
-        1 if analyst_pts > 0 else 0,
-        1 if (youtube is not None and youtube_pts != 0 and yt_dir_val != "neutral") else 0,
-        1 if (options is not None and options_pts != 0 and options.dominant_side in ("call", "put")) else 0,
-        1 if (sec_hit and sec_pts > 0) else 0,
-    ])
-
-    if computed_ci > 0:
-        log.info(
-            "[I3 shadow] $%s contradiction_index=%.2f (opposing_actors=%d signed_sources=%d)",
-            ticker, computed_ci, n_opposing, n_signed,
-        )
-
-    # I3 downgrade safeguard: require >= min_actors DISTINCT opposing sources before a
-    # non-zero contradiction_index reaches the consumer, so one lone opposing source can
-    # never sink a thinly-supported STRONG. n_opposing < min -> result_ci=0.0 makes both
-    # downgrade sites no-op (engine verdict on 0.0 = below_threshold; main.py A1 skips).
-    _min_opp = int(cfg.get("features.contradiction_index_live.min_actors", 2))
-    result_ci = (
-        computed_ci
-        if (cfg.get("features.contradiction_index_live.enabled", False) and n_opposing >= _min_opp)
-        else 0.0
-    )
-
-    # -----------------------------------------------------------------
-    # E1 — FINRA daily short-volume confluence term (signal-features-2026-06-09)
-    # flag: features.finra_short_volume.enabled (default OFF)
-    #
-    # Adds a small capped term (+5 max) when the ticker's latest short_pct is
-    # >2 sigma above its own 30-day baseline AND the row is EOD-fresh (recency_window
-    # "finra_short_volume" cap, 1440 min).  Flag OFF -> ZERO DB reads on the hot
-    # path; the term contributes 0 and breakdown is byte-identical.
-    #
-    # Provenance label (hard render rule, never change):
-    #   "short-volume %, MM-hedging-inflated proxy"
-    # -----------------------------------------------------------------
-    finra_pts = 0
-    if cfg.get("features.finra_short_volume.enabled", False):
+        return response
+    if request.kind == "consolidation":
+        from consensus_engine.analysis.consolidation import consolidate_for_ticker, ConsolidationResult
         try:
-            latest_finra = await db.get_latest_finra_short_volume(ticker)
-            if latest_finra is not None:
-                baseline_finra = await db.get_finra_short_volume_baseline(ticker)
-                finra_pts = _compute_finra_short_volume_pts(
-                    short_pct=latest_finra["short_pct"],
-                    baseline=baseline_finra,
-                    finra_published_at=latest_finra["finra_published_at"],
-                    direction=direction,
-                )
-                if finra_pts:
-                    log.info(
-                        "[E1] $%s short_pct=%.3f finra_pts=%d "
-                        "(provenance='short-volume %%, MM-hedging-inflated proxy')",
-                        ticker, latest_finra["short_pct"], finra_pts,
-                    )
-        except Exception as _e1_exc:
-            log.warning("[E1] DB lookup failed for $%s: %s", ticker, _e1_exc)
-            finra_pts = 0
-    breakdown.finra_short_volume = finra_pts
-
-    # -----------------------------------------------------------------
-    # r12 — FINRA settlement short-interest days-to-cover confluence leg
-    # flag: features.short_interest.enabled (default OFF)
-    #
-    # Adds a small capped term (+3 max) when the ticker's latest FINRA settlement
-    # shows elevated days-to-cover AND a rising crowded short, on a LONG signal
-    # (squeeze-fuel confluence). Flag OFF -> ZERO DB reads on the hot path; the
-    # term is 0 and the breakdown is byte-identical. Confluence-only, never a trigger.
-    # -----------------------------------------------------------------
-    dtc_pts = 0
-    if cfg.get("features.short_interest.enabled", False):
-        try:
-            latest_si = await db.get_latest_finra_short_interest(ticker)
-            if latest_si is not None:
-                dtc_pts = _compute_days_to_cover_pts(latest_si, direction=direction)
-                if dtc_pts:
-                    log.info(
-                        "[r12] $%s days_to_cover=%.2f pct_change=%s -> +%d "
-                        "(settlement short interest, %s)",
-                        ticker, latest_si.get("days_to_cover") or 0.0,
-                        latest_si.get("pct_change"), dtc_pts, latest_si.get("settlement_date"),
-                    )
-        except Exception as _r12_exc:
-            log.warning("[r12] DB lookup failed for $%s: %s", ticker, _r12_exc)
-            dtc_pts = 0
-    breakdown.days_to_cover = dtc_pts
-
-    # -----------------------------------------------------------------
-    # r17 — post-earnings-announcement drift (PEAD) confluence leg
-    # flag: features.pead.enabled (default OFF)
-    #
-    # Adds a small capped term (+3 max) when realized post-print drift is
-    # drift-CONSISTENT and its continuation direction matches the signal, ONLY after
-    # earnings_magnitude's 5-day window (no double-count). Flag OFF -> no earnings/
-    # price fetch on the hot path; term 0; breakdown byte-identical.
-    # -----------------------------------------------------------------
-    pead_pts = 0
-    if cfg.get("features.pead.enabled", False):
-        try:
-            from consensus_engine.analysis import pead as _pead
-            pead_res = await _pead.compute_pead(
-                ticker,
-                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
-                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
-                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
-                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
-                executor=executor,
-            )
-            pead_pts = _compute_pead_pts(pead_res, direction=direction)
-            if pead_pts:
-                log.info(
-                    "[r17] $%s pead=%s drift=%.2f%% days_since=%d -> +%d",
-                    ticker, pead_res.get("classification"), pead_res.get("drift_pct"),
-                    pead_res.get("days_since"), pead_pts,
-                )
-        except Exception as _r17_exc:
-            log.warning("[r17] PEAD compute failed for $%s: %s", ticker, _r17_exc)
-            pead_pts = 0
-    breakdown.pead = pead_pts
-
-    return ScoreTickerResult(
-        ticker=ticker,
-        breakdown=breakdown,
-        catalyst=catalyst,
-        technical=technical,
-        options=options,
-        youtube=youtube,
-        social_data=social_data,
-        sec_hit=sec_hit,
-        sec_summary=sec_summary,
-        other_analysts=other_analysts,
-        llm_reasoning=llm_reasoning,
-        consolidation_result=cons_result,
-        metrics=metrics,
-        contradiction_index=result_ci,
-        n_opposing=n_opposing,
-    )
+            return await consolidate_for_ticker(ticker, window_minutes=15, shadow_only=request.arguments[0])
+        except Exception as exc:
+            log.warning("[A3] consolidate_for_ticker failed for $%s: %s", ticker, exc)
+            return ConsolidationResult(False, None, 0, 0.0, 0, [], "disabled")
+    if request.kind == "burst":
+        return await _fetch_analyst_signals_for_burst(ticker, window_sec=request.arguments[0])
+    if request.kind == "finra_volume":
+        return await db.get_latest_finra_short_volume(ticker)
+    if request.kind == "finra_baseline":
+        return await db.get_finra_short_volume_baseline(ticker)
+    if request.kind == "short_interest":
+        return await db.get_latest_finra_short_interest(ticker)
+    if request.kind == "pead":
+        from consensus_engine.analysis import pead
+        return await pead.compute_pead(
+            ticker,
+            min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
+            max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
+            min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
+            faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
+            executor=executor)
+    raise ValueError("Unknown score data request")
 
 
 def _build_social_summary(social_data: dict, youtube: Optional[YouTubeContext]) -> str:

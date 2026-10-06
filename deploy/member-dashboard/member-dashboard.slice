@@ -1,0 +1,6 @@
+[Unit]
+Description=Aggregate member dashboard resource ceiling
+[Slice]
+MemoryMax=2G
+CPUQuota=100%
+TasksMax=96

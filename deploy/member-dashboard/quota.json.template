@@ -1,0 +1,11 @@
+{
+  "role": "quota",
+  "uid": "UNCONFIGURED_QUOTA_UID",
+  "quota_path": "/var/lib/member-dashboard/quota/quota.sqlite3",
+  "budget_socket": "/run/member-dashboard-quota/budget.sock",
+  "control_socket": "/run/member-dashboard-quota/control.sock",
+  "supervisor_uid": "UNCONFIGURED_SUPERVISOR_UID",
+  "compute_uid": "UNCONFIGURED_COMPUTE_UID",
+  "bot_uid": "UNCONFIGURED_BOT_UID",
+  "cgroup_root": "/sys/fs/cgroup/UNCONFIGURED_RETAINED_UNIT/compute"
+}

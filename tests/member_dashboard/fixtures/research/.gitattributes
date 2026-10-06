@@ -1,0 +1,2 @@
+# Preserve the pre-extraction capture bytes and their SHA256 manifest.
+*.json -text

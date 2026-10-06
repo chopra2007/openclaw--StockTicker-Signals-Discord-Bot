@@ -18,7 +18,10 @@ from typing import Optional
 
 from consensus_engine.analysis import indicators  # smart-levels engine (full-audit Wave 2)
 
-from consensus_engine.utils.obs_log import obs_log
+def obs_log(record):
+    """Legacy observation sink, loaded only by the bot path."""
+    from consensus_engine.utils.obs_log import obs_log as emit
+    emit(record)
 
 
 # 60-char context window price extraction
@@ -192,7 +195,7 @@ def _score_v2(
     return base * penalty * tier_mult * cbonus
 
 
-def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
+def extract_anchors_from_youtube_levels(rows: list[dict], *, settings=None,) -> list[Anchor]:
     """Convert youtube_levels DB rows to Anchor objects.
 
     Expected row keys: price, channel_name, level_type, freshness_days (optional).
@@ -209,7 +212,10 @@ def extract_anchors_from_youtube_levels(rows: list[dict]) -> list[Anchor]:
     become the SL anchor for a fresh trade. Defaults to 30 days; set to None
     or 0 in config to disable cutoff.
     """
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     max_freshness = _cfg.get("all_command.levels.youtube_freshness_max_days", 30)
 
     anchors: list[Anchor] = []
@@ -566,7 +572,7 @@ def extract_sr_levels(candles: list[dict], current_price: float, atr14: float,
 
 
 def extract_supply_demand_zones(candles: list[dict], current_price: float,
-                                atr14: float) -> list[Anchor]:
+                                atr14: float, *, settings=None,) -> list[Anchor]:
     """§3b — supply/demand zones -> source_type='tech_zone'.
 
     Emits two anchors per surviving zone (proximal entry edge + distal stop edge).
@@ -574,7 +580,10 @@ def extract_supply_demand_zones(candles: list[dict], current_price: float,
     out: list[Anchor] = []
     if not candles or len(candles) < 8 or not atr14 or current_price <= 0:
         return out
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     base_tightness = float(_cfg.get("all_command.levels.base_tightness_atr", 0.5))
     impulse_mult = float(_cfg.get("all_command.levels.impulse_atr_mult", 1.0))
 
@@ -834,7 +843,7 @@ def extract_fib_levels(candles: list[dict], current_price: float, atr14: float,
 
 
 def extract_volume_profile_levels(candles: list[dict], current_price: float,
-                                  atr14: float) -> list[Anchor]:
+                                  atr14: float, *, settings=None,) -> list[Anchor]:
     """§3d — volume profile (POC/VAH/VAL/HVN/LVN) + anchored VWAP -> tech_vp.
 
     LVN anchors carry method_label 'LVN' so the assembler excludes them as stops.
@@ -842,7 +851,10 @@ def extract_volume_profile_levels(candles: list[dict], current_price: float,
     out: list[Anchor] = []
     if not candles or len(candles) < 5 or not atr14 or current_price <= 0:
         return out
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     va_pct = float(_cfg.get("all_command.levels.vp_value_area_pct", 0.70))
 
     N = len(candles)
@@ -959,7 +971,7 @@ def extract_volume_profile_levels(candles: list[dict], current_price: float,
 
 
 def extract_virgin_poc_levels(candles: list[dict], current_price: float,
-                              atr14: float, period: str = "week") -> list[Anchor]:
+                              atr14: float, period: str = "week", *, settings=None,) -> list[Anchor]:
     """§3e — virgin / naked Point of Control -> source_type='tech_vpoc'.
 
     Weekly periods (group 5 daily bars). A period POC stays 'virgin' until a
@@ -968,7 +980,10 @@ def extract_virgin_poc_levels(candles: list[dict], current_price: float,
     out: list[Anchor] = []
     if not candles or len(candles) < 5 or not atr14 or current_price <= 0:
         return out
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     half_life = float(_cfg.get("all_command.levels.vpoc_half_life_periods", 4))
     survival_bonus = float(_cfg.get("all_command.levels.vpoc_survival_bonus", 7))
     period = _cfg.get("all_command.levels.vpoc_period", period) or period
@@ -1079,7 +1094,7 @@ def extract_virgin_poc_levels(candles: list[dict], current_price: float,
 
 
 def build_technical_anchors(candles: list[dict], current_price: float, atr14: float,
-                            wk52_high: float, wk52_low: float) -> list[Anchor]:
+                            wk52_high: float, wk52_low: float, *, settings=None,) -> list[Anchor]:
     """Orchestrator: run the five extractors and return the concatenated tech_*
     anchors. No clustering here — the aggregator clusters tech + crowd (§4).
 
@@ -1096,17 +1111,20 @@ def build_technical_anchors(candles: list[dict], current_price: float, atr14: fl
     if wk_hi < wk_lo:
         wk_hi, wk_lo = wk_lo, wk_hi
 
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     pivot_n = int(_cfg.get("all_command.levels.pivot_n", 2))
     pivot_k = int(_cfg.get("all_command.levels.pivot_k", 3))
     vpoc_period = _cfg.get("all_command.levels.vpoc_period", "week")
 
     out: list[Anchor] = []
     out += extract_sr_levels(candles, current_price, atr, wk_hi, wk_lo, pivot_n=pivot_n)
-    out += extract_supply_demand_zones(candles, current_price, atr)
+    out += extract_supply_demand_zones(candles, current_price, atr, settings=settings)
     out += extract_fib_levels(candles, current_price, atr, wk_hi, wk_lo, pivot_k=pivot_k)
-    out += extract_volume_profile_levels(candles, current_price, atr)
-    out += extract_virgin_poc_levels(candles, current_price, atr, period=vpoc_period)
+    out += extract_volume_profile_levels(candles, current_price, atr, settings=settings)
+    out += extract_virgin_poc_levels(candles, current_price, atr, period=vpoc_period, settings=settings)
     return out
 
 
@@ -1245,8 +1263,7 @@ def rank_anchors(
     anchors: list[Anchor],
     current_price: float,
     *,
-    ticker: Optional[str] = None,
-) -> tuple[list[Anchor], list[Anchor]]:
+    ticker: Optional[str] = None, settings=None, telemetry=None, now=None,) -> tuple[list[Anchor], list[Anchor]]:
     """Score, split into supports/resistances, and sort by descending score.
 
     Returns (supports_below, resistances_above). An anchor exactly at the
@@ -1263,7 +1280,10 @@ def rank_anchors(
     import logging as _logging
     log = _logging.getLogger("consensus_engine.alerts.all_command.levels")
 
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     shadow_mode = bool(_cfg.get("all_command.score_v2_shadow_mode", True))
     confluence_enabled = bool(_cfg.get("all_command.confluence_bonus_enabled", False))
 
@@ -1373,8 +1393,7 @@ def _select_trade_plan_ladder(
     spot: Optional[float] = None,
     atr14: Optional[float] = None,
     direction: str = "BULLISH",
-    earnings_days: Optional[int] = None,
-) -> dict:
+    earnings_days: Optional[int] = None, settings=None, telemetry=None, now=None,) -> dict:
     """3-rung trade-plan ladder (Wave 2 smart-levels).
 
     RUNG 1  real + technical anchors clustered >= min_anchors_for_plan, with a
@@ -1386,7 +1405,10 @@ def _select_trade_plan_ladder(
     Returns the 6 legacy keys PLUS entry/risk_reward/rung/levels and richer
     confidence values (high/medium/low).
     """
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
 
     def _legacy_rung3() -> dict:
         # Rung 3 is the PURE ATR last-resort (design §2.3). Pass NO anchors so
@@ -1395,7 +1417,8 @@ def _select_trade_plan_ladder(
         # the tech-enriched anchor set, could emit non-monotonic TPs.
         base = select_trade_plan(
             [], [], spot=spot, atr14=atr14,
-            direction=direction, earnings_days=earnings_days, engine_on=False,
+            direction=direction, earnings_days=earnings_days, settings=settings, engine_on=False,
+            telemetry=telemetry, now=now,
         )
         base["entry"] = round(spot, 2) if spot else None
         base["risk_reward"] = None
@@ -1585,8 +1608,7 @@ def select_trade_plan(
     atr14: Optional[float] = None,
     direction: str = "BULLISH",
     earnings_days: Optional[int] = None,
-    engine_on: bool = False,
-) -> dict:
+    engine_on: bool = False, settings=None, telemetry=None, now=None,) -> dict:
     """Pick 1 best support + up to 3 best resistances per locked decision D1.
 
     D1 is "anchored-only ... suppress trade plan if <4 anchors after gap-fill".
@@ -1611,9 +1633,13 @@ def select_trade_plan(
     if engine_on:
         return _select_trade_plan_ladder(
             supports, resistances, spot=spot, atr14=atr14,
-            direction=direction, earnings_days=earnings_days,
+            direction=direction, earnings_days=earnings_days, settings=settings,
+            telemetry=telemetry, now=now,
         )
-    from consensus_engine import config as _cfg
+    if settings is None:
+        from consensus_engine import config as _cfg
+    else:
+        _cfg = settings
     sl_max_drawdown = float(_cfg.get(
         "all_command.levels.sl_max_drawdown_pct",
         _SL_MAX_DRAWDOWN_PCT_DEFAULT,
@@ -1690,7 +1716,9 @@ def select_trade_plan(
             )
 
     if used_fallback:
-        obs_log({"ts": time.time(), "event": "sltp_atr_fallback", "spot": spot, "atr14": atr14})
+        (telemetry if telemetry is not None else obs_log)(
+            {"ts": time.time() if now is None else now,
+             "event": "sltp_atr_fallback", "spot": spot, "atr14": atr14})
     return {
         "sl": sl,
         "tp1": tps[0],

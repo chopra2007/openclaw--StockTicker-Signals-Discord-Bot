@@ -1,0 +1,17 @@
+{
+  "role": "authority",
+  "uid": "UNCONFIGURED_AUTHORITY_UID",
+  "journal_path": "/var/lib/member-dashboard/denials/journal.sqlite3",
+  "anchor_path": "/var/lib/member-dashboard/denials/anchor.json",
+  "checkpoint_path": "/var/lib/member-dashboard-high-water/checkpoint.sqlite3",
+  "socket_path": "/run/member-dashboard-authority/authority.sock",
+  "read_uids": [
+    "UNCONFIGURED_API_UID",
+    "UNCONFIGURED_SUPERVISOR_UID",
+    "UNCONFIGURED_COMPUTE_UID"
+  ],
+  "write_uids": [
+    "UNCONFIGURED_API_UID",
+    "UNCONFIGURED_SUPERVISOR_UID"
+  ]
+}

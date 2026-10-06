@@ -43,6 +43,7 @@ from consensus_engine.utils.tickers import (
     is_valid_ticker_format,
     validate_ticker_market_cap,
 )
+from consensus_engine.analysis import research_compute as _research
 from consensus_engine.analysis import indicators  # smart-levels engine (full-audit Wave 2)
 
 log = logging.getLogger("consensus_engine.alerts.all_command.aggregator")
@@ -581,20 +582,7 @@ async def _gather_all_sources(ticker: str) -> dict:
     }
 
 
-def _swing_candles(technical_long) -> list[dict]:
-    """Best-effort list-of-dict candles for swing extraction."""
-    if technical_long is None:
-        return []
-    raw = (getattr(technical_long, "candles", None)
-           or getattr(technical_long, "candles_raw", None))
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict):
-        highs = raw.get("h") or raw.get("highs") or []
-        lows = raw.get("l") or raw.get("lows") or []
-        n = min(len(highs), len(lows))
-        return [{"high": float(highs[i]), "low": float(lows[i])} for i in range(n)]
-    return []
+_swing_candles = _research._swing_candles
 
 
 def _log_smart_levels_shadow(
@@ -672,61 +660,16 @@ def _detect_chart_pattern(swing_candles: list[dict]) -> Optional[dict]:
         return None
 
 
-def _current_price(technical_long) -> Optional[float]:
-    """Best-effort current price from technical result."""
-    if technical_long is None:
-        return None
-    for attr in ("current_price", "last_price", "price"):
-        v = getattr(technical_long, attr, None)
-        if v is not None:
-            try:
-                return float(v)
-            except (TypeError, ValueError):
-                continue
-    return None
+_current_price = _research._current_price
 
 
-def _atr_from_candles(technical_long) -> Optional[float]:
-    """Pull ATR(14) from technical result if available."""
-    if technical_long is None:
-        return None
-    for attr in ("atr14", "atr", "atr_14"):
-        v = getattr(technical_long, attr, None)
-        if v is not None:
-            try:
-                return float(v)
-            except (TypeError, ValueError):
-                continue
-    return None
+_atr_from_candles = _research._atr_from_candles
 
 
-def _earnings_iso(decision_snapshots) -> Optional[str]:
-    """Extract a next-earnings ISO date from any source we have."""
-    if not isinstance(decision_snapshots, list):
-        return None
-    for row in decision_snapshots:
-        if isinstance(row, dict):
-            for key in ("next_earnings", "earnings_date", "earnings"):
-                v = row.get(key)
-                if v:
-                    return str(v)
-    return None
+_earnings_iso = _research._earnings_iso
 
 
-def _build_news_snippets(news_catalyst, gap_fill_result) -> list[str]:
-    """News catalyst body + web-harvested gap-fill snippets (PR4)."""
-    out: list[str] = []
-    body = getattr(news_catalyst, "catalyst_body", None) if news_catalyst else None
-    if body:
-        out.append(str(body))
-    if isinstance(gap_fill_result, dict):
-        for key in ("harvested_anchors_snippets",
-                    "eight_k_summary_snippets",
-                    "event_date_snippets"):
-            for snip in gap_fill_result.get(key, []) or []:
-                if snip:
-                    out.append(str(snip))
-    return out[:20]
+_build_news_snippets = _research._build_news_snippets
 
 
 # #13 — SEC insider evidence. Form-4 detail is fetched for at most this many
@@ -1016,398 +959,91 @@ def _structured_data_summary(data: dict) -> str:
         return "{}"
 
 
+async def _collect_research_request(request, ticker, data, start, stage_t):
+    if request.kind == "sane_levels":
+        rows = request.value
+        try:
+            from consensus_engine.analysis.level_display_sanity import filter_levels_for_display
+            sane, dropped = await filter_levels_for_display(ticker, rows)
+            if dropped:
+                log.warning("aggregator: dropped %d wild youtube level(s) for %s before anchor pipeline", dropped, ticker)
+            return sane
+        except Exception as exc:
+            log.warning("aggregator: level sanity filter failed for %s: %s", ticker, exc)
+            return rows
+    if request.kind == "direction_parity":
+        try:
+            _PARITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with _PARITY_LOG_PATH.open("a") as target:
+                target.write(json.dumps(request.value) + "\n")
+        except Exception as exc:
+            log.debug("aggregator: parity log write failed: %s", exc)
+        return None
+    if request.kind == "gap_fill":
+        # The preceding quote may have awaited I/O. Preserve the legacy budget
+        # from this effect boundary, still capped by the overall request budget.
+        arguments = dict(request.value)
+        arguments["deadline"] = time.time() + min(20.0, _remaining(start))
+        return await gap_fill.run_gap_fill(**arguments)
+    if request.kind == "smart_shadow":
+        _log_smart_levels_shadow(**request.value)
+        return None
+    if request.kind == "stage":
+        stage_t[request.value] = time.monotonic() - start
+        return None
+    if request.kind == "nasdaq":
+        try:
+            from consensus_engine.scanners import nasdaq_calendar
+            return await nasdaq_calendar.fetch_forward_catalysts(ticker, forward_days=60)
+        except Exception as exc:
+            log.warning("aggregator: nasdaq_calendar fetch failed: %s", exc)
+            return []
+    if request.kind == "pead":
+        try:
+            from consensus_engine.analysis import pead
+            return await pead.compute_pead(
+                ticker, recap=data.get("recent_earnings_recap"),
+                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
+                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
+                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
+                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)))
+        except Exception as exc:
+            log.debug("pead compute failed for %s: %s", ticker, exc)
+            return None
+    raise ValueError("Unknown research data request")
+
+
 async def _compute_all(ticker: str, start: float) -> dict:
     """The actual compute path under the cache single-flight. Returns the cache payload."""
     stage_t: dict[str, float] = {}
     _t = lambda: time.monotonic() - start
     data = await _gather_all_sources(ticker)
     stage_t["gather"] = _t()
-    score_result = data["score"]
-    if score_result is None and not data.get("technical_long") and not data.get("news_catalyst"):
-        # Per D13: abort only if score gate cannot be evaluated AT ALL
-        # (no technicals AND no catalyst). Emit a minimal embed instead.
-        log.warning(
-            "aggregator: $%s score+technical+catalyst all unavailable; emitting minimal embed",
-            ticker,
-        )
-
-    # Anchor pipeline.
-    yt_levels = data["yt_levels"] if isinstance(data["yt_levels"], list) else []
-    # Level-sanity guard (item C extension, 2026-06-10): drop wild levels (>=2x or <=0.5x
-    # live price) BEFORE they become TP anchors.  Matches the always-on gate in alfred.py
-    # and wolf_news.py.  A mis-attributed stored level (NVDA 700 from a QQQ/SPY video) can
-    # still reach !all as an unsuppressed row before the DB sweep runs; this gate is the
-    # last line of defense before TP1/2/3 are emitted.
-    try:
-        from consensus_engine.analysis.level_display_sanity import (  # noqa: PLC0415
-            filter_levels_for_display as _fld,
-        )
-        _yt_levels_sane, _yt_levels_dropped = await _fld(ticker, yt_levels)
-        if _yt_levels_dropped:
-            log.warning(
-                "aggregator: dropped %d wild youtube level(s) for %s before anchor pipeline",
-                _yt_levels_dropped, ticker,
-            )
-        yt_levels = _yt_levels_sane
-    except Exception as _san_exc:  # noqa: BLE001
-        log.warning("aggregator: level sanity filter failed for %s: %s", ticker, _san_exc)
-    swing_candles = _swing_candles(data["technical_long"])
-    yt_anchors = levels.extract_anchors_from_youtube_levels(yt_levels)
-    swing_anchors = levels.extract_swing_levels(swing_candles)
-    initial_anchors = levels.cluster_anchors(yt_anchors + swing_anchors, 0.005)
-
-    # Gap-fill: run only if any trigger fires.
-    earnings_iso_str = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
-    sec_filings_list = data["sec_filings"] if isinstance(data["sec_filings"], list) else []
-    # Step 10 (revised 2026-05-26): direction_source feature flag.
-    # Original Step 10 had the "legacy" path read `breakdown.direction` —
-    # but ScoreBreakdown has no `direction` field, so that getattr() always
-    # returned None and "legacy" was always "neutral". That made the parity
-    # log compare a broken stub field against the new helper, producing
-    # the misleading 73% disagreement signal in the first soak window.
-    #
-    # Both paths now compute meaningful directions:
-    #   "legacy"     = compute_direction(score_breakdown) — the existing function
-    #                  the embed already uses; returns BULLISH/BEARISH/NEUTRAL.
-    #   "structured" = compute_direction_from_fields(asdict(breakdown)) — Agent C's
-    #                  dict-based wrapper around the same field-sum logic; returns
-    #                  LONG/SHORT/NEUTRAL.
-    # They implement the same logic on the same fields and should now agree
-    # nearly 100% of the time. The flag remains so a future divergent
-    # implementation can be soak-tested via the same gate.
-    _score_bd_raw = getattr(score_result, "breakdown", None)
-    _legacy_direction = structured_fields.compute_direction(_score_bd_raw)
-    _bd_dict: dict = (
-        dataclasses.asdict(_score_bd_raw)
-        if _score_bd_raw is not None and dataclasses.is_dataclass(_score_bd_raw)
-        else {}
+    from datetime import date
+    calculation = _research.research_calculation(
+        ticker, data, settings=cfg, epoch=time.time(), today=date.today(), start=start,
+        remaining=lambda: _remaining(start), telemetry=None,
     )
-    _structured_direction = structured_fields.compute_direction_from_fields(_bd_dict)
-    # Normalize label sets for the parity comparison — BULLISH/LONG and
-    # BEARISH/SHORT mean the same thing across the two label conventions.
-    _DIRECTION_SYNONYMS = {
-        "bullish": "long", "long": "long",
-        "bearish": "short", "short": "short",
-        "neutral": "neutral",
-    }
-    _legacy_normalized = _DIRECTION_SYNONYMS.get(_legacy_direction.lower(), _legacy_direction.lower())
-    _structured_normalized = _DIRECTION_SYNONYMS.get(_structured_direction.lower(), _structured_direction.lower())
-    # Parity log — fires on every aggregator run.
-    try:
-        _PARITY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _parity_entry = json.dumps({
-            "event_id": f"{ticker}:{int(start)}",
-            "ticker": ticker,
-            "legacy_direction": _legacy_direction,
-            "structured_direction": _structured_direction,
-            "agree": _legacy_normalized == _structured_normalized,
-            "ts": time.time(),
-        })
-        with _PARITY_LOG_PATH.open("a") as _pf:
-            _pf.write(_parity_entry + "\n")
-    except Exception as _pex:  # noqa: BLE001
-        log.debug("aggregator: parity log write failed: %s", _pex)
-    _direction_source = cfg.get("all_command.direction_source", "legacy")
-    if _direction_source == "structured":
-        direction_str = _structured_direction
-    else:
-        direction_str = _legacy_direction
-    gap_deadline = time.time() + min(_GAP_FILL_BUDGET, _remaining(start))
-    # Feature E — sector label for the macro-risk query disambiguation. The
-    # peer_strength result's "group" is a human-readable sector/industry name
-    # ("Semiconductors", "Technology"); far better in a search query than the
-    # ETF symbol from sector_map.yaml. Empty string when unavailable.
-    _peer_strength = data.get("peer_strength")
-    _macro_sector = ""
-    if isinstance(_peer_strength, dict):
-        _macro_sector = str(_peer_strength.get("group") or "")
-    try:
-        gap_fill_result = await gap_fill.run_gap_fill(
-            ticker=ticker,
-            anchors_count=len(initial_anchors),
-            sec_filings=sec_filings_list,
-            has_event_date=bool(earnings_iso_str),
-            direction=direction_str,
-            deadline=gap_deadline,
-            company_name=data.get("company_name") or "",
-            sector=_macro_sector,
-        )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("aggregator: gap_fill failed: %s", exc)
-        gap_fill_result = {
-            "harvested_anchors_snippets": [],
-            "eight_k_summary_snippets": [],
-            "event_date_snippets": [],
-            "catalyst_research_snippets": [],
-            "macro_risk_snippets": [],
-        }
-
-    stage_t["gap_fill"] = _t()
-    web_anchor_snippets = list(gap_fill_result.get("harvested_anchors_snippets", []))
-    web_anchors = levels.extract_anchors_from_search_snippets(
-        web_anchor_snippets,
-        current_price=_current_price(data["technical_long"]) or 0.0,
-    )
-
-    all_anchors = levels.cluster_anchors(initial_anchors + web_anchors, 0.005)
-    current_price = _current_price(data["technical_long"]) or 0.0
-    supports, resistances = levels.rank_anchors(all_anchors, current_price, ticker=ticker)
-    # TODO #10/#12 — pre-compute ATR + direction + earnings_days here so
-    # select_trade_plan can apply the drawdown sanity gate + ATR fallback +
-    # horizon-aware short-window gate. Variables are re-computed below in
-    # the structured-fields block (same inputs, same values — harmless
-    # redundancy in exchange for a smaller diff).
-    _atr14_for_plan = _atr_from_candles(data["technical_long"])
-    _score_bd_for_plan = (
-        getattr(score_result, "breakdown", None) if score_result is not None else None
-    )
-    _direction_for_plan = structured_fields.compute_direction(_score_bd_for_plan)
-    _earnings_days_for_plan = None
-    if earnings_iso_str:
+    response = None
+    pending_error = None
+    while True:
         try:
-            from datetime import datetime as _dt, date as _date
-            _ed = _dt.strptime(earnings_iso_str, "%Y-%m-%d").date()
-            # BUG-1: use local date (matches structured_fields.compute_next_catalyst_days);
-            # _dt.utcnow().date() drifted 1 day ahead for ~7h each PT evening, so the
-            # trade-plan earnings proximity disagreed with the embed's Next Catalyst field.
-            _d = (_ed - _date.today()).days
-            if _d >= 0:
-                _earnings_days_for_plan = _d
-        except (ValueError, TypeError):
-            pass
-
-    # Smart technical-levels engine (full-audit Wave 2). Flag-gated; default OFF
-    # → this whole block is skipped and behavior is byte-identical to today.
-    _engine_live = False
-    if cfg.get("all_command.levels.technical_engine_enabled", False):
-        # The whole engine (shadow OR live) must NEVER break !all — wrap it, and
-        # read daily_candles defensively (.get) since a fetch failure can omit it.
+            request = calculation.throw(pending_error) if pending_error else calculation.send(response)
+        except StopIteration as finished:
+            computed = finished.value
+            break
+        pending_error = None
         try:
-            _candles = data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
-            _eng_atr = _atr14_for_plan
-            if (_eng_atr is None or _eng_atr <= 0) and _candles:
-                _eng_atr = indicators.atr(
-                    [c["high"] for c in _candles], [c["low"] for c in _candles],
-                    [c["close"] for c in _candles], 14)
-            # 52wk boundaries: `data["snapshot"]` defaults to None, so `or {}` (NOT
-            # .get("snapshot", {})) — and read the raw wk52_high/wk52_low keys added
-            # to snapshot.py in Wave 0. Clamp to spot when snapshot is None/missing.
-            _snap = data.get("snapshot") or {}
-            tech_anchors = levels.build_technical_anchors(
-                _candles, current_price, _eng_atr or 0.0,
-                wk52_high=_snap.get("wk52_high") or current_price,
-                wk52_low=_snap.get("wk52_low") or current_price,
-            )
-            if cfg.get("all_command.levels.technical_engine_shadow_mode", True):
-                # Shadow: compute the parallel plan, log it, DON'T change the posted plan.
-                _baseline_plan = levels.select_trade_plan(
-                    supports, resistances, spot=current_price,
-                    atr14=_atr14_for_plan, direction=_direction_for_plan,
-                    earnings_days=_earnings_days_for_plan, engine_on=False)
-                _shadow_supports, _shadow_resist = levels.rank_anchors(
-                    levels.cluster_anchors(all_anchors + tech_anchors, 0.005),
-                    current_price, ticker=ticker)
-                _shadow_plan = levels.select_trade_plan(
-                    _shadow_supports, _shadow_resist,
-                    spot=current_price, atr14=_eng_atr,
-                    direction=_direction_for_plan,
-                    earnings_days=_earnings_days_for_plan, engine_on=True)
-                _log_smart_levels_shadow(
-                    ticker, current_price, _eng_atr,
-                    crowd_anchor_count=len(supports) + len(resistances),
-                    tech_anchor_count=len(_shadow_supports) + len(_shadow_resist),
-                    baseline_plan=_baseline_plan, shadow_plan=_shadow_plan)
-            else:
-                # Live: merge tech anchors into the pool before rank.
-                all_anchors = levels.cluster_anchors(all_anchors + tech_anchors, 0.005)
-                supports, resistances = levels.rank_anchors(
-                    all_anchors, current_price, ticker=ticker)
-                _engine_live = True
-        except Exception as exc:  # noqa: BLE001 — smart-levels must never break !all
-            log.warning("aggregator: smart-levels engine failed: %s", exc)
-            _engine_live = False
-
-    trade_plan = levels.select_trade_plan(
-        supports, resistances,
-        spot=current_price,
-        atr14=_atr14_for_plan,
-        direction=_direction_for_plan,
-        earnings_days=_earnings_days_for_plan,
-        engine_on=_engine_live,
-    )
-
-    # Structured fields.
-    score_breakdown = (
-        getattr(score_result, "breakdown", None) if score_result is not None else None
-    )
-    direction = structured_fields.compute_direction(score_breakdown)
-    final_score = (
-        getattr(score_breakdown, "total", 0)
-        if score_breakdown is not None else 0
-    )
-    confidence = structured_fields.compute_confidence_label(final_score)
-    earnings_iso = _earnings_iso(data["decision_snapshots"]) or data.get("next_earnings_iso")
-    timeframe = structured_fields.compute_breakout_timeframe(
-        ticker, earnings_iso, data["options_unusual"],
-    )
-    atr14 = _atr_from_candles(data["technical_long"])
-    magnitude = structured_fields.compute_magnitude(atr14, current_price)
-
-    sl = trade_plan.get("sl") if trade_plan else None
-    tp1 = trade_plan.get("tp1") if trade_plan else None
-    tp2 = trade_plan.get("tp2") if trade_plan else None
-    tp3 = trade_plan.get("tp3") if trade_plan else None
-    # Iter4: LOW confidence no longer wipes the trade plan — D3 is overridden
-    # by user feedback (Gemini provides actionable SL/TP without confidence
-    # gating). PR3's anchor-count gate is the single source of truth for
-    # whether levels exist; the LOW label still renders in the embed banner.
-    # NEUTRAL direction still wipes because SL/TP labels are direction-
-    # dependent (a "TP1 above price" only makes sense for BULLISH).
-    if direction == "NEUTRAL":
-        sl = tp1 = tp2 = tp3 = None
-        magnitude = "TBD"
-        timeframe = "TBD"
-    # #6 A3 — reward:risk of the plan (after the NEUTRAL wipe so it stays None
-    # there). Gated on the trade_plan's own confidence to skip ATR-fallback plans.
-    risk_reward = structured_fields.compute_risk_reward(
-        current_price, sl, tp1, direction,
-        trade_plan.get("confidence") if trade_plan else None,
-    )
-
-    # Iter5: compute the entry zone from supports + current price so the
-    # embed answers the prompt's "buying level" requirement directly.
-    buy_low, buy_high = structured_fields.compute_buy_zone(
-        current_price, supports, direction,
-    )
-
-    # W4 swing-realism: compute new structured fields. Old fields above
-    # remain populated for backward compat and emergency revert via the
-    # `all_command.swing_v2_enabled=false` flag (consumed by embed,
-    # narrator, vault_writer at render time).
-    # TODO #13 — fetch forward-dated NASDAQ catalysts (earnings + dividends)
-    # so AMD/TSLA-style tickers without near-earnings get a real catalyst
-    # surfaced in the embed + narrator prompt instead of "—".
-    try:
-        from consensus_engine.scanners import nasdaq_calendar
-        nasdaq_events = await nasdaq_calendar.fetch_forward_catalysts(
-            ticker, forward_days=60,
-        )
-        # NOTE: weekly options expiry was previously appended here as a
-        # guaranteed forward-catalyst fallback. Removed per user iter5
-        # feedback — mechanical Friday expiries are not substantive
-        # catalysts; surfacing them was fake-substance. Real catalysts
-        # come from Commit 7 (web mining for partnerships / product
-        # launches / regulatory dates).
-    except Exception as exc:  # noqa: BLE001
-        log.warning("aggregator: nasdaq_calendar fetch failed: %s", exc)
-        nasdaq_events = []
-    next_catalyst_days, next_catalyst_kind, next_catalyst_mechanism = (
-        structured_fields.compute_next_catalyst(
-            earnings_iso, data["options_unusual"], extra_events=nasdaq_events,
-        )
-    )
-    # #25 (full-audit-2026-06-06) — realized close-to-close daily move, blended
-    # into the swing-horizon denominator when the flag is on. None (the
-    # default) keeps the ATR-only horizon.
-    _realized_daily_move = structured_fields.compute_realized_daily_move(
-        data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
-    )
-    swing_horizon_days, swing_horizon_band, _swing_note = (
-        structured_fields.compute_swing_horizon(
-            current_price, tp1, atr14, earnings_iso,
-            realized_daily_move=_realized_daily_move,
-        )
-    )
-    expected_move_typical, expected_move_high_vol, magnitude_band_label = (
-        structured_fields.compute_magnitude_band(
-            atr14, swing_horizon_days, current_price, atr_90d_high_pct=None,
-        )
-    )
-
-    # Stage-3 — the options-chain legs ride along on compute_max_pain's dict
-    # (gex/iv_skew/oi_pinning as ADDITIVE keys); split them onto their own
-    # StructuredFields attrs here. Existing max_pain consumers are unaffected.
-    _mp_dict = data.get("max_pain") if isinstance(data.get("max_pain"), dict) else {}
-
-    # Stage-4 vol-context (k7 IV-vs-RV tag, r9 squeeze) — descriptive-only, each
-    # gated behind its flag so the OFF path is byte-identical (no field, and for
-    # k7 no compute_em fetch upstream). Both reuse already-gathered data; never
-    # touch score_breakdown / confidence / direction / any trigger.
-    _candles_for_vol = (
-        data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
-    )
-    _iv_rv_tag = None
-    if cfg.get("features.iv_rv_tag.enabled", False):
-        _iv_rv_tag = structured_fields.compute_iv_rv_tag(
-            data.get("iv_rv_atm_iv"),
-            _candles_for_vol,
-            rich_threshold=cfg.get("features.iv_rv_tag.rich_threshold", 1.25),
-            cheap_threshold=cfg.get("features.iv_rv_tag.cheap_threshold", 0.85),
-        )
-    _squeeze_state = None
-    if cfg.get("features.vol_squeeze.enabled", False):
-        from consensus_engine.analysis import patterns as _patterns
-        _squeeze_state = _patterns.compute_squeeze(
-            _candles_for_vol,
-            period=cfg.get("features.vol_squeeze.period", 20),
-            bb_mult=cfg.get("features.vol_squeeze.bb_mult", 2.0),
-            kc_mult=cfg.get("features.vol_squeeze.kc_mult", 1.5),
-        )
-    # r17 PEAD — descriptive post-earnings-drift read (embed-only, NOT narrator).
-    # Reuses the already-fetched earnings recap; fetches its own dated price series
-    # (daily_candles carry no dates). Gated OFF -> no compute/fetch, field absent.
-    _pead = None
-    if cfg.get("features.pead.enabled", False):
-        try:
-            from consensus_engine.analysis import pead as _pead_mod
-            _pead = await _pead_mod.compute_pead(
-                ticker,
-                recap=data.get("recent_earnings_recap"),
-                min_days_after=int(cfg.get("features.pead.min_days_after", 5)),
-                max_days_after=int(cfg.get("features.pead.max_days_after", 45)),
-                min_surprise_pct=float(cfg.get("features.pead.min_surprise_pct", 2.0)),
-                faded_threshold_pct=float(cfg.get("features.pead.faded_threshold_pct", 2.0)),
-            )
-        except Exception as _pead_exc:  # noqa: BLE001 — never break !all
-            log.debug("pead compute failed for %s: %s", ticker, _pead_exc)
-            _pead = None
-
-    structured = structured_fields.StructuredFields(
-        direction=direction,
-        confidence_label=confidence,
-        sl=sl, tp1=tp1, tp2=tp2, tp3=tp3,
-        breakout_timeframe=timeframe,
-        magnitude_label=magnitude,
-        current_price=current_price if current_price else None,
-        buy_zone_low=buy_low,
-        buy_zone_high=buy_high,
-        earnings_date=earnings_iso,
-        next_catalyst_days=next_catalyst_days,
-        swing_horizon_days=swing_horizon_days,
-        swing_horizon_band=swing_horizon_band,
-        expected_move_typical=expected_move_typical,
-        expected_move_high_vol=expected_move_high_vol,
-        magnitude_band_label=magnitude_band_label,
-        next_catalyst_kind=next_catalyst_kind,
-        next_catalyst_mechanism=next_catalyst_mechanism,
-        max_pain=data.get("max_pain"),
-        gex=_mp_dict.get("gex"),
-        iv_skew=_mp_dict.get("iv_skew"),
-        oi_pinning=_mp_dict.get("oi_pinning"),
-        skew_index=data.get("skew_index"),
-        iv_rv_tag=_iv_rv_tag,
-        squeeze_state=_squeeze_state,
-        pead=_pead,
-        peer_strength=data.get("peer_strength"),
-        snapshot=data.get("snapshot"),
-        earnings_move=data.get("earnings_move"),
-        tweets_today=data.get("tweets_today"),
-        stocktwits=data.get("stocktwits"),
-        risk_reward=risk_reward,
-        relative_volume=structured_fields.compute_relative_volume(
-            data.get("daily_candles") if isinstance(data.get("daily_candles"), list) else []
-        ),
-    )
+            response = await _collect_research_request(request, ticker, data, start, stage_t)
+        except Exception as exc:
+            pending_error = exc
+    structured = computed["structured"]
+    score_breakdown = computed["score_breakdown"]
+    trade_plan = computed["trade_plan"]
+    supports, resistances = computed["supports"], computed["resistances"]
+    all_anchors = computed["all_anchors"]
+    gap_fill_result = computed["gap_fill_result"]
+    sl, tp1 = structured.sl, structured.tp1
 
     # Sanitize hostile text. PR4: split SearXNG into news+sec+gap-fill blocks
     # and route the 6 previously-discarded sources to their own batches.

@@ -1,0 +1,36 @@
+# REVIEW TEMPLATE. Actual deployment identity and access remain unconfigured.
+[Unit]
+Description=Member dashboard API (unconfigured)
+[Service]
+Type=simple
+ExecCondition=/usr/bin/false
+User=UNCONFIGURED_API_USER
+Group=UNCONFIGURED_API_GROUP
+WorkingDirectory=/opt/member-dashboard/current
+ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations api --config /etc/member-dashboard/api.json
+Slice=member-dashboard.slice
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+ReadWritePaths=/var/lib/member-dashboard/web
+ReadOnlyPaths=/etc/member-dashboard/api.json /etc/member-dashboard/api-signing-key
+InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard/quota /var/lib/member-dashboard/denials /var/lib/member-dashboard-high-water /run/member-dashboard-market /etc/member-dashboard/providers
+TasksMax=24
+MemoryMax=512M
+KillMode=control-group
+TimeoutStopSec=10
+Restart=no
+StandardOutput=journal
+StandardError=journal
+LogNamespace=member-dashboard

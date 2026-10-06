@@ -1,0 +1,16 @@
+{
+  "original_source_commit": "e0f1d7534da52065231dbdbf24cc48bc6dc4f1bb",
+  "sha256": {
+    "bearish.json": "9e25135b2ded8d3f4d942474b375913c9e6f0832e0bdf57e5aa93044d323aef7",
+    "bullish.json": "5d861a46b8f38e71d6c89f5b61ec3f5905c56a2660d4159a62f38c65d5a6449d",
+    "conflicting_sources.json": "d91a97cc3394ea54912c1f92d0f3ad92e8b5f474f41056e8a692add5174d6f59",
+    "llm_failure.json": "601ef32bb2b9c1bb4794e02968fd6d8d264dd6305de8921f563488e0f10d5e22",
+    "missing_quote.json": "ebd28c674ad9d228c821ab77cd14633e045b512af666e569c629286c52efb1e8",
+    "missing_technical.json": "d865dbb161b0ab51e4e9b585ee7b3f9613966b3317a68b8d5596d5ba88412f91",
+    "neutral.json": "4fdbf960bfb26a456482d4ebdc3bb9402ec8a0152fc6061c681d3ae25815b1c2",
+    "no_catalyst.json": "764a29c796a78109c7b8695dc8303cff8ef2635e3f0053166ece1fc9999aaab4",
+    "sec_partial_failure.json": "7c0258cd0eaeba4999b5a56499cd55ea7e2e8444d5fa8a15677a08a7dcd87482",
+    "sparse_levels.json": "5fb8c833b61240c2659de881e4ad1507bf4660e6a03904185df9958c1bd5ed76",
+    "stale_options.json": "1a153b78467b502d7bb6762a1430ab041ca8c9aa5474fe38cc03ef9f560f48b6"
+  }
+}

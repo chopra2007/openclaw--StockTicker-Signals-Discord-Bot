@@ -1,0 +1,62 @@
+{
+  "forbidden_attempts": [],
+  "inputs": {
+    "calls": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "openInterest",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 3.75,
+          "bid": 3.64,
+          "impliedVolatility": 0.141,
+          "lastPrice": 3.68,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 5636,
+          "strike": 800,
+          "volume": 4000
+        }
+      ]
+    },
+    "min_oi": 100,
+    "puts": {
+      "_type": "DataFrame",
+      "columns": [
+        "strike",
+        "bid",
+        "ask",
+        "lastPrice",
+        "impliedVolatility",
+        "volume",
+        "openInterest",
+        "lastTradeDate"
+      ],
+      "records": [
+        {
+          "ask": 2.17,
+          "bid": 2.15,
+          "impliedVolatility": 0.128,
+          "lastPrice": 2.16,
+          "lastTradeDate": "2026-06-25T20:14:59+00:00",
+          "openInterest": 3963,
+          "strike": 800,
+          "volume": 5000
+        }
+      ]
+    },
+    "spot": 734.3
+  },
+  "output": {
+    "exception": "EMUnavailable",
+    "message": "No strike is listed close enough to the current price for a reliable at-the-money expected move.",
+    "status": "raised"
+  }
+}

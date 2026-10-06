@@ -1,0 +1,16 @@
+# Not installable until an existing authorized host and certificate are supplied.
+server {
+    listen 443 ssl;
+    server_name UNCONFIGURED_AUTHORIZED_HOST;
+    ssl_certificate UNCONFIGURED_CERTIFICATE_PATH;
+    ssl_certificate_key UNCONFIGURED_PRIVATE_KEY_PATH;
+    client_max_body_size 1m;
+    access_log off;
+    location /api/ {
+        proxy_pass http://127.0.0.1:3445;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 10s;
+    }
+    location / { proxy_pass http://127.0.0.1:3444; }
+}

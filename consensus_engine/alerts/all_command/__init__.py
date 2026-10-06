@@ -13,6 +13,10 @@ Modules:
 - aggregator: top-level handle_all() orchestrator
 """
 
-from consensus_engine.alerts.all_command.aggregator import handle_all
+def __getattr__(name):
+    if name == "handle_all":
+        from consensus_engine.alerts.all_command.aggregator import handle_all
+        return handle_all
+    raise AttributeError(name)
 
 __all__ = ["handle_all"]
