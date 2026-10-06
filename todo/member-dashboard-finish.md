@@ -81,6 +81,8 @@ Follow CLAUDE.md "Start of Build", "Definition of Done" and "Regression Gate".
 9. After the verifier passes, delete the Codex scratch on this server: `/tmp/member-dashboard-webtest-20261005`,
    `/tmp/member-dashboard-parity-20261005-golden*` (about 1.2 GB). Those are Codex test copies, not live data.
 
+Last step: write a one-line status to `.omc/member-dashboard-phaseB.done` (the build watchdog in `todo/member-dashboard-phaseB-kickoff.md` reads it and switches itself off).
+
 Done for Phase B = merged on master, no new failing test IDs, live `!all`/`!sec`/options replies coherent with
 unchanged numbers, verifier agrees. The dashboard is still not launched.
 
