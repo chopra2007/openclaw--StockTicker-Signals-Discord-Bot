@@ -8,11 +8,11 @@ import time
 from uuid import uuid4
 
 from .auth import AuthError, Principal
-from .contracts import AssistantRun, ContentLineage, FieldDependency, MessageContent
+from .contracts import AssistantRun, ContentLineage, Evidence, FieldDependency, MessageContent
 from .features import feature_mask, mask_current, require_features
 from .history import HistoryError
 from .jobs import packed, ResearchError
-from .assistant_tools import TOOL_SCHEMAS, READ_TOOLS, ToolResult, parse_tool, permitted
+from .assistant_tools import TOOL_SCHEMAS, READ_TOOLS, ToolResult, add_record, parse_tool, permitted
 from .assistant_transport import ModelTurn, TurnBudget, INPUT_BOUND, OUTPUT_BOUND, wire_body
 
 NOTICE='Market Assistant is unavailable.'
@@ -21,8 +21,10 @@ SENSITIVE=re.compile(r'https?://|file:|[a-z]:[\\/]|/(?:home|root|etc|proc|tmp)/|
 
 
 class AssistantService:
-    def __init__(self,history,*,transport=None,clock=time.time):
+    def __init__(self,history,*,transport=None,clock=time.time,live=None,live_lineage=None):
         self.history,self.jobs,self.transport,self.clock=history,history.jobs,transport,clock
+        # live(ticker) -> (content, [ResearchEvidence]): the research_now tool (live_research.snapshot).
+        self.live,self.live_lineage=live,live_lineage
 
     def fingerprint(self):
         return hashlib.sha256(packed([self.transport.fingerprint,TOOL_SCHEMAS,INPUT_BOUND,OUTPUT_BOUND,4000,20,4,90]).encode()).hexdigest()
@@ -143,11 +145,31 @@ class AssistantService:
             current=self._guard(con,run,self.clock())
             if current!=principal: raise HistoryError()
             if call.name in READ_TOOLS: return READ_TOOLS[call.name](self.jobs,con,principal,call,self.clock())
+        if call.name=='research_now' and self.live is not None:
+            return await self._research_now(principal,call,run)
         if call.name=='request_research':
             value=self.jobs.request_research(principal,call.arguments.ticker,False,self.clock(),guard=lambda con:self._guard(con,run,self.clock()))
             # Enqueue only, no source material or wait on the sole compute worker.
             return ToolResult({'status':'pending','request_id':value.id})
         raise ValueError('unknown tool')
+
+    async def _research_now(self,principal,call,run):
+        from .market_reader import safe_url
+        content,rows=await self.live(call.arguments.ticker)
+        lineage=self.live_lineage
+        evidence=[Evidence(id=r.id,source_id=r.source_id,source_version=r.source_version,observed_at=r.observed_at,
+                           url=safe_url(r.url),excerpt=r.excerpt[:1000],research_only=r.research_only) for r in rows]
+        observations=[e.observed_at for e in evidence]
+        observed=max(observations) if observations and all(o is not None for o in observations) else None
+        result=ToolResult(content)
+        with self.jobs.store.transaction() as con:
+            con.row_factory=sqlite3.Row
+            if self._guard(con,run,self.clock())!=principal: raise HistoryError()
+            if not add_record(result,self.jobs,con,{'source_lineage_json':packed([s.model_dump() for s in lineage.sources]),
+                    'required_features_json':packed(lineage.required_features),'field_dependencies_json':packed([d.model_dump() for d in lineage.field_dependencies]),
+                    'retention_deadline':lineage.retention_deadline},content,evidence,self.clock(),observed):
+                raise ValueError('live research not permitted')
+        return result
 
     def _finish(self,run,status='unavailable',*,error='unavailable',turn=None,aggregate=None):
         now=self.clock()
@@ -159,7 +181,12 @@ class AssistantService:
             if turn is not None:
                 try:
                     self._guard(con,run,now); self._recheck(con,aggregate)
-                    if not aggregate.contributors or not turn.answer.strip() or SENSITIVE.search(turn.answer) or any(x not in aggregate.evidence for x in turn.citations): raise ValueError()
+                    if not turn.answer.strip() or SENSITIVE.search(turn.answer) or any(x not in aggregate.evidence for x in turn.citations): raise ValueError()
+                    if not aggregate.contributors:
+                        # General finance question answered without market data: stored under the
+                        # analysis lineage so it follows the same access rules as live research.
+                        if self.live_lineage is None: raise ValueError()
+                        aggregate.contributors.append((self.live_lineage,[],None))
                     sources={packed(s.model_dump()):s for l,_,_ in aggregate.contributors for s in l.sources}
                     features=sorted({'assistant'}|{f for l,_,_ in aggregate.contributors for f in l.required_features})
                     deadlines=[l.retention_deadline for l,_,_ in aggregate.contributors if l.retention_deadline is not None]

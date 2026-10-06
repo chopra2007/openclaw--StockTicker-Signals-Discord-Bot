@@ -13,6 +13,29 @@ def metric(value, unit, method):
     return Metric(value=float(value) if value is not None else None,unit=unit,method=method)
 
 
+
+SEC_LOOKBACK_HOURS,SEC_MAX_FILINGS=90*24,15
+FORM_TITLES={'8-K':'Major company event','10-K':'Annual report','10-Q':'Quarterly report','4':'Insider trade',
+             '144':'Planned insider sale','SC 13D':'Large stake (activist)','SC 13G':'Large stake (passive)'}
+FORM_NOTES={'8-K':'Filed for news such as earnings, deals or leadership changes.','10-K':'Full-year results and risks.',
+            '10-Q':'Quarterly results.','144':'An insider notified the SEC of a planned share sale.',
+            'SC 13D':'An investor owns over 5% and may push for changes.','SC 13G':'An investor owns over 5% as a passive holder.'}
+
+
+def _insider_line(detail):
+    """'Jane Doe (CFO) sold 12,000 shares for $1.4M' from a Form 4, or a plain fallback."""
+    rows=detail.data if detail is not None and detail.status in ('ok','partial') and detail.data else ()
+    if not rows: return 'Insider transaction details unavailable.'
+    first=rows[0]
+    trades=[r for r in rows if r.transaction_type in ('Open Market Purchase','Open Market Sale')]
+    if trades:
+        verb='bought' if trades[0].transaction_type=='Open Market Purchase' else 'sold'
+        shares=sum(r.shares or 0 for r in trades); value=sum((r.shares or 0)*(r.price or 0) for r in trades)
+        amount=f' for ${value/1e6:,.1f}M' if value>=1e6 else f' for ${value:,.0f}' if value else ''
+        return f'{first.reporter_name} ({first.title}) {verb} {shares:,.0f} shares{amount} on the open market.'
+    kinds=sorted({r.transaction_type.lower() for r in rows if r.transaction_type!='Unknown'})
+    return f'{first.reporter_name} ({first.title}): routine {", ".join(kinds) or "transaction"}, not an open-market trade.'
+
 class MemberResearchProvider:
     def __init__(self, context):
         if not isinstance(context,ProviderContext): raise ValueError('Explicit provider context required')
@@ -74,8 +97,10 @@ class MemberResearchProvider:
         from consensus_engine.utils.provider_budget import BudgetSession
         if not isinstance(context.client,BudgetSession): raise ValueError('budgeted_sec_client_required')
         async def filings(ticker,hours):
+            # Owner report 2026-10-06: 72 hours left NVDA/MU empty. Show the newest filings of the last 90 days.
             self._authorize('sec','retain')
-            return await fetch_filings_outcome(ticker,hours,context)
+            outcome=await fetch_filings_outcome(ticker,SEC_LOOKBACK_HOURS,context)
+            return replace(outcome,data=outcome.data[:SEC_MAX_FILINGS]) if outcome.data else outcome
         async def detail(cik,accession,document):
             self._authorize('sec','retain')
             return await fetch_form4_outcome(cik,accession,document,context)
@@ -90,7 +115,8 @@ class MemberResearchProvider:
             detail=details.get(row.accession_number)
             status='ok' if row.form != '4' or detail and detail.status == 'ok' else 'unavailable' if detail else 'not_requested'
             filings.append(Filing(accession=row.accession_number,form=row.form,filed_at=row.filed_at,
-                title=row.form,summary='Verified filing metadata',url=row.url,detail_status=status))
+                title=FORM_TITLES.get(row.form,row.form),summary=_insider_line(detail) if row.form=='4' else FORM_NOTES.get(row.form,''),
+                url=row.url,detail_status=status))
             if row.form == '4':
                 transactions=detail.data if detail and detail.status in ('ok','partial') else ()
                 conviction=any(tx.transaction_type in ('Open Market Purchase','Open Market Sale') for tx in transactions)
@@ -102,7 +128,7 @@ class MemberResearchProvider:
                 value=metric(amount,'USD','verified open-market shares times price') if complete and conviction else None
                 insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value))
         warning='Filing or insider detail coverage is incomplete.' if research.coverage == 'partial' else None
-        message='No relevant filings in the past 72 hours.' if not filings and research.coverage == 'complete' else None
+        message='No filings in the last 90 days.' if not filings and research.coverage == 'complete' else None
         return self._result('sec',SecPayload(coverage=research.coverage,filings=filings,insiders=insiders,warning=warning),
                             message,observed_at=outcome.observed_at)
 

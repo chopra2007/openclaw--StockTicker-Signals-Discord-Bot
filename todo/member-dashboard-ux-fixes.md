@@ -75,3 +75,25 @@ cooldown, 10 computes/hour, 60 requests/min (jobs.py); assistant 20 messages/hou
 Kept on: $3/day AI cap, Schwab 15/min share, 50 queued jobs global, one assistant answer at a time.
 To ship: `rm /etc/member-dashboard/testing-phase && systemctl restart member-dashboard-api`, then suspend
 test member `claude_qa`, then verify each limit.
+
+## Round 2 — owner report 2026-10-06 evening (after the first redesign)
+Yardstick: feels like a modern iPhone app; every word and section has a purpose; the assistant works like
+ChatGPT/Claude; research reads like a real analyst note (news + catalysts, not just price talk).
+
+1. **Assistant says "Market Assistant is unavailable."** Cause: for "is NVDA a buy?" the model can only *start*
+   a report (request_research), never read live data in the same answer; an answer with no stored evidence is
+   discarded. Done: ticker questions answered from live data (price, signal, trade plan, news) in one go;
+   general finance questions answered too.
+2. **Assistant needs a typed title.** Done: no title box; title = the first question.
+3. **Enter doesn't send.** Done: Enter sends, Shift+Enter = new line.
+4. **Assistant UI from 2005.** Done: modern chat (bubbles, pill composer, typing dots, suggestions, past chats list).
+5. **"Ask the assistant" leaves the ticker page.** Done: opens an inline chat panel right under the button,
+   already about that ticker.
+6. **Custom stock analysis = generic price talk.** Cause: the dashboard analysis had no news feed and no analyst
+   posts ("not reachable"). Done: recent news headlines (7 days) and the bot's analyst calls for the ticker feed
+   the write-up; points name real catalysts; news list with links on the page.
+7. **SEC filings empty for NVDA/MU.** Cause: only the last 72 hours were searched. Done: last 90 days, newest
+   15, plain names ("Quarterly report", "Insider trade").
+8. **Look and wording.** Done: Apple-style look (system font, light/dark, grouped rounded lists, frosted top
+   bar, big titles); no redundant or hard-to-read text anywhere.
+History page: passable, only restyled with the rest.

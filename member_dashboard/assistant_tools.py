@@ -42,7 +42,16 @@ class RequestResearch(PublicModel):
     arguments: RequestArgs
 
 
-ToolCall = Annotated[Lookup | GetResearch | RequestResearch, Field(discriminator='name')]
+class LiveArgs(PublicModel):
+    ticker: Ticker
+
+
+class ResearchNow(PublicModel):
+    name: Literal['research_now']
+    arguments: LiveArgs
+
+
+ToolCall = Annotated[Lookup | GetResearch | RequestResearch | ResearchNow, Field(discriminator='name')]
 TOOL_ADAPTER = TypeAdapter(ToolCall)
 TOOL_SCHEMAS = TOOL_ADAPTER.json_schema()
 

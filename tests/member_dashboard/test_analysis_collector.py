@@ -32,11 +32,12 @@ class Client:
         return synthetic_chain()
 
 
-def collector(client,synthesis=None):
+def collector(client,synthesis=None,news=(),notes=()):
     from member_dashboard.analysis_collector import AnalysisCollector
     async def default(request): return ''
+    async def headlines(ticker): return list(news)
     return AnalysisCollector(client,source_id='schwab-marketdata',filter_cfg=FILTERS,settings_values={},
-                             synthesis=synthesis or default,clock=lambda:NOW)
+                             synthesis=synthesis or default,clock=lambda:NOW,news=headlines,notes=lambda ticker:list(notes))
 
 
 async def test_collector_builds_typed_inputs_with_the_bots_own_filters():
@@ -51,8 +52,32 @@ async def test_collector_builds_typed_inputs_with_the_bots_own_filters():
     assert [(f.name,f.value,f.passed) for f in model.filters]==[(f.name,f.value,f.passed) for f in expected]
     assert inputs.options_unusual.model().ticker=='NVDA'
     statuses={s.source_id:s.status for s in inputs.source_statuses}
-    assert statuses['news']==statuses['youtube_levels']==statuses['analyst_posts']=='unavailable'
+    assert statuses['youtube_levels']==statuses['analyst_posts']=='unavailable'
     assert {(e.source_id,e.source_version) for e in inputs.evidence}=={('schwab-marketdata','v1')}
+
+
+async def test_news_and_analyst_calls_reach_the_write_up():
+    """Owner report 2026-10-06: the write-up was generic price talk with no news or catalysts."""
+    from member_dashboard.news import Headline
+    from consensus_engine.analysis.research_contracts import GapFillRequest
+    made=collector(Client(),news=[Headline('Nvidia wins Stargate order','Reuters',NOW-3600,'https://example.com/a')],
+                   notes=[('NVDA long into earnings, target 210',NOW-7200,'https://x.com/a/status/1')])
+    inputs=await made('NVDA')
+    assert any(e.id=='analyst-0' and 'target 210' in e.excerpt for e in inputs.evidence)
+    gap=await made.services().gap_fill(GapFillRequest('NVDA',0,False,'long',NOW+20))
+    assert gap.catalyst_research_snippets[0].startswith('Nvidia wins Stargate order (Reuters, ')
+    assert gap.evidence[0].id=='news-0' and gap.evidence[0].url=='https://example.com/a'
+
+
+def test_news_feed_keeps_recent_unique_headlines():
+    from member_dashboard.news import parse
+    item=lambda title,day,link='https://news.example/1':(f'<item><title>{title} - Reuters</title><link>{link}</link>'
+        f'<pubDate>{day} Oct 2026 12:00:00 GMT</pubDate><source url="https://reuters.com">Reuters</source></item>')
+    xml='<rss><channel>'+item('Fresh',5)+item('Fresh',5)+item('Old',1)+item('Bad link',5,'javascript:x')+'</channel></rss>'
+    from datetime import datetime,timezone
+    now=datetime(2026,10,12,tzinfo=timezone.utc).timestamp()  # Oct 5 is in the 7-day window, Oct 1 is not
+    rows=parse(xml,now=now)
+    assert [(r.title,r.source) for r in rows]==[('Fresh','Reuters')]
 
 
 async def test_collector_outage_stays_unavailable_never_fake():

@@ -98,6 +98,40 @@ async def test_owned_research_lineage_survives_omitted_citations(assistant,resea
     runtime.shutdown()
 
 
+async def test_ticker_question_answers_from_live_research(assistant,research,dashboard):
+    """Owner report 2026-10-06: "is NVDA a buy?" said unavailable; it now reads live data in the same answer."""
+    from consensus_engine.analysis.research_contracts import ResearchEvidence
+    allow_model(research)
+    lineage=research[2].providers['sec'].lineage; source=lineage.sources[0]
+    async def live(ticker):
+        return {'ticker':ticker,'signal':'bullish','news':[{'id':f'{ticker}-news-0','headline':'Big order (Reuters)'}]},[ResearchEvidence(f'{ticker}-news-0',source.source_id,source.source_version,
+                                                                       dashboard.clock()-60,None,'Big order (Reuters)')]
+    assistant.live,assistant.live_lineage=live,lineage
+    assistant.transport=SyntheticTransport([{'tool_calls':[{'name':'research_now','arguments':{'ticker':'NVDA'}}]},
+        {'answer':'Bullish, high confidence.','citations':['NVDA-news-0'],'input_tokens':1,'output_tokens':1}])
+    user=research[1][0]
+    conversation=assistant.create_conversation(user,'Is NVDA a buy?')
+    run=assistant.submit(user,conversation.id,'Is NVDA a buy?',None)
+    worker,runtime=await compute(assistant,research,dashboard)
+    assert assistant.get_run(user,conversation.id,run.id).status=='completed'
+    assert 'Big order' in str(assistant.transport.prompts[1])
+    assert next(m for m in assistant.history.get_conversation(user,conversation.id).messages if m.role=='assistant').text=='Bullish, high confidence.'
+    runtime.shutdown()
+
+
+@pytest.mark.parametrize('lineage,status',[(True,'completed'),(False,'unavailable')])
+async def test_general_question_needs_no_market_data(assistant,research,dashboard,lineage,status):
+    allow_model(research)
+    if lineage: assistant.live_lineage=research[2].providers['sec'].lineage
+    assistant.transport=SyntheticTransport([{'answer':'P/E is price divided by yearly earnings per share.','citations':[],'input_tokens':1,'output_tokens':1}])
+    user=research[1][0]
+    conversation=assistant.create_conversation(user,'What is P/E?')
+    run=assistant.submit(user,conversation.id,'What is P/E?',None)
+    worker,runtime=await compute(assistant,research,dashboard)
+    assert assistant.get_run(user,conversation.id,run.id).status==status
+    runtime.shutdown()
+
+
 async def test_display_permission_does_not_allow_model_input(assistant,research,dashboard):
     user,conversation,run=prepare_answer(assistant,research,dashboard)
     worker,runtime=await compute(assistant,research,dashboard)
@@ -529,7 +563,7 @@ def test_wire_body_names_the_exact_tools():
     from member_dashboard.assistant_transport import wire_body
     from member_dashboard.assistant_tools import TOOL_SCHEMAS
     system=wire_body([{'text':'q'}],TOOL_SCHEMAS)['messages'][0]['content']
-    assert 'Exact tool names: get_research, lookup_market, request_research.' in system
+    assert 'Exact tool names: get_research, lookup_market, request_research, research_now.' in system
     assert 'answer is one plain-text string' in system
     assert system.startswith('You are the assistant of a stock-market') and 'I can only help with stocks and this dashboard' in system  # Owner rule 2026-10-06: no off-topic answers.
     assert 'Exact tool names' not in wire_body([{'text':'q'}],{})['messages'][0]['content']

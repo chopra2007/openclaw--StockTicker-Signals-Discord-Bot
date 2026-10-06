@@ -206,6 +206,22 @@ class _NoAnalysisSettings:
     def services(self): raise ValueError('analysis_settings_missing')
 
 
+def analyst_notes(store,window=7*86400):
+    """The bot's analyst calls on one ticker from the last 7 days (newest first), for the write-up."""
+    import html,json
+    def notes(ticker):
+        with store.transaction() as con:
+            rows=con.execute("SELECT p.content_json,p.observed_at FROM publication_heads h JOIN publications p ON p.id=h.publication_id "
+                "WHERE h.feature='feed' AND h.active=1 AND h.authority_blocked=0 AND h.source_id='analyst_views' "
+                "AND p.ticker=? AND p.observed_at>? ORDER BY p.observed_at DESC LIMIT 8",(ticker,time.time()-window)).fetchall()
+        out=[]
+        for content,observed in rows:
+            value=json.loads(content); text=html.unescape(value.get('excerpt') or '').strip()
+            if text: out.append((text[:600],observed,next((e.get('url') for e in value.get('evidence',[]) if e.get('url')),None)))
+        return out
+    return notes
+
+
 def _waiting_budget(budget,routes):
     """Schwab calls wait (up to 25 s) for a free slot in the dashboard's per-minute share
     instead of failing a member's section as 'unavailable' (owner report 2026-10-06)."""
@@ -257,7 +273,8 @@ async def research_registry(registry,store,policy,runtime,config,*,telemetry=lam
         synthesis=CappedSynthesis(protected(Path(config['assistant_key'])).read_text(encoding='ascii').strip(),budget,
                                   request_scopes=(ASSISTANT_REQUEST_SCOPE,),cost_scopes=(ASSISTANT_COST_SCOPE,))
         collector=AnalysisCollector(client,source_id=SCHWAB_SOURCE,filter_cfg=exported['technical_filters'],
-                                    settings_values=exported['calculation'],synthesis=synthesis,telemetry=telemetry)
+                                    settings_values=exported['calculation'],synthesis=synthesis,telemetry=telemetry,
+                                    notes=analyst_notes(store))
     contexts.append(ProviderContext(policy,lineages[SCHWAB_SOURCE],{SCHWAB_SOURCE:client},ExpectedMoveSettings(),clock,runtime,
                                     budget,store,telemetry,SCHWAB_SOURCE,chart_renderer=render_chart,
                                     analysis_collector=collector,input_dependencies=dict(ANALYSIS_INPUTS)))
@@ -338,7 +355,10 @@ async def run_compute(config,worker):
     key=protected(Path(config['assistant_key'])).read_text(encoding='ascii').strip()
     transport=DirectTransport(key,BudgetClient(config['budget_socket']),(ASSISTANT_REQUEST_SCOPE,),(),
                               config['assistant_verified_until'],cost_scopes=(ASSISTANT_COST_SCOPE,))
-    assistant=AssistantService(history,transport=transport)
+    from functools import partial
+    from .live_research import snapshot
+    assistant=AssistantService(history,transport=transport,live=partial(snapshot,registry.analysis_collector),
+                               live_lineage=research_lineages()[SCHWAB_SOURCE]['analysis'])
     from .setup_levels import refresh_one
     async def setup_levels():
         try: await refresh_one(store,registry.analysis_collector)
