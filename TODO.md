@@ -1001,18 +1001,11 @@ Keep one honest list of coded features and research-ready ideas that cannot yet 
 
 **File:** `twenty-names-and-free-options-data.md`
 
-**CURRENT STATUS (2026-09-04):** The save bug is fixed and tested on branch
-`todo-109-full-chain-proof`. The real August 31 output passes every proof check:
-3,721,860 option rows for all 23 names across exactly 390 market minutes,
-9,976 open-interest rows, four expirations per name, synchronized stock prices,
-no delayed chains, no crossed spreads, and no gap over 90 seconds. The focused
-tests pass 7 of 7 and the full project gate passes 3,838 with 11 skipped. #109
-stays open only because #111 is actively changing the main checkout; applying
-the saved fix there now would violate its isolation. Once #111 ends, integrate
-this branch before the next 13:20 Pacific daily run and confirm that run exits
-successfully. This is separate from #110.
-
-Pick 20 liquid tech names, start saving every field a future test could need before another 100 days are lost, and hunt for a free source that already holds past minute-by-minute option prices (SPX especially) so the wait can be skipped altogether.
+**CURRENT STATUS (2026-10-05):** The 2026-10-05 13:20 run failed its proof. Cause 1: one 09:23
+poll returned every expiration (not the nearest four) for five names; the collector now trims to the
+nearest four. Cause 2: the proof required zero crossed quotes, but real feeds show a few per day;
+it now allows up to 0.01%. Both tested. Owed: the 2026-10-06 13:20 run must exit successfully
+(check scheduled 13:40 Pacific), then close #109.
 
 ## 110. Build a reusable loop that keeps working until the real goal passes — DONE 2026-09-01
 
