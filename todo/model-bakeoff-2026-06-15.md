@@ -1,16 +1,17 @@
 # AI model bake-offs — master reference (what we picked, how to re-run one)
 
-**Status:** DONE 2026-06-15
+**Status:** Round 4 deployed, live-checked, and extended to six requested models 2026-10-05
 **Created:** 2026-06-04
 
 **This is the one file to open when you want to re-compare AI models for the bot.**
-It now holds all three bake-offs we have run. Old TODO items **#24** (first re-test,
+It now holds four bake-offs. Old TODO items **#24** (first re-test,
 2026-06-04) and **#85** (question-answering model, 2026-08-18) are folded in here —
 their own detail files are kept only for history and point back to this one.
 
 Raw data + re-runnable harnesses for each round live under `.omc/research/`:
 `model-bakeoff-2026-06-04/`, `model-bakeoff-2026-06-15/`, and the #85 evidence at
-`.omx/evidence/todo-85/`.
+`.omx/evidence/todo-85/`. Round 4 uses `scripts/model_bakeoff_2026_10.py`; its
+private raw responses are ignored under `.omc/research/model-bakeoff-2026-10-04/`.
 
 ---
 
@@ -31,6 +32,241 @@ Raw data + re-runnable harnesses for each round live under `.omc/research/`:
 
 ---
 
+## Round 4 — 2026-10-04 — recent cheap/free models across every role
+
+**Before any paid call, the owner was told the estimated total was ~$0.80;
+the hard cap was $5.** Candidate calls used the real OpenRouter model catalog,
+response-level `usage.cost`, short screens, and capped follow-up runs. The
+key-level daily spend counter lagged behind actual billed responses, so the
+response-level costs below are the accounting source. Pre-deployment model
+race: **$0.22755 direct OpenRouter + $0.35627 real OpenClaw agent = $0.58382**.
+The six-model parallel follow-up below added **$0.03109** in response-billed
+calls, making the measured research subtotal **$0.61491**.
+The later live checks use the running bot and do not expose response-level bill
+records. Allowing **up to $0.30** for those checks gives a conservative
+**under-$0.92 round estimate**. This is not an exact billed total; the account's
+daily meter also includes ordinary bot traffic. The estimate remains below
+the roughly $1 target and $5 ceiling.
+
+The discovery window was **2026-08-04 through 2026-10-04**. The catalog's
+`created` field identified recent OpenRouter listings; it is not proof of a
+model's original release date. We screened general text/tool/image models
+that fit the bot's context and low-cost workload, then included the current
+leads as controls. Translation-only, code-only, routers, batch-only, and
+high-cost variants were not useful for these synchronous Discord paths.
+
+To recheck one candidate on the Windows control host, use
+`python scripts/model_bakeoff_2026_10.py --phase screen --models MODEL_ID
+--max-spend 0.05 --total-cap 1.00 --tag UNIQUE_NAME`. Results go into ignored
+`.omc/research/model-bakeoff-2026-10-04/`; each tag must be new. The script
+reads the OpenRouter key through the configured Hetzner SSH alias. The
+`calibrate` phase needs the earlier ignored frozen scorer scenarios; the
+`wolf` and `vision` phases need the private saved fixtures. The agent race
+used the existing #85 real-path harness and has its own separate bill ledger.
+
+### Short screen: scoring, five-second `!all` cleanup, and writing
+
+These are **single-call screens**, not full `!all` verdicts. Strong/weak
+scores should land in 80–100/0–29. `200 empty` means the model returned HTTP
+200 but no usable answer. Pricing is USD per million input/output tokens from
+the live OpenRouter catalog on 2026-10-04. Times are observed wall time, not
+provider guarantees. The actual full `!all` command is checked after deploy.
+
+| Model | $/M in/out | Strong/weak | Cleanup | Write-up screen |
+|---|---:|---:|---:|---:|
+| `inclusionai/ling-3.1-flash` | 0/0 | 429 | 429 | 429 |
+| `apodex/apodex-1.1-mini:free` | 0/0 | empty | empty | empty |
+| `upstage/solar-mini4` | .050/.200 | 85/25 | 1.5s | 4.9s |
+| `openai/gpt-6-luna` | .100/.500 | 74/12 | 1.6s | 2.8s |
+| `xiaomi/mimo-v2.6-flash` | .140/.280 | 88/8 | 6.0s | 16.7s |
+| `inclusionai/ling-3.0-flash-vl` | .021/.062 | 93/12 | 1.3s | 3.2s |
+| `inception/mercury-2.5` | .040/.150 | empty | empty | empty |
+| `nex-agi/nex-n2.5-pro` | .075/.250 | 94/5 | 4.5s | 18.2s |
+| `meta/muse-spark-1.3-contributor` | .100/.200 | 403 | 403 | 403 |
+| `inclusionai/ling-3.0-flash-fin` | .042/.123 | 93/empty | empty | empty |
+| `qwen/qwen3.8-flash` | .150/.470 | 92/5 | 4.6s | 11.2s |
+| `z-ai/glm-5.3-flash` | .150/.500 | 92/10 | 14.6s | empty |
+| `nvidia/nemotron-3.5-lightning` | .060/.160 | empty/25 | empty | empty |
+| `qwen/qwen3.8-27b:free` | 0/0 | 429 | 429 | 429 |
+| `nvidia/nemotron-3.5-lightning:free` | 0/0 | invalid long answer | invalid long answer | invalid long answer |
+| `openai/gpt-oss-120b` (control) | .037/.170 | 88/15 | 3.9s | 2.4s |
+| `qwen/qwen3-235b-a22b-2507` (control) | .0875/.350 | 85/25 | 1.1s | 5.1s |
+| `google/gemini-3.7-flash` (control) | .750/3.750 | 94/10 | 4.8s | 5.8s |
+| `google/gemini-2.5-flash-lite` (control) | .100/.400 | 85/15 | 0.7s | 1.7s |
+| `google/gemini-3.8-flash` | .750/3.750 | invalid/10 | 4.4s | 5.8s |
+| `openai/gpt-6-luna-pro` | .100/.500 | 82/12 | 5.1s | 6.4s |
+| `deepseek/deepseek-v4.1-flash` | .300/1.200 | 88/12 | 0.7s | empty |
+| `xiaomi/mimo-v2.6-pro` | .435/.870 | 88/8 | timeout | 30.1s |
+| `qwen/qwen3.8-omni-flash` | .150/.470 | 91/8 | 3.5s | 7.2s |
+| `bytedance-seed/seed-2-1-turbo` | .500/2.500 | empty/15 | empty | empty |
+
+**Tweet scoring winner stays Qwen 3-235B.** On the frozen nine-case scorer
+set it had **9/9 scores in the prescribed bands, zero ranking inversions,
+1-point average repeat difference, 1.7s median**. Solar Mini 4 was cheaper
+but 6/9 in band; Ling 3.0 VL was 6/9 with three inversions; DeepSeek V4.1
+Flash was 6/9 with one inversion and variable 1–15s latency. The live text
+chain stays in place. GPT-OSS 120B stays the primary writer: its 2.4s clean
+screen was cheaper and faster than the plausible new Solar Mini 4. Groq-led
+`!all` synthesis keeps its existing chain because this short screen did not
+establish a better full-command replacement.
+
+### Real `!ask` / mentions route
+
+The candidate agent runs used the production `openclaw agent --local` route,
+the bot's steering prompt, and TODO #85's saved owner-question set. This is
+the same model route used by `!ask` and mentions, with Discord sending omitted
+during the race. A temporary model allow-list was restored afterward and the
+gateway model chain still matched YAML. The current OpenClaw version did not
+leave the session transcript where the old tool-audit script expects it, so
+**file-read counts were not verifiable this round**; factual answers were
+graded against the saved key and current code. Cost below is from each run's
+provider-billed usage, not the delayed account counter.
+
+| Model | False-premise breadth Q05 | Time / cost | Multi-turn options Q02 |
+|---|---|---:|---|
+| `gemini-3.7-flash` (current) | Correctly rejects nonexistent list | 18s / $0.0509 | Correct source; follow-up only acknowledged, 27s / $0.0749 |
+| `gemini-3.8-flash` | Correctly rejects nonexistent list | 88s / $0.1106 | Correct source; follow-up only acknowledged, 32s / $0.0608 |
+| `gpt-6-luna-pro` | Offers to edit a different basket | 91s / $0.0336 | Screened out |
+| `qwen3.8-flash` | Offers to edit the separate options basket | 105s / $0.0088 | Screened out |
+| `solar-mini4` | Timed out | 125s / $0.0128 | Screened out |
+
+Solar Mini 4 also answered the simpler expected-move Q06 correctly, but took
+68s and added unneeded claims. **Keep Gemini 3.7** for `!ask` and mentions:
+3.8 did not fix the known follow-up miss or add accuracy on the two tested
+questions, and it cost more on the discriminating false-premise case. The
+previous nine-question result (6/9 for Gemini 3.7) remains the broader control.
+
+### Wolf email extraction and both vision paths
+
+Wolf text used **five saved real newsletter emails** from
+`tests/fixtures/wolf_eval/` with the production extraction prompt and 4,096
+output-token cap. The hard checks were IGV bear on the two specified emails,
+no labeled recap-ticker false theses, valid JSON, and quotes found verbatim in
+the same email. The private email text and raw responses stay ignored locally.
+
+| Model | Valid | IGV bear | Recap false theses | Source-backed quotes | Observed time |
+|---|---:|---:|---:|---:|---:|
+| `gemini-3.8-flash` | 5/5 | 2/2 | 0 | 29/29 | 12–23s |
+| `gemini-3.7-flash` | 5/5 | 2/2 | 0 | 33/35 | 10–15s |
+| `solar-mini4` | 5/5 | 2/2 | 0 | Many unsupported; 82 theses vs lead's 29 | 9–43s |
+| `gemini-2.5-flash-lite` | 5/5 | 2/2 | 3 | Several unsupported | 3–6s |
+| `mistral-small-3.2-24b` | 5/5 | 2/2 | 4 | Mostly supported | 23–55s |
+| `gpt-oss-120b` (old lead) | 1/2 | 0/2 | 0 in completed call | Incomplete on first; wrong IGV bull on second | 21–85s |
+
+**Wolf extraction changes to Gemini 3.8 → Gemini 3.7**, then retains the
+old OpenAI/DeepSeek/free emergency chain for cross-provider outages. The
+first two are the only models that cleared the five-email gate. The older
+emergency entries are fallback availability, not verified equal quality.
+At current prices the lead's five full emails billed **$0.07049** in total,
+about 1.4 cents per email.
+
+Vision used two **real saved Wolf charts** (CAT daily and URA five-minute)
+plus the general `models/vision_model.py` prompt on CAT. The first image probe
+wrongly disabled reasoning; it is excluded from the decision. The corrected
+replay sent the same request shape as the bot. Wolf's existing paid
+`gemini-2.5-flash-lite` returned usable JSON on both charts in 2–3s, so its
+chain stays. For general vision, the free `gemma-4-31b-it:free` lead returned
+**429 on all three calls**. The same paid Gemma returned valid JSON on all
+three in 3–5s at **$0.09/$0.34 per million input/output tokens**. General
+vision changes to paid Gemma → Gemini 2.5 Flash Lite → free Gemma last.
+Some chart details were imperfect (for example, Gemini Lite called the URA
+five-minute chart daily); those errors limit what the benchmark proves.
+
+### Rate limits and selection rule
+
+OpenRouter's published free tier has **50 requests/day**; its own low-cost
+guide states **20 requests/minute** and 1,000 free-model requests/day after
+$10 in credits. Paid models pass through the selected provider's limits, so
+no single published RPM covers every OpenRouter model. In this run Ling 3.1
+Flash and free Qwen 3.8 27B returned upstream **429**; Muse Spark 1.3 returned
+**403** requiring account attestation; several HTTP 200s had empty content.
+These were counted as failures. The bot's Groq-led `!all` lead is a separate
+account: Groq publishes GPT-OSS 120B at **$0.15/$0.60 per million** and its
+base free limits at **30 RPM, 1,000 requests/day, 8,000 tokens/minute**;
+account-specific limits may differ. Model price/context came from the
+[OpenRouter model catalog](https://openrouter.ai/docs/api/api-reference/models/get-models),
+free-tier limits from [OpenRouter pricing](https://openrouter.ai/pricing/) and
+its [cost guide](https://openrouter.ai/blog/tutorials/how-to-get-the-lowest-cost-llm-inference-on-openrouter/),
+and Groq limits/pricing from [Groq limits](https://console.groq.com/docs/rate-limits)
+and [GPT-OSS 120B card](https://console.groq.com/docs/model/openai/gpt-oss-120b).
+
+### Six-model parallel follow-up — 2026-10-05
+
+The owner asked specifically about these six IDs. DeepSeek V4.1, GLM 5.3,
+Mimo V2.6, and Qwen 3.8 already had the short screen above; free Nemotron
+Ultra and DeepSeek V4 Flash 0731 were new to this round. Three independent
+agents ran all six concurrently through the same four short prompts, the
+frozen scorer set (nine cases plus three repeats), one difficult full Wolf
+IGV newsletter, and the CAT/URA chart prompts where the catalog listed image
+input. Each group had an $0.08 response-billed limit; combined cost was
+**$0.03109**, well under the $0.45 added-cost estimate stated before testing.
+Raw results remain in ignored `*-deepseek-pair*.jsonl`,
+`*-glm-nemotron*.jsonl`, and `*-mimo-qwen*.jsonl` files under
+`.omc/research/model-bakeoff-2026-10-04/`. Prices are current catalog USD
+per million input/output tokens. Times are median wall time over all calls
+for that model, under concurrent traffic.
+
+| Exact model ID | $/M in/out | Visible answers | Median | Scorer in band, first 9 | Wolf IGV | Vision JSON |
+|---|---:|---:|---:|---:|---|---|
+| `deepseek/deepseek-v4.1-flash` | .30/1.20 | 15/20 | 2.90s | 7/9 | Empty | 0/3 |
+| `deepseek/deepseek-v4-flash-0731` | .0152/1.28 | 16/17 | 8.83s | 7/9 | Empty | Text only |
+| `z-ai/glm-5.3-flash` | .15/.50 | 18/20 | 17.7s | 5/9 | Empty | 2/3 |
+| `nvidia/nemotron-3-ultra-550b-a55b:free` | 0/0 | 13/17 | 14.69s | 4/9 | Truncated, non-JSON | Text only |
+| `xiaomi/mimo-v2.6-flash` | .14/.28 | 18/20 | 5.50s | 6/9 | Empty | 2/3 |
+| `qwen/qwen3.8-flash` | .15/.47 | 17/20 | 5.35s | 5/9 | Empty | 1/3 |
+
+All 114 attempted calls returned HTTP 200, so this parallel sample showed
+no provider 429. **HTTP 200 did not mean a usable answer:** the Wolf calls
+used their 4,096-token allowance on reasoning and ended before producing
+the required JSON (Nemotron emitted unfinished prose). The image-capable
+models also left some charts unread; a parsed JSON answer alone does not
+establish correct chart direction. The existing Qwen 3-235B scorer was
+**9/9** on these same frozen bands, and the new Wolf leads passed all five
+saved emails. None of these six justifies changing a deployed chain. No
+extra OpenClaw agent or Discord run was needed after these role-specific
+failures.
+
+### Live deployment and proof — 2026-10-05
+
+Deployed only `config/consensus.yaml` and a corrected Wolf extraction comment
+to the live checkout, then restarted `consensus-engine.service`. The unrelated
+pre-existing edit in `consensus_engine/alerts/commands.py` was preserved.
+Both services were active afterward; the `/root/.openclaw` link resolved to
+`/home/openclaw/.openclaw`; the recent log had no gateway drift or LLM health
+failure; `sync_gateway_models.py --check` reported the unchanged Gemini 3.7
+agent chain in sync. The live checks used the configured production code paths:
+
+| Path | Live result |
+|---|---|
+| Tweet scoring | `score_confidence` on a stored Twitter signal returned a parsed 35/100 score and reasoning in 5.7s. The price/speed/ordering choice rests on the frozen nine-case scorer set above. |
+| Wolf text | `_extract_theses_llm` on the saved difficult newsletter returned seven theses including **IGV bear**, in 17.5s. |
+| General chart vision | `analyze_image` on the saved CAT chart returned the full parsed schema, including ticker, direction and confidence, in 22.1s. The 3–5s figure above is the direct model probe; the full path took longer. |
+| Wolf chart vision | `_call_vision_image` on that chart returned parsed instrument `CAT` in 2.7s. |
+| `!all CAT` | Actual Discord command posted a **Full Analysis** card. Log: `narrative_status=ok`, 15 sources surfaced, zero source failures, 2,277 narrative characters, 21.6s synthesis; full run 56.8s. |
+| `!all PLAB` | A second live card posted with `narrative_status=ok`, 11 sources surfaced, zero source failures, and 1,793 narrative characters; synthesis took 68.2s. |
+| `!ask` | Actual Discord question about `!all` received a relevant one-sentence answer in 27.2s. |
+| Bot mention | The same question sent as an @mention received a relevant separate answer in 18.5s. |
+
+Both full `!all` prompts exceeded Groq's 8,000-token-per-minute request
+budget once the 4,000-token output reserve was included, so the existing
+router dropped Groq and used its OpenRouter fallback. This confirms that the
+fallback path works; it does **not** prove Groq lead latency for today's large
+`!all` payloads. A tiny ticker was rejected by the normal market-size gate,
+so it did not exercise a model.
+
+Focused tests for LLM fallback, general vision, Wolf vision, Wolf macro and
+verifier, narrator prompt and Groq pruning, and `!all` chain order:
+**163 passed** on the live Linux host. The full-project
+regression run as root reported **4,464 passed, 122 skipped, 2 deselected,
+3 failed**. The same three failures appeared before deployment. They were all
+`tests/test_full_chain_storage.py` cases writing fixed `/tmp/m02*.json` paths
+owned by `openclaw`; the server's `fs.protected_regular=2` denied root's
+overwrite in the sticky directory. Rerunning those exact three tests as the
+file owner (`openclaw`) gave **3 passed**. No model-path test failed. This is
+a test-user mismatch, not an AI-model result.
+
+---
+
 ## The AI jobs, and how each one must be tested
 
 The engine has four model "slots" in `config/consensus.yaml` (`llm:` block). They fall
@@ -44,9 +280,9 @@ important thing in this file.
 | **text** (`text_model`) | Scores every incoming tweet; cleans up `!all` alert text | Fast, cheap, reliable, and ranks signals in the right order (strong signal scores above weak one) |
 | **primary** (`model`) | Morning brief, `!all` write-up, research | Smart financial writing, reliable under load |
 
-Also here but **not re-tested in these rounds** (separate slots, own requirements):
-the `!all` synthesis chain (`all_command_chain`, groq-led) and the Wolf newsletter
-`extraction_models`.
+The `!all` synthesis chain (`all_command_chain`, Groq-led) and Wolf newsletter
+`extraction_models` are separate slots with their own requirements. Round 4
+screened and live-checked both.
 
 **How to test Group 1:** one throwaway script. Send every candidate the same prompt,
 grade the answer, hit each model ~5 times (1 cold, 1 warm, 3 in a burst) for
@@ -78,7 +314,7 @@ The #85 method is the template:
 
 ---
 
-## Current live chains (config/consensus.yaml, as of 2026-09-01)
+## Previous live chains (config/consensus.yaml, as of 2026-09-01)
 
 | Chain | Order (lead → fallbacks) |
 |---|---|

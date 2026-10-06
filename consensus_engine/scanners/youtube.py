@@ -12,6 +12,10 @@ Why Playwright instead of youtube-transcript-api:
 
 import asyncio
 import html as html_module
+import json
+import os
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 import logging
 import re
 import time
@@ -42,11 +46,26 @@ _RSS_ATTEMPTS = 3
 # this breaker: abandon the rest of the cycle and stop polling until it expires.
 _rss_block_until = 0.0    # time.monotonic() deadline; 0 = not blocked
 _rss_block_streak = 0     # consecutive blocked cycles, drives the backoff
+_backup_metadata_cache: dict[tuple[str, str], dict] = {}
+_backup_block_until = 0.0
+_backup_metadata_key_until: dict[str, float] = {}
 
 
 # ---------------------------------------------------------------------------
 # RSS feed polling
 # ---------------------------------------------------------------------------
+
+def _feed_retry_after_seconds(resp) -> float:
+    delay = float(cfg.get("youtube.rss_block_backoff_seconds", 1800))
+    retry_after = resp.headers.get("Retry-After", "")
+    try:
+        return max(delay, float(retry_after))
+    except (ValueError, TypeError):
+        try:
+            return max(delay, parsedate_to_datetime(retry_after).timestamp() - time.time())
+        except (ValueError, TypeError, OverflowError):
+            return delay
+
 
 async def _fetch_channel_videos_rss_result(
     session: aiohttp.ClientSession,
@@ -58,6 +77,7 @@ async def _fetch_channel_videos_rss_result(
     The boolean separates a healthy empty feed from a failed request. Without
     that distinction a network outage looked exactly like "no new videos".
     """
+    global _rss_block_until
     url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
     last_error = "unknown failure"
     for attempt in range(1, _RSS_ATTEMPTS + 1):
@@ -72,6 +92,10 @@ async def _fetch_channel_videos_rss_result(
                     text = await resp.text()
                     break
                 last_error = f"HTTP {resp.status}"
+                if resp.status == 429:
+                    delay = _feed_retry_after_seconds(resp)
+                    _rss_block_until = max(_rss_block_until, time.monotonic() + delay)
+                    return [], False, last_error
                 # 2026-08-20: a 404 here is NOT "channel deleted" — it is transient.
                 # Probed live: the same channel_id returned 404, then 200, then 404
                 # seconds apart, and all 14 configured feeds returned 200 on 10
@@ -85,7 +109,7 @@ async def _fetch_channel_videos_rss_result(
             log.warning("youtube: RSS %s failed after %d attempt(s): %s",
                         channel_id, attempt, last_error)
             return [], False, last_error
-        delay = float(2 ** (attempt - 1))
+        delay = max(float(cfg.get("youtube.rss_pace_seconds", 5)), float(2 ** (attempt - 1)))
         log.warning("youtube: RSS %s failed (%s); retrying in %.0fs (%d/%d)",
                     channel_id, last_error, delay, attempt, _RSS_ATTEMPTS)
         await asyncio.sleep(delay)
@@ -120,6 +144,116 @@ async def _fetch_channel_videos_rss_result(
             break
 
     return videos, True, ""
+
+
+def _channel_page_video_ids(text: str, kind: str, limit: int) -> list[str]:
+    """Read only the selected upload tab, never sidebar/recommended video IDs."""
+    match = re.search(r"var ytInitialData\s*=\s*", text)
+    if not match:
+        raise ValueError("channel page has no upload data")
+    data, _ = json.JSONDecoder().raw_decode(text[match.end():])
+    tabs = data["contents"]["twoColumnBrowseResultsRenderer"]["tabs"]
+    selected = next(t["tabRenderer"] for t in tabs if t.get("tabRenderer", {}).get("selected"))
+    path = selected.get("endpoint", {}).get("commandMetadata", {}).get("webCommandMetadata", {}).get("url", "")
+    if path and not path.endswith("/" + kind):
+        return []  # Missing category redirects to another channel tab.
+    grid = selected.get("content", {}).get("richGridRenderer")
+    if grid is None:
+        raise ValueError("channel page upload layout is unsupported")
+    ids = []
+    for item in grid.get("contents", []):
+        content = item.get("richItemRenderer", {}).get("content", {})
+        vid = content.get("videoRenderer", {}).get("videoId", "")
+        lockup = content.get("lockupViewModel", {})
+        if lockup.get("contentType") == "LOCKUP_CONTENT_TYPE_VIDEO":
+            vid = lockup.get("contentId", "")
+        short = content.get("shortsLockupViewModel", {})
+        if short:
+            vid = short.get("onTap", {}).get("innertubeCommand", {}).get("reelWatchEndpoint", {}).get("videoId", "")
+        if _YT_ID_RE.fullmatch(vid) and vid not in ids:
+            ids.append(vid)
+        if len(ids) >= limit:
+            break
+    return ids
+
+
+async def _fetch_channel_videos_backup(session, channel_id: str, limit: int) -> tuple[list[dict], bool, str]:
+    """Use public upload tabs and existing metadata access only for unseen videos."""
+    global _backup_block_until
+    if _backup_block_until > time.monotonic():
+        return [], False, "backup discovery is cooling down after HTTP 429"
+    from consensus_engine.utils.transcript_fetch import _SUPADATA_KEY_ENV_NAMES
+    pace = max(5.0, float(cfg.get("youtube.rss_pace_seconds", 5)))
+    ids = []
+    videos = []
+    try:
+        for kind in ("videos", "shorts", "streams"):
+            await asyncio.sleep(pace)
+            async with session.get(
+                f"https://www.youtube.com/channel/{channel_id}/{kind}",
+                params={"ucbcb": "1", "hl": "en"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status == 429:
+                    _backup_block_until = time.monotonic() + _feed_retry_after_seconds(resp)
+                if resp.status != 200:
+                    return [], False, f"backup {kind}: HTTP {resp.status}"
+                for vid in _channel_page_video_ids(await resp.text(), kind, limit):
+                    if vid not in ids:
+                        ids.append(vid)
+        keys = [os.environ[k] for k in _SUPADATA_KEY_ENV_NAMES if os.environ.get(k)]
+        for vid in ids:
+            saved = _backup_metadata_cache.get((channel_id, vid)) or await db.get_youtube_video(vid)
+            if saved and saved.get("channel_id") == channel_id and saved.get("published_at"):
+                videos.append({k: saved.get(k) or "" for k in
+                               ("video_id", "channel_id", "title", "description", "published_at")})
+                continue
+            if await db.has_video_been_processed(vid):
+                continue
+            if not keys:
+                return [], False, "backup metadata access is not configured"
+            metadata = None
+            for key in keys:
+                if _backup_metadata_key_until.get(key, 0) > time.monotonic():
+                    continue
+                await asyncio.sleep(pace)
+                async with session.get(
+                    "https://api.supadata.ai/v1/metadata",
+                    params={"url": f"https://www.youtube.com/watch?v={vid}"},
+                    headers={"x-api-key": key},
+                    timeout=aiohttp.ClientTimeout(total=20),
+                ) as resp:
+                    if resp.status == 429:
+                        _backup_metadata_key_until[key] = time.monotonic() + _feed_retry_after_seconds(resp)
+                        continue
+                    if resp.status in (401, 403):
+                        continue
+                    if resp.status != 200:
+                        return [], False, f"backup metadata: HTTP {resp.status}"
+                    metadata = await resp.json()
+                    break
+            if not metadata:
+                return [], False, "backup metadata access unavailable"
+            published = metadata.get("createdAt") or ""
+            if (metadata.get("id") != vid
+                    or metadata.get("additionalData", {}).get("channelId") != channel_id
+                    or not published):
+                return [], False, "backup metadata missing date or channel ownership"
+            stamp = datetime.fromisoformat(published.replace("Z", "+00:00"))
+            if stamp.tzinfo is None:
+                return [], False, "backup metadata date has no timezone"
+            videos.append({"video_id": vid, "channel_id": channel_id,
+                           "title": metadata.get("title") or "",
+                           "description": metadata.get("description") or "",
+                           "published_at": published})
+            if len(_backup_metadata_cache) >= 512:
+                _backup_metadata_cache.pop(next(iter(_backup_metadata_cache)))
+            _backup_metadata_cache[(channel_id, vid)] = videos[-1]
+        videos.sort(key=lambda v: datetime.fromisoformat(v["published_at"].replace("Z", "+00:00")), reverse=True)
+        return videos[:limit], True, ""
+    except Exception as exc:
+        return [], False, f"backup {type(exc).__name__}: {exc}"
 
 
 async def fetch_channel_videos_rss(
@@ -1219,11 +1353,10 @@ _scan_lock = asyncio.Lock()
 
 
 def _block_detail(failed_count: int, attempted: int) -> str:
-    """User-facing wording for a cycle the breaker judged to be a block on us."""
-    return (f"{failed_count} of the {attempted} channel feeds checked were refused. "
-            "YouTube limits how many times a day this server may read feeds; it has cut "
-            "us off for now and always lets us back in at midnight PDT. Checking pauses "
-            "until then, so videos posted meanwhile arrive late rather than being lost.")
+    return (f"{failed_count} of the {attempted} channels could not be checked through "
+            "RSS or backup discovery. YouTube is refusing requests. Feed checks "
+            "back off automatically; recovery time is not known. New uploads may "
+            "arrive late while access is unavailable.")
 
 
 async def youtube_scan_once() -> None:
@@ -1268,9 +1401,11 @@ async def _youtube_scan_once_locked() -> None:
     global _rss_block_until, _rss_block_streak
     attempted = 0
     blocked = False
+    backup_channels = []
     if _rss_block_until and time.monotonic() < _rss_block_until:
         log.info("youtube: RSS backoff active for another %.0fs — skipping feed poll",
                  _rss_block_until - time.monotonic())
+        backup_channels = list(channel_ids)
     else:
         _rss_block_until = 0.0
         # Half the feeds failing is a block on us, not N channels breaking at once.
@@ -1284,12 +1419,15 @@ async def _youtube_scan_once_locked() -> None:
                 all_videos.extend(videos)
                 if not ok:
                     failed_feeds.append(detail)
+                    backup_channels.append(channel_id)
             except Exception as e:
                 log.warning("youtube: channel %s RSS error: %s", channel_id, e)
                 failed_feeds.append(f"{type(e).__name__}: {e or 'no detail'}")
+                backup_channels.append(channel_id)
             attempted += 1
-            if len(failed_feeds) >= block_threshold:
+            if len(failed_feeds) >= block_threshold or _rss_block_until > time.monotonic():
                 blocked = True
+                backup_channels.extend(channel_ids[i + 1:])
                 break
             if i < len(channel_ids) - 1:
                 await asyncio.sleep(rss_pace_s)
@@ -1299,7 +1437,7 @@ async def _youtube_scan_once_locked() -> None:
             base = cfg.get("youtube.rss_block_backoff_seconds", 1800)
             cap = cfg.get("youtube.rss_block_backoff_max_seconds", 7200)
             delay = min(base * (2 ** (_rss_block_streak - 1)), cap)
-            _rss_block_until = time.monotonic() + delay
+            _rss_block_until = max(_rss_block_until, time.monotonic() + delay)
             log.warning(
                 "youtube: %d of %d feeds refused — abandoning cycle, pausing RSS "
                 "for %.0f min (streak %d)",
@@ -1309,6 +1447,19 @@ async def _youtube_scan_once_locked() -> None:
             _rss_block_streak = 0
             _rss_block_until = 0.0
 
+    if backup_channels:
+        # Discover uploads during RSS cooldown without retrying refused feeds.
+        failed_feeds = []
+        for channel_id in backup_channels:
+            videos, ok, detail = await _fetch_channel_videos_backup(session, channel_id, limit)
+            all_videos.extend(videos)
+            if not ok:
+                failed_feeds.append(detail)
+            await asyncio.sleep(rss_pace_s)
+        attempted = len(channel_ids)
+        log.info("youtube: backup discovery checked %d channels; %d failed",
+                 len(backup_channels), len(failed_feeds))
+
     if attempted:
         try:
             from consensus_engine.alerts.ops_alert import report_ops_state
@@ -1317,16 +1468,15 @@ async def _youtube_scan_once_locked() -> None:
                 "youtube_rss",
                 down=failed_count > 0,
                 failure_class="youtube_rss",
-                title="YouTube feed access",
+                title="YouTube channel discovery",
                 # Only blame the nightly limit when the breaker actually tripped —
                 # a stray one-feed failure is not evidence of a block.
                 detail=(_block_detail(failed_count, attempted) if blocked
                         else f"{failed_count} of the {attempted} channel feeds checked "
-                             "were refused, and retrying did not help. The next check "
+                             "could not be checked through RSS or backup discovery. The next check "
                              "picks up anything missed."
                         ) if failed_count else "",
-                fix=("Nothing to do — it clears itself at midnight PDT." if blocked
-                     else "Nothing to do unless this keeps repeating."),
+                fix="Automatic retries and backup discovery are enabled. No subscription change is needed.",
             )
         except Exception as exc:
             log.warning("youtube: could not update outage state: %s", exc)

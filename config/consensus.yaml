@@ -291,10 +291,10 @@ llm:
   # calls landed on reasoning models that leave .content empty = a failure).
   model: "openai/gpt-oss-120b"
   fallback_models:
-    - "qwen/qwen3-235b-a22b-2507"      # Alibaba; 8.5/10, 0.7s, $0.10/M out
+    - "qwen/qwen3-235b-a22b-2507"      # Alibaba; 2026-10-04 catalog: $0.0875/M in, $0.35/M out
     - "deepseek/deepseek-v4-flash"     # DeepSeek; prior primary, proven, 1M ctx
     - "openrouter/free"                # credit-exhaustion net (random free router)
-  text_model: "qwen/qwen3-235b-a22b-2507"   # 2026-06-16 calibration bake-off: best-calibrated scorer (0/36 ordering inversions, 9/9 in guideline band, widest spread) AND $0.10/M out — 4x cheaper than the prior lead gpt-4.1-nano (1 inversion, 7/9 band, $0.40). Non-reasoning, clean tight-512 + 3/3 reliability. Data: .omc/research/model-bakeoff-2026-06-15/calibration2_results.json
+  text_model: "qwen/qwen3-235b-a22b-2507"   # 2026-10-04 TODO #44 re-test: retained; 9/9 scorer cases in band, 0 inversions, 1.7s median, vs 6/9 in band for the best new cheap candidates. Current OpenRouter price $0.0875/M in, $0.35/M out. See todo/model-bakeoff-2026-06-15.md (Round 4).
   text_fallback_models:
     - "openai/gpt-4.1-nano"            # OpenAI; prior text lead — deterministic (0-pt repeat gap), fast, proven; kept as diverse backup 1
     - "mistralai/mistral-nemo"         # Mistral; cheapest clean ($0.03/M out), diverse backup 2
@@ -370,9 +370,10 @@ llm:
     - "qwen/qwen3.7-flash"                        # same 6/9, ~3x cheaper; fails the false-premise question (offered to add tickers), so it is the backup, not the primary
     - "upstage/solar-pro4"                        # 10x cheaper again; correct on the light questions, times out on the heavy investigative ones
     - "openai/gpt-5.6-luna"                       # different family; 3/8 when raced, kept for provider diversity
-  vision_model: "google/gemma-4-31b-it:free"
+  vision_model: "google/gemma-4-31b-it"  # 2026-10-04: paid endpoint returned valid JSON on real charts; :free returned 429 on every probe.
   vision_fallback_models:
-    - "google/gemini-2.5-flash-lite"  # same paid chart reader already used for Wolf; survives free upstream 429s
+    - "google/gemini-2.5-flash-lite"  # valid JSON on both real charts and general vision prompt
+    - "google/gemma-4-31b-it:free"   # last-resort credit-exhaustion net; upstream 429s observed in the bake-off
   min_confidence: 70
   # Primary-tier output cap. Set to 8000 (was 4096) to match narrator's
   # hardcoded synthesis ceiling and give other callers headroom. Floor is
@@ -1148,15 +1149,14 @@ wolf:
                                         #   out; ~2k in + ~220 out per chart).
       - "google/gemini-2.5-flash-lite"
     paid_fallback_model: ""             # unused — the pool above is already the paid reader.
-  # Dedicated chain for thesis extraction (own chain, NOT the shared role="primary"
-  # chain). Leads with gpt-oss-120b: 2026-06-02 it honored the stricter "skip
-  # daily-performance mentions" prompt 4/4 (no false GOOG bull) where the weaker
-  # deepseek-v4-flash had over-extracted. deepseek/free kept as fallbacks.
-  # 2026-07-12: same model, PAID tier. The :free tier 429d 2/4 on a real 33k-char
-  # transcript (188 failures vs 1 success in the 07-05..07-10 logs), so extraction
-  # was silently demoting to deepseek — the very model this chain leads with
-  # gpt-oss-120b to avoid.
+  # Dedicated thesis-extraction chain. TODO #44 Round 4 (2026-10-04): both
+  # Gemini Flash versions passed all five saved hard emails (IGV bears recovered,
+  # no recap-ticker false theses); 3.8 also supplied 29/29 source-backed quotes.
+  # gpt-oss/deepseek/free remain emergency cross-provider fallbacks; they did
+  # not clear this round's full-email quality gate and should not lead.
   extraction_models:
+    - "google/gemini-3.8-flash"
+    - "google/gemini-3.7-flash"
     - "openai/gpt-oss-120b"
     - "deepseek/deepseek-v4-flash"
     - "openrouter/free"

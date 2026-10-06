@@ -2776,14 +2776,16 @@ async def _yt_follow_and_reply(handle_or_url: str, channel_id_discord: str, mess
 
     try:
         session = await get_session()
-        async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, allow_redirects=True) as resp:
+        async with session.get(url, params={"ucbcb": "1"}, headers={"User-Agent": "Mozilla/5.0"}, allow_redirects=True) as resp:
             if resp.status != 200:
                 await send_command_reply(channel_id_discord, message_id, f"Could not fetch channel page (HTTP {resp.status}).")
                 return
             html = await resp.text()
 
-        # Extract channel_id from page HTML
-        m = re.search(r'"channelId"\s*:\s*"(UC[^"]{20,})"', html)
+        # Current channel metadata uses externalId; retain older page support.
+        m = re.search(r'"externalId"\s*:\s*"(UC[\w-]{22})"', html)
+        if not m:
+            m = re.search(r'"channelId"\s*:\s*"(UC[^"]{20,})"', html)
         if not m:
             # Fallback: canonical link
             m = re.search(r'href="https://www\.youtube\.com/channel/(UC[^"]{20,})"', html)

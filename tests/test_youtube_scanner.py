@@ -127,7 +127,7 @@ async def test_rss_retries_a_startup_timeout_then_recovers(monkeypatch):
 
     assert len(videos) == 2
     assert session.get.call_count == 2
-    sleep.assert_awaited_once_with(1.0)
+    sleep.assert_awaited_once_with(5.0)
 
 
 @pytest.mark.asyncio
@@ -144,6 +144,7 @@ async def test_scan_reports_a_feed_that_still_fails_after_retries(monkeypatch):
     report = AsyncMock()
     monkeypatch.setattr("consensus_engine.alerts.ops_alert.report_ops_state", report)
 
+    monkeypatch.setattr(youtube_mod, "_fetch_channel_videos_backup", AsyncMock(return_value=([], False, "backup unavailable")))
     await youtube_mod._youtube_scan_once_locked()
 
     report.assert_awaited_once()

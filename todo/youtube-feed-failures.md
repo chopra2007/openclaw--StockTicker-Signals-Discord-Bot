@@ -1,16 +1,45 @@
-# 9 of 14 YouTube channel feeds fail on every check
+# YouTube channel discovery during feed refusals
 
-**Status:** DONE 2026-08-22
+**Status:** DONE — deployed and verified 2026-10-05
 **Created:** 2026-08-19
 
-**CURRENT STATUS (2026-08-22):** Done — the fix is proven live. Root cause is a
-**nightly per-IP limit on YouTube's side**, not broken channels and not our blacklist
-problem. Three fixes are in (retry the 404, stop hammering a block, poll less often),
-and the block window of 2026-08-20 exercised all of them on real traffic: the breaker
-tripped at 20:10 PDT ("7 of 14 feeds refused"), escalated its pause 30 → 60 → 120 min
-across three streaks, held through the night, expired ~01:44 PDT, and the scanner was
-back to processing new videos normally by 05:33 PDT (23 spans / 10 signals on one
-video at 06:41). The fix is complete and proven.
+**CURRENT STATUS (2026-10-05):** RSS feeds return HTTP 404 from both Windows and
+the VPS, including a control channel. Requests are already spaced five seconds
+apart and normal polls run every 15 minutes. These observations do not prove a
+daily quota or guarantee recovery at midnight. The old alert overstated both.
+
+The revised scanner uses paced public Videos, Shorts, and Streams pages when RSS
+fails or its cooldown is active. Existing stored metadata preserves upload dates;
+unseen uploads use the already configured metadata provider. Channel ownership and
+dated metadata are required. Discovery keeps only the latest configured number
+across all categories, including already processed uploads, so old Shorts are not
+promoted as new. Metadata is cached to avoid spending credits on repeated polls.
+
+HTTP 429 stops further requests to the affected source or metadata key and honors
+Retry-After. RSS retries use at least the normal five-second spacing. The error
+alert no longer promises a midnight reset and clears when backup discovery works.
+
+Verification: the 20 original targeted checks passed before changes; all 88
+relevant checks passed after the fix, including feed parsing, retry/cooldown,
+backup discovery, channel follow, transcript-first ingest, and alert handling.
+A code review found partial-result and metadata-cooldown issues; both were fixed
+and covered by regression tests. Real backup discovery succeeded for all 15
+configured channels. The scanner was installed with unchanged ownership and file
+mode, and the engine restarted successfully. Both background services are active;
+the workspace symlink is correct and the boot model-chain check passed.
+
+The unrelated pre-existing live changes were preserved. The first production poll
+completed at 12:47 a.m. Pacific on October 5. A startup timeout retried with the
+corrected five-second spacing; the cycle completed without a discovery outage,
+and logged coverage plus a backlog depth of zero. RSS was healthy for that poll;
+the separate real backup checks exercised all 15 channels.
+YouTube Premium is not used by these unauthenticated feed requests. The Google
+AI subscription does not authenticate this discovery path either.
+
+## Historical investigation from August 2026
+
+The following observations and conclusions describe the old incident. They do not
+establish the cause or recovery time of the October failures.
 
 ## What is actually happening — evidence, not theory
 

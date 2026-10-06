@@ -277,11 +277,11 @@ The one place that lists every bot switch touched in the 2026-06-15 build: what'
 
 Swap out the dead NVIDIA backup model the health check flagged with a live one, so the text model chain has a working second fallback.
 
-## 44. AI model bake-offs — master reference (what we picked, how to re-run one) — DONE 2026-06-15
+## 44. AI model bake-offs — master reference (what we picked, how to re-run one) — DONE 2026-10-05
 
 **File:** `model-bakeoff-2026-06-15.md`
 
-The one place to start for any "are we using the best/cheapest AI model?" question. Holds all three bake-offs (2026-06-04, 2026-06-15/16, and the 2026-08-18 question-answering round), split by how each job must be tested: simple one-shot jobs (tweet scoring, briefs, `!all` write-ups) test cheap with a throwaway script; the question-answering bot must be tested through the real `!ask` path because the cheap test picked a model that then timed out on every real heavy question. Cost rule up top: always give the owner a total estimate before running, target ~$1, never over $5. Old #24 and #85 are folded in here.
+The one place to start for any "are we using the best/cheapest AI model?" question. Four rounds include the 2026-10-04/05 screen of 25 recent and incumbent models, then a parallel deeper check of six owner-requested IDs. The original $0.80 estimate and added $0.45 estimate were both stated before testing; measured research charges totaled $0.61491, with live checks estimated to keep the round under $0.92 and below the $5 ceiling. Kept the proven tweet scorer, primary writer, `!all`, and agent chains; promoted Gemini 3.8/3.7 for Wolf text extraction and paid Gemma 4 for general chart vision. The six follow-up models did not clear the scorer, Wolf, or vision quality gates, so no further chain change was made. Deployed and separately live-checked tweet scoring, Wolf text, both vision paths, `!all`, `!ask`, and mentions. The linked detail records price, speed, quality, failures, rate limits, test costs, and regression results. Old #24 and #85 are folded in here.
 
 ## 45. Stop the bot repeating one command until it runs out of time — DONE 2026-08-03
 
@@ -775,14 +775,10 @@ Keep a short, honest record of what went wrong building #85–#87 — the file-o
 
 **File:** `youtube-feed-failures.md`
 
-**CURRENT STATUS (2026-08-22):** Done — the fix is proven live. Root cause is a
-**nightly per-IP limit on YouTube's side**, not broken channels and not our blacklist
-problem. Three fixes are in (retry the 404, stop hammering a block, poll less often),
-and the block window of 2026-08-20 exercised all of them on real traffic: the breaker
-tripped at 20:10 PDT ("7 of 14 feeds refused"), escalated its pause 30 → 60 → 120 min
-across three streaks, held through the night, expired ~01:44 PDT, and the scanner was
-back to processing new videos normally by 05:33 PDT (23 spans / 10 signals on one
-video at 06:41). The fix is complete and proven.
+**CURRENT STATUS (2026-10-05):** RSS feeds return HTTP 404 from both Windows and
+the VPS, including a control channel. Requests are already spaced five seconds
+apart and normal polls run every 15 minutes. These observations do not prove a
+daily quota or guarantee recovery at midnight. The old alert overstated both.
 
 Work out why 9 of the bot's 14 YouTube channel feeds fail every check, and fix it, so the bot stops missing new videos.
 

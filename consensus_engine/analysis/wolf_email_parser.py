@@ -370,9 +370,9 @@ async def _extract_theses_llm(body: str, temperature: float = 0.1) -> dict:
         {"role": "user", "content": user_content},
     ]
     attempts = 1 + int(cfg.get("wolf.extraction_retries", 2) or 0)
-    # Dedicated extraction chain (leads with gpt-oss-120b, which honors the
-    # "skip daily-performance mentions" rule), not the shared role="primary"
-    # chain. Falls back to role="primary" config if the key is unset.
+    # Dedicated extraction chain, not the shared role="primary" chain.
+    # Its lead is set in wolf.extraction_models after the full-email bake-off.
+    # Falls back to role="primary" config if the key is unset.
     extraction_chain = cfg.get("wolf.extraction_models", []) or None
     for i in range(attempts):
         raw = await call_with_fallback(

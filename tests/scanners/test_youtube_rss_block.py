@@ -77,6 +77,7 @@ def _setup_scan(monkeypatch, channels, results):
     monkeypatch.setattr(db, "get_retryable_youtube_videos", AsyncMock(return_value=[]))
     monkeypatch.setattr(db, "has_video_been_processed", AsyncMock(return_value=True))
     monkeypatch.setattr(youtube_mod, "get_session", AsyncMock(return_value=MagicMock()))
+    monkeypatch.setattr(youtube_mod, "_fetch_channel_videos_backup", AsyncMock(return_value=([], False, "backup unavailable")))
     fetch = AsyncMock(side_effect=results)
     monkeypatch.setattr(youtube_mod, "_fetch_channel_videos_rss_result", fetch)
     report = AsyncMock()
@@ -95,7 +96,7 @@ async def test_majority_failure_abandons_the_cycle(monkeypatch):
     # Threshold is 4 of 8 — it stops there rather than burning all 8.
     assert fetch.await_count == 4
     assert report.await_args.kwargs["down"] is True
-    assert "4 of the 4" in report.await_args.kwargs["detail"]
+    assert "8 of the 8" in report.await_args.kwargs["detail"]
     assert youtube_mod._rss_block_until > 0
 
 
@@ -111,7 +112,7 @@ async def test_blocked_cycle_skips_the_next_poll_entirely(monkeypatch):
     await youtube_mod._youtube_scan_once_locked()
 
     assert fetch.await_count == 0
-    report.assert_not_awaited()      # no repeat alert, state stays down
+    assert report.await_args.kwargs["down"] is True  # backup still unavailable
 
 
 @pytest.mark.asyncio
