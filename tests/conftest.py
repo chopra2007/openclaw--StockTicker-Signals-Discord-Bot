@@ -1,8 +1,15 @@
 """Shared pytest fixtures for the consensus_engine test suite."""
+import importlib.util
 import inspect
 
 import pytest
 from unittest.mock import AsyncMock, patch
+
+# The member dashboard's tests need its own Python 3.12 environment
+# (requirements-web.lock: fastapi, argon2, ...). The bot's interpreter
+# doesn't have it, so the bot suite and the push gate skip that folder.
+if importlib.util.find_spec("fastapi") is None:
+    collect_ignore = ["member_dashboard"]
 
 
 @pytest.fixture(autouse=True)
