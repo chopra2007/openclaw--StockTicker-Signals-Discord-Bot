@@ -129,6 +129,16 @@ class RetractionAnnotation(PublicModel):
 class Level(PublicModel):
     label: ShortText
     price: Metric
+    note: Text | None = None  # Why the level is there (owner 2026-10-06: explain every trade-plan level).
+
+
+class Horizon(PublicModel):
+    """One outlook row: next week / month from option prices, next year from Wall Street targets."""
+    label: Literal["week", "month", "year"]
+    low: Metric | None
+    high: Metric | None
+    middle: Metric | None = None
+    note: Text | None = None
 
 
 class AnalysisPayload(PublicModel):
@@ -141,6 +151,7 @@ class AnalysisPayload(PublicModel):
     levels: list[Level] = Field(default_factory=list, max_length=50)
     risk_metrics: list[Metric] = Field(default_factory=list, max_length=50)
     context_metrics: list[ContextMetric] = Field(default_factory=list, max_length=20)
+    horizons: list[Horizon] = Field(default_factory=list, max_length=3)
 
 
 class Filing(PublicModel):

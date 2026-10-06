@@ -54,8 +54,7 @@ def test_setup_levels_picks_due_ticker_and_waits_for_members(feed):
 
     computed = []
     class Collector:
-        async def __call__(self, ticker): computed.append(ticker); raise ValueError('no data')
-        def services(self): raise AssertionError('not reached')
+        async def study(self, ticker): computed.append(ticker); raise ValueError('no data')
     assert asyncio.run(setup_levels.refresh_one(store, Collector(), clock=lambda: now)) == 'TEST'
     with store.transaction() as con:
         row = con.execute('SELECT price,computed_at FROM setup_levels WHERE ticker=?', ('TEST',)).fetchone()

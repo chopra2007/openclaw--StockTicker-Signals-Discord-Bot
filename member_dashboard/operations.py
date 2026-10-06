@@ -198,12 +198,14 @@ class _NoSchwabAccess:
     def get_option_chain(self,*_,**__): raise ValueError('schwab_not_provisioned')
     def get_price_history(self,*_,**__): raise ValueError('schwab_not_provisioned')
     def get_quote(self,*_,**__): raise ValueError('schwab_not_provisioned')
+    def get_expirations(self,*_,**__): raise ValueError('schwab_not_provisioned')
 
 
 class _NoAnalysisSettings:
     """Exported bot settings missing: analysis completes as 'unavailable'."""
     async def __call__(self,ticker): raise ValueError('analysis_settings_missing')
     def services(self): raise ValueError('analysis_settings_missing')
+    async def study(self,ticker,write=None): raise ValueError('analysis_settings_missing')
 
 
 def analyst_notes(store,window=7*86400):

@@ -1,22 +1,24 @@
-"""Recent news headlines for one ticker from Google News RSS (free, no key).
+"""Recent news for one ticker from Bing News and Google News RSS (free, no key).
 
 Feeds the Custom Stock Analysis write-up and the assistant (owner report 2026-10-06:
 "a few generic comments about price, and nothing else. No recent news or other catalysts").
+Bing gives the publisher's own link and a one-line summary with the facts ("BNP Paribas raised
+its price target to $345"); Google adds headlines Bing misses. Google's links stay Google
+redirects: resolving them server-side gets this server blocked ("429, unusual traffic").
 """
 from dataclasses import dataclass
-from dataclasses import replace
 from email.utils import parsedate_to_datetime
 import asyncio
-import json
 import re
 import time
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlsplit, urlunsplit
 import xml.etree.ElementTree as ET
 
 import aiohttp
 
 WINDOW = 7 * 86400
 FEED = 'https://news.google.com/rss/search'
+BING = 'https://www.bing.com/news/search'
 
 
 @dataclass(frozen=True)
@@ -25,6 +27,7 @@ class Headline:
     source: str
     published: float
     url: str
+    summary: str = ''
 
 
 def parse(xml_text, *, now, limit=8):
@@ -46,6 +49,39 @@ def parse(xml_text, *, now, limit=8):
     return rows[:limit]
 
 
+def parse_bing(xml_text, *, now, limit=10):
+    """Bing News RSS: the real article address is the `url` query value of Bing's click link."""
+    if '<!DOCTYPE' in xml_text.upper() or '<!ENTITY' in xml_text.upper(): return []
+    rows, seen = [], set()
+    for item in ET.fromstring(xml_text).iter('item'):
+        title = ' '.join((item.findtext('title') or '').split())
+        summary = ' '.join((item.findtext('description') or '').split())
+        source = ' '.join((item.findtext('{*}Source') or '').split()).removesuffix(' on MSN')
+        try: published = parsedate_to_datetime(item.findtext('pubDate') or '').timestamp()
+        except (TypeError, ValueError): continue
+        link = parse_qs(urlsplit((item.findtext('link') or '').strip()).query).get('url', [''])[0]
+        link = article_url(link)
+        key = title.lower()
+        if not title or not link or key in seen or not now - WINDOW <= published <= now + 3600: continue
+        seen.add(key)
+        rows.append(Headline(title[:300], source[:80], published, link, summary[:400]))
+    rows.sort(key=lambda row: row.published, reverse=True)
+    return rows[:limit]
+
+
+def about(row, ticker, name):
+    """Keep stories about this company: the ticker or the company's name is in the title or summary."""
+    text = row.title + ' ' + row.summary
+    if re.search(rf'(?<![A-Za-z]){re.escape(ticker)}(?![A-Za-z])', text): return True
+    first = name.split()[0] if name else ''
+    words = [name] + ([first] if len(first) >= 4 and first.lower() not in _GENERIC else [])
+    return any(re.search(rf'\b{re.escape(word)}\b', text, re.I) for word in words if word)
+
+
+# First words too common to identify a company on their own ("Advanced Micro Devices" -> AMD only).
+_GENERIC = {'advanced', 'american', 'applied', 'first', 'general', 'global', 'international', 'united', 'national', 'new', 'the'}
+
+
 def article_url(value):
     """A plain https article link (no login, port or tracking query), else None."""
     try:
@@ -59,44 +95,43 @@ def article_url(value):
         return None
 
 
-_HEADERS = {'User-Agent': 'Mozilla/5.0', 'Cookie': 'CONSENT=YES+cb; SOCS=CAI'}  # Skips the EU consent page.
+async def _feed(session, url, params):
+    async with session.get(url, params=params, headers={'User-Agent': 'Mozilla/5.0'}, allow_redirects=False) as response:
+        if response.status != 200: return ''
+        body = bytearray()  # One read() returns only the first chunk; read to the end.
+        while chunk := await response.content.read(65536):
+            body.extend(chunk)
+            if len(body) > 1_000_000: return ''
+    return body.decode('utf-8', 'replace')
 
 
-async def _publisher_link(session, url):
-    """Google News links are redirects; ask Google for the real article address (owner: links must open
-    the article). Two small requests; on any failure the Google link is kept."""
-    try:
-        gid = urlsplit(url).path.rsplit('/', 1)[1]
-        async with session.get('https://news.google.com/articles/' + gid, headers=_HEADERS, max_redirects=3) as page:
-            if page.status != 200 or urlsplit(str(page.url)).hostname != 'news.google.com': return url
-            html = (await page.read()).decode('utf-8', 'replace')
-        sig, stamp = re.search(r'data-n-a-sg="([^"]+)"', html), re.search(r'data-n-a-ts="(\d+)"', html)
-        if not sig or not stamp: return url
-        inner = json.dumps(['garturlreq', [['X', 'X', ['X', 'X'], None, None, 1, 1, 'US:en', None, 1, None, None, None, None, None, 0, 1],
-                                           'X', 'X', 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0], gid, int(stamp.group(1)), sig.group(1)])
-        body = 'f.req=' + quote(json.dumps([[['Fbv4je', inner, None, 'generic']]]))
-        async with session.post('https://news.google.com/_/DotsSplashUi/data/batchexecute', data=body, allow_redirects=False,
-                                headers={**_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}) as answer:
-            text = (await answer.read()).decode('utf-8', 'replace') if answer.status == 200 else ''
-        real = json.loads(json.loads(text.split('\n\n', 1)[1])[0][2])[1]
-        return article_url(real) or url
-    except Exception:
-        return url
+def short_name(company):
+    """'Micron Technology, Inc. Common Stock' -> 'Micron Technology' (for search and matching)."""
+    name = re.split(r' (?:Common Stock|Class [A-C]|Ordinary Shares|American Depositary)', company or '')[0]
+    name = re.sub(r',? (?:Inc\.?|Corporation|Corp\.?|Holdings?|Ltd\.?|plc|N\.V\.|S\.A\.|Co\.?)$', '', name.strip(), flags=re.I)
+    return name.strip()
 
 
-async def headlines(ticker, *, limit=8, clock=time.time):
+async def headlines(ticker, name='', *, limit=12, clock=time.time):
     """Never raises: a news outage leaves the analysis without news, nothing else."""
-    params = {'q': f'{ticker} stock when:7d', 'hl': 'en-US', 'gl': 'US', 'ceid': 'US:en'}
+    now = clock()
+    queries = [f'{ticker} stock'] + ([f'{name} stock', name] if name else [])
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=12), trust_env=False) as session:
-            async with session.get(FEED, params=params, headers={'User-Agent': 'Mozilla/5.0'}, allow_redirects=False) as response:
-                if response.status != 200: return []
-                body = bytearray()  # One read() returns only the first chunk; read to the end.
-                while chunk := await response.content.read(65536):
-                    body.extend(chunk)
-                    if len(body) > 1_000_000: return []
-            rows = parse(body.decode('utf-8', 'replace'), now=clock(), limit=limit)
-            links = await asyncio.gather(*(_publisher_link(session, row.url) for row in rows[:5]))
-        return [replace(row, url=link) for row, link in zip(rows, links)] + rows[5:]
+            async def bing(query):
+                try: return parse_bing(await _feed(session, BING, {'q': query, 'format': 'rss', 'mkt': 'en-US', 'qft': 'interval="7"'}), now=now)
+                except Exception: return []
+            async def google():
+                try: return parse(await _feed(session, FEED, {'q': f'{ticker} stock when:7d', 'hl': 'en-US', 'gl': 'US', 'ceid': 'US:en'}), now=now, limit=limit)
+                except Exception: return []
+            found = await asyncio.gather(*(bing(query) for query in queries), google())
     except Exception:
         return []
+    rows, seen = [], set()
+    for row in [row for group in found for row in group]:  # Bing first: it has summaries and direct links.
+        key = re.sub(r'[^a-z0-9]', '', row.title.lower())[:60]
+        if key in seen or not about(row, ticker, name): continue
+        seen.add(key)
+        rows.append(row)
+    rows.sort(key=lambda row: row.published, reverse=True)
+    return rows[:limit]

@@ -96,3 +96,16 @@ Owner fix rounds 1-3 done and live; details and done-tests in [UX fixes](member-
 Commits fea6f73 (assistant live data, news + analyst calls in analysis, SEC 90 days), 55e8b47 (Apple-style
 redesign, chat assistant, Ask in place), 03ca05f (risks after plan, real article links). Testing phase: member
 throttles lifted. Open: browser test suite not run (port 3444 is the live site), egress allowlist, ideas list in TODO #121.
+
+## Session notes 2026-10-06 (round 4: analysis as good as Gemini — paused mid-work)
+- **Worked on:** New `member_dashboard/trade_map.py` (levels from swing highs/lows, 3-month most-traded price,
+  20/50/200-day averages, 52-week range, largest option open interest, options-implied week/month ranges; plan with
+  a reason per level), `street.py` (Nasdaq targets, ratings, earnings date), Bing News with summaries + direct
+  links (Google link decoding now 429-blocked), collector `study()` shared by analysis, assistant and setup cards,
+  write-up on google/gemini-3.8-flash with a number fact-check (`check_note`), contract fields `Level.note` +
+  `horizons`, page parser + Analysis block. Live probes NVDA + MU: notes on par with Gemini, no invented figures.
+  57 related tests pass; 5 full-suite failures all pre-existing (TODO #121 follow-up 7).
+- **Decisions:** keep the bot's signal/score; replace only the plan; Gemini 3.8 Flash (~1.5 cents/report) inside the
+  $3/day cap; drop Google link decoding (server gets blocked).
+- **Next:** CSS for `.outlook` and level reasons, `npm run typecheck && build`, release.sh (backend + --web),
+  live browser check NVDA + MU desktop/phone, then mark round 4 live.

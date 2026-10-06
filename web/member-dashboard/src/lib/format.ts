@@ -34,28 +34,45 @@ export function sourceLabel(url: string | null | undefined): string | null {
   } catch { return null; }
 }
 
+/** One bullet: an optional bold lead ("Patent settlement (Oct 6)") and the text after it. */
+export type NotePoint = {label: string | null; text: string};
+export type Note = {headline: string; points: NotePoint[]; outlook: Partial<Record<'week' | 'month' | 'year', string>>; risks: NotePoint[]};
+
 /**
- * The write-up arrives as "**TL;DR:** verdict", "## Key Points" bullets and "## Risk Considerations"
- * bullets (owner report 2026-10-06). Older write-ups are one long paragraph: those become a headline
- * and up to 4 sentences, dropping sentences about entries, stops and targets (the plan block shows them).
+ * The write-up arrives as "**TL;DR:** verdict", then "## Catalysts" bullets ("- **Label (Oct 6):** text"),
+ * "## Outlook" (Next week / Next month / Next year) and "## Risk Considerations" (owner report 2026-10-06).
+ * Notes written before that have "## Key Points" (shown like catalysts) or are one long paragraph: those
+ * become a headline and up to 4 sentences, dropping sentences about entries, stops and targets.
  */
-export function parseNote(text: string): {headline: string; points: string[]; risks: string[]} {
-  const clean = text.replace(/\*\*/g, '').replace(/\r/g, '');
+export function parseNote(text: string): Note {
+  const clean = text.replace(/\r/g, '');
   const parts = clean.split(/^#{1,3}\s+(.+)$/m);
-  const bullets = (body: string) => body.split('\n').map(l => l.trim()).filter(l => /^[-•*]\s+/.test(l)).map(l => l.replace(/^[-•*]\s+/, ''));
+  const point = (line: string): NotePoint => {
+    const m = /^\*\*(.+?)\*\*:?\s*(.*)$/.exec(line);
+    const label = m ? m[1].replace(/:$/, '').trim() : null;
+    return {label, text: (m ? m[2] : line).replace(/\*\*/g, '').trim()};
+  };
+  const bullets = (body: string) => body.split('\n').map(l => l.trim()).filter(l => /^[-•*]\s+/.test(l)).map(l => point(l.replace(/^[-•*]\s+/, '')));
   if (parts.length > 1) {
-    const headline = parts[0].replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
-    let points: string[] = [], risks: string[] = [];
+    const headline = parts[0].replace(/\*\*/g, '').replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
+    const note: Note = {headline, points: [], outlook: {}, risks: []};
     for (let i = 1; i < parts.length; i += 2) {
-      const name = parts[i].toLowerCase(), body = parts[i + 1] || '';
-      if (name.includes('risk')) risks = risks.concat(bullets(body));
-      else points = points.concat(bullets(body));
+      const name = parts[i].toLowerCase(), items = bullets(parts[i + 1] || '');
+      if (name.includes('risk')) note.risks.push(...items);
+      else if (name.includes('outlook')) {
+        for (const item of items) {
+          const key = /week/i.test(item.label || '') ? 'week' : /month/i.test(item.label || '') ? 'month' : /year/i.test(item.label || '') ? 'year' : null;
+          if (key) note.outlook[key] = item.text;
+        }
+      } else note.points.push(...items);
     }
-    return {headline, points: points.slice(0, 5), risks: risks.slice(0, 3)};
+    note.points = note.points.slice(0, 5);
+    note.risks = note.risks.slice(0, 3);
+    return note;
   }
-  const flat = clean.replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
+  const flat = clean.replace(/\*\*/g, '').replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
   const sentences = flat.split(/(?<=[.!?])\s+(?=[A-Z$"(])/).map(s => s.trim()).filter(Boolean);
   const headline = sentences.shift() || '';
   const planWords = /\b(buy zone|entry|stop[- ]loss|stop|targets?|risk[- ]reward|price target)\b/i;
-  return {headline, points: sentences.filter(s => !planWords.test(s) && s.length > 20).slice(0, 4), risks: []};
+  return {headline, points: sentences.filter(s => !planWords.test(s) && s.length > 20).slice(0, 4).map(text => ({label: null, text})), outlook: {}, risks: []};
 }

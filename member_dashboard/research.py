@@ -3,7 +3,7 @@ from dataclasses import replace
 import math
 from .contracts import (SectionResult, SecPayload, Filing, InsiderSummary, Metric,
     OptionsPayload, OptionContract, MovePayload, MoveRange, QuoteTime, Evidence,
-    AnalysisPayload, Level, ContextMetric)
+    AnalysisPayload, Level, ContextMetric, Horizon)
 from .providers import ProviderContext, ProviderSpec, ResearchCompletion
 
 
@@ -313,10 +313,7 @@ class MemberResearchProvider:
         from .market_reader import safe_url
         services,records=self.context.analysis_services,self.context.analysis_records
         collector=self.context.analysis_collector
-        if collector is not None:
-            records={ticker:await collector(ticker)}
-            services=collector.services()
-        if services is None or records is None: raise ValueError('analysis_records_unavailable')
+        if collector is None and (services is None or records is None): raise ValueError('analysis_records_unavailable')
         def approved(rows,use):
             lineage=self.context.lineage['analysis']
             tracked={(source.source_id,source.source_version) for source in lineage.sources}
@@ -324,6 +321,7 @@ class MemberResearchProvider:
                 raise ValueError('untracked_evidence')
             for row in rows:
                 self._authorize('analysis',use,observed_at=row.observed_at)
+        if collector is not None: return await self._study(ticker,collector,approved)
         record=records[ticker]
         approved(record.evidence,'retain')
         async def synthesis(request):
@@ -348,6 +346,49 @@ class MemberResearchProvider:
                                 conflicts=list(result.conflicts),levels=levels)
         approved(result.evidence,'display_raw')
         from .news import article_url
+        evidence=[Evidence(id=row.id,source_id=row.source_id,source_version=row.source_version,observed_at=row.observed_at,
+                           url=article_url(row.url) if row.id.startswith('news-') else safe_url(row.url),excerpt=row.excerpt[:4000],research_only=row.research_only) for row in result.evidence[:200]]
+        return self._result('analysis',payload,observed_at=observed,evidence=evidence)
+
+    async def _study(self,ticker,collector,approved):
+        """Owner 2026-10-06: news catalysts, a week/month/year outlook and a reason for every level."""
+        from .market_reader import safe_url
+        from .news import article_url
+        async def write(request):
+            approved(request.evidence,'model_input')
+            self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
+            response=await collector.synthesis(request)
+            self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
+            return response
+        study=await collector.study(ticker,write=write)
+        approved(study.evidence,'retain')
+        result,facts=study.result,study.facts
+        observed=min((item.observed_at for item in result.evidence if item.observed_at is not None),default=None)
+        self._authorize('analysis',observed_at=observed)
+        usd=lambda value:metric(value,'USD','member trade map')
+        levels,horizons=[],[]
+        plan=(facts or {}).get('trade_plan')
+        if plan:
+            levels+=[Level(label='buy_zone_low',price=usd(plan['entry_low']),note=plan['entry_why']),
+                     Level(label='buy_zone_high',price=usd(plan['entry_high'])),
+                     Level(label='sl',price=usd(plan['stop']),note=plan['stop_why'])]
+            levels+=[Level(label=f'tp{index}',price=usd(target['price']),note=target['why']) for index,target in enumerate(plan['targets'],1)]
+        for row in (facts or {}).get('key_levels',[]):
+            levels.append(Level(label=row['kind'],price=usd(row['price']),note=row['why']))
+        if facts:
+            for label,key in (('week','next_week_range'),('month','next_month_range')):
+                r=facts['options'].get(key)
+                if r: horizons.append(Horizon(label=label,low=usd(r['low']),high=usd(r['high']),
+                                              note=f"Options price a {r['move_pct']}% move by {r['until']}."))
+            ws=facts['wall_street']
+            if ws.get('target_average'):
+                ratings=', '.join(f'{ws[k]} {k}' for k in ('buy','hold','sell') if ws.get(k) is not None)
+                horizons.append(Horizon(label='year',low=usd(ws.get('target_low')),high=usd(ws.get('target_high')),middle=usd(ws['target_average']),
+                                        note='Wall Street price targets'+(f' ({ratings})' if ratings else '')+'.'))
+        payload=AnalysisPayload(summary=study.note[:4000],direction=result.structured.direction.lower(),
+                                score=metric(result.score_breakdown.total,'points','shared additive research score'),
+                                conflicts=list(result.conflicts),levels=levels,horizons=horizons)
+        approved(result.evidence,'display_raw')
         evidence=[Evidence(id=row.id,source_id=row.source_id,source_version=row.source_version,observed_at=row.observed_at,
                            url=article_url(row.url) if row.id.startswith('news-') else safe_url(row.url),excerpt=row.excerpt[:4000],research_only=row.research_only) for row in result.evidence[:200]]
         return self._result('analysis',payload,observed_at=observed,evidence=evidence)

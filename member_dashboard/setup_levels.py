@@ -1,10 +1,9 @@
 """Trade plan levels for recent bot alerts (Trade setups page, owner request 2026-10-06).
 
-The bot stores no entry/stop/target for its alerts; `!all` derives them live. When the compute
-worker is idle it runs the same research calculation (no AI write-up) for the newest alert
-ticker without fresh levels and saves buy zone, stop and targets in `setup_levels`.
+The bot stores no entry/stop/target for its alerts. When the compute worker is idle it runs the
+same study as Custom Stock Analysis (no AI write-up) for the newest alert ticker without fresh
+levels and saves its buy zone, stop and targets in `setup_levels`, so both pages show one plan.
 """
-import dataclasses
 import time
 
 WINDOW = 7 * 86400       # Setups older than this are not shown, so not computed.
@@ -24,13 +23,8 @@ def next_ticker(con, now):
     return row[0] if row else None
 
 
-async def _no_write_up(request):
-    return ''
-
-
 async def refresh_one(store, collector, clock=time.time):
     """Compute and save one ticker's levels. Returns the ticker, or None when nothing is due."""
-    from consensus_engine.analysis.research_compute import compute_research
     with store.transaction() as con:
         # Members first: the dashboard's Schwab share is small, so skip while anyone is researching.
         if con.execute('SELECT 1 FROM web_jobs WHERE created_at>? LIMIT 1', (clock() - 120,)).fetchone():
@@ -39,11 +33,11 @@ async def refresh_one(store, collector, clock=time.time):
     if ticker is None:
         return None
     try:
-        inputs = await collector(ticker)
-        services = dataclasses.replace(collector.services(), synthesis=_no_write_up)
-        s = (await compute_research(ticker, inputs, services)).structured
-        values = (ticker, clock(), _DIRECTIONS.get(s.direction, 'neutral'), s.current_price, s.buy_zone_low,
-                  s.buy_zone_high, s.sl, s.tp1, s.tp2, s.tp3)
+        study = await collector.study(ticker)
+        s, plan = study.result.structured, (study.facts or {}).get('trade_plan')
+        targets = [t['price'] for t in plan['targets']] + [None] * 3 if plan else [None] * 3
+        values = (ticker, clock(), _DIRECTIONS.get(s.direction, 'neutral'), study.facts['price'] if study.facts else s.current_price,
+                  plan and plan['entry_low'], plan and plan['entry_high'], plan and plan['stop'], *targets[:3])
     except Exception:
         # Data briefly unavailable: save an empty row (no price) that is retried in 10 minutes,
         # so one failing ticker never blocks the others.

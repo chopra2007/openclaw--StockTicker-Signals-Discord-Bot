@@ -10,10 +10,10 @@ FILTERS={'rvol_threshold':2.0,'rvol_lookback_days':20,'rsi_period':14,'ema_fast'
 NOW=datetime(2026,6,25,14,36,tzinfo=ZoneInfo('America/Los_Angeles')).timestamp()
 
 
-def history(days=60):
+def history(days=260):
     import pandas as pd
-    index=pd.date_range('2026-04-01',periods=days,freq='B',tz='America/New_York')
-    closes=[100+i*0.5 for i in range(days)]
+    index=pd.date_range('2025-06-20',periods=days,freq='B',tz='America/New_York')
+    closes=[100+i*0.1 for i in range(days)]
     return pd.DataFrame({'Open':[c-0.4 for c in closes],'High':[c+1 for c in closes],'Low':[c-1 for c in closes],
                          'Close':closes,'Volume':[1_000_000+i*1000 for i in range(days)]},index=index)
 
@@ -26,25 +26,32 @@ class Client:
     def get_price_history(self,ticker,**kwargs):
         if self.fail: raise RuntimeError('synthetic outage')
         return history()
-    def get_option_chain(self,ticker,nearest):
+    def get_expirations(self,ticker):
+        if self.fail: raise RuntimeError('synthetic outage')
+        from test_sec_outcomes import synthetic_chain
+        return synthetic_chain().expirations
+    def get_option_chain(self,ticker,**kwargs):
         if self.fail: raise RuntimeError('synthetic outage')
         from test_sec_outcomes import synthetic_chain
         return synthetic_chain()
 
 
-def collector(client,synthesis=None,news=(),notes=()):
+def collector(client,synthesis=None,news=(),notes=(),street=None):
     from member_dashboard.analysis_collector import AnalysisCollector
+    from member_dashboard.street import Street
     async def default(request): return ''
-    async def headlines(ticker): return list(news)
+    async def headlines(ticker,name): return list(news)
+    async def wall_street(ticker): return street or Street('NVIDIA Corporation Common Stock',160.0,120.0,200.0,30,2,0,'2026-08-26')
     return AnalysisCollector(client,source_id='schwab-marketdata',filter_cfg=FILTERS,settings_values={},
-                             synthesis=synthesis or default,clock=lambda:NOW,news=headlines,notes=lambda ticker:list(notes))
+                             synthesis=synthesis or default,clock=lambda:NOW,news=headlines,notes=lambda ticker:list(notes),
+                             street=wall_street)
 
 
 async def test_collector_builds_typed_inputs_with_the_bots_own_filters():
     from consensus_engine.analysis.technical_filters import run_filters
     from consensus_engine.analysis.research_contracts import ResearchInputs
     inputs=await collector(Client())('NVDA')
-    assert type(inputs) is ResearchInputs and inputs.sanity_quote==130.0 and len(inputs.daily_candles)==60
+    assert type(inputs) is ResearchInputs and inputs.sanity_quote==130.0 and len(inputs.daily_candles)==260
     window=[dict(r) for r in inputs.daily_candles][-22:]
     expected=run_filters({'c':130.0,'pc':128.0},{'o':[c['open'] for c in window],'h':[c['high'] for c in window],
         'l':[c['low'] for c in window],'c':[c['close'] for c in window],'v':[int(c['volume']) for c in window]},'long',FILTERS)
@@ -67,6 +74,13 @@ async def test_news_and_analyst_calls_reach_the_write_up():
     gap=await made.services().gap_fill(GapFillRequest('NVDA',0,False,'long',NOW+20))
     assert gap.catalyst_research_snippets[0].startswith('Nvidia wins Stargate order (Reuters, ')
     assert gap.evidence[0].id=='news-0' and gap.evidence[0].url=='https://example.com/a'
+    sent=[]
+    async def write(request): sent.append(json.loads(request.structured_json)); return ''
+    study=await made.study('NVDA',write=write)
+    facts=sent[0]
+    assert facts['news'][0]['title']=='Nvidia wins Stargate order' and 'target 210' in facts['analyst_calls'][0]['text']
+    assert facts['wall_street']['target_average']==160.0 and facts['next_earnings']=='Aug 26, 2026' and facts['company']=='NVIDIA'
+    assert len(sent)==2 and '## Outlook' in study.note  # Empty drafts twice: the plain note from facts.
 
 
 def test_news_feed_keeps_recent_unique_headlines():
@@ -115,7 +129,7 @@ async def test_writeup_is_charged_to_the_assistant_dollar_cap(tmp_path,monkeypat
         def post(self,url,**kwargs): sent.append(kwargs['json']);return Response()
     monkeypatch.setattr(module.aiohttp,'ClientSession',Session)
     synthesis=module.CappedSynthesis('sk-or-synthetic',Budget(),request_scopes=(ASSISTANT_REQUEST_SCOPE,),cost_scopes=(ASSISTANT_COST_SCOPE,))
-    request=SynthesisRequest('NVDA','{}','{}',('news',),(),(),30.0)
+    request=SynthesisRequest('NVDA','{"ticker": "NVDA"}','{}',('news',),(),(),30.0)
     per_call=synthesis.units(synthesis.body(request))[ASSISTANT_COST_SCOPE]
     ensure_assistant_policy(broker,per_call*1.5,NOW)  # Room for exactly one write-up.
     assert await synthesis(request)=='**TL;DR:** x'
