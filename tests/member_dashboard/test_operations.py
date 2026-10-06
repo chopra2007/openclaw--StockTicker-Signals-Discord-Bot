@@ -7,9 +7,11 @@ import pytest
 def test_fixed_role_config_cannot_smuggle_api_compute_privileges(tmp_path):
     from member_dashboard.operations import validate_config
     base={'role':'api','uid':123,'web_path':str(tmp_path/'web'),'origin':'https://dashboard.test',
-          'signing_key':str(tmp_path/'signing'),'authority_socket':str(tmp_path/'authority.sock'),'authority_uid':124}
+          'signing_key':str(tmp_path/'signing'),'authority_socket':str(tmp_path/'authority.sock'),'authority_uid':124,
+          'assistant_key_sha256':'a'*64,'assistant_verified_until':2e9}
     assert validate_config(base)['role']=='api'
-    for extra in ({'market_path':'/private/source'},{'command':['sh']},{'verified':True}):
+    for extra in ({'market_path':'/private/source'},{'command':['sh']},{'verified':True},{'assistant_key':'/etc/key'},
+                  {'assistant_key_sha256':'sk-or-plain-key'},{'assistant_verified_until':True}):
         with pytest.raises(ValueError): validate_config({**base,**extra})
 
 
@@ -64,9 +66,12 @@ def test_api_role_constructs_no_market_reader_or_compute(tmp_path,monkeypatch):
     monkeypatch.setattr('member_dashboard.compute_launcher.CgroupLauncher',forbidden)
     key=tmp_path/'key';key.write_bytes(b'x'*32);key.chmod(0o600)
     app=api_app({'web_path':str(tmp_path/'web'),'signing_key':str(key),
-        'origin':'https://dashboard.test','authority_socket':str(tmp_path/'rpc'),'authority_uid':124})
+        'origin':'https://dashboard.test','authority_socket':str(tmp_path/'rpc'),'authority_uid':124,
+        'assistant_key_sha256':'a'*64,'assistant_verified_until':2e9})
     assert app.state.source_policy.authority_current() is False
-    assert app.state.providers is None
+    transport=app.state.assistant.transport
+    assert transport.available(1e9) and not hasattr(transport,'credential') and not hasattr(transport,'client')
+    assert set(app.state.providers.providers)=={'sec','options','em_daily','em_weekly','analysis'}
     assert not hasattr(app.state,'synthetic_supervisor')
 
 
@@ -222,6 +227,7 @@ def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboar
     class Control:
         def call(self,method): return registry.dispatch({'method':method},peer_uid=123)
         def reconcile(self,key): return registry.reconcile(key)
+        def forget(self,key): return registry.dispatch({'method':'forget','worker':key},peer_uid=123)['ok']
     launcher=CgroupLauncher.__new__(CgroupLauncher);launcher.root=root;launcher.control=Control()
     # Abrupt crash: no worker_exits row. Then crash again after independent broker
     # settlement but before any web commit. Fresh launcher must rediscover tombstone.
@@ -249,3 +255,129 @@ def test_restart_carries_broker_tombstone_into_web_after_crash(research,dashboar
     supervisor=WorkerSupervisor(dashboard.store,lambda:spawned.append(True),lambda _:None,jobs=dashboard.app.state.research,clock=dashboard.clock)
     supervisor.tick()
     assert spawned==[True]
+
+
+def test_quota_role_assistant_cap_survives_restart_and_limit_change(tmp_path):
+    from member_dashboard.store import WebStore
+    from member_dashboard.quota_broker import QuotaBroker,Identity
+    from member_dashboard.operations import ensure_assistant_policy,ASSISTANT_REQUEST_SCOPE,ASSISTANT_COST_SCOPE
+    from member_dashboard.assistant_transport import QUOTA_ENDPOINT
+    now=[1000.0]
+    store=WebStore(tmp_path/'quota.sqlite3');store.migrate()
+    broker=QuotaBroker(store,clock=lambda:now[0])
+    ensure_assistant_policy(broker,3,now[0])
+    who=Identity('dashboard','worker')
+    def spend(attempt,usd):
+        return broker.reserve([ASSISTANT_REQUEST_SCOPE,ASSISTANT_COST_SCOPE],who,QUOTA_ENDPOINT,
+                              {ASSISTANT_REQUEST_SCOPE:1,ASSISTANT_COST_SCOPE:usd},attempt).allowed
+    assert spend('a',2.0) and not spend('b',1.5) and spend('c',0.9)
+    # Restart inside the window (startup forces verified=0 first) keeps the spend history.
+    with store.transaction() as con: con.execute('UPDATE provider_quota_policy SET verified=0')
+    now[0]+=60;ensure_assistant_policy(broker,3,now[0])
+    assert not spend('d',0.2)
+    now[0]+=60;ensure_assistant_policy(broker,5,now[0])
+    assert spend('e',1.9) and not spend('f',0.3)
+    now[0]+=86400;assert spend('g',4.0)
+
+
+def test_bot_feed_rows_publish_only_with_owner_permission_and_live_authority(dashboard):
+    import time
+    from member_dashboard.operations import bot_feed_lineage,owner_permissions,BOT_PRODUCT
+    from member_dashboard.market_reader import SourceName,SourceRecord,MarketPayload
+    from member_dashboard.publication import publishable
+    policy=dashboard.app.state.source_policy
+    now=time.time()
+    row=SourceRecord(SourceName.ANALYST,'post-1','NVDA','v1',now-60,None,None,'bullish','Analyst says up.',
+        MarketPayload(ticker='NVDA',direction='bullish',excerpt='Analyst says up.'))
+    lineage=bot_feed_lineage(row)
+    assert lineage.required_features==['feed'] and lineage.sources[0].product_id==BOT_PRODUCT
+    assert bot_feed_lineage(SourceRecord(SourceName.ALERT,'1','NVDA','v1',now,None,None,'bullish','x',
+        MarketPayload(ticker='NVDA',direction='bullish',excerpt='x'))).required_features==['setups']
+    assert bot_feed_lineage(SourceRecord(SourceName.TICKER,'7','NVDA','v1',now,None,None,'bullish','x',
+        MarketPayload(ticker='NVDA',direction='bullish',excerpt='x'))) is None  # Raw mentions never publish.
+    policy.authority_current=lambda:True
+    assert not policy.authorize_lineage(lineage,'display_raw',now).allowed
+    for permission in owner_permissions([lineage.sources[0].source_id],BOT_PRODUCT,'openclaw-bot','https://docs.x.com/developer-terms',now-1):
+        policy.record(permission)
+    assert all(policy.authorize_lineage(lineage,use,now).allowed for use in ('display_raw','display_derived','retain','model_input'))
+    policy.authority_current=lambda:False
+    assert not policy.authorize_lineage(lineage,'display_raw',now).allowed
+    from dataclasses import replace
+    publication=publishable(replace(row,lineage=lineage))
+    assert publication.required_feature=='feed'
+    # The assistant only uses evidence whose (source, version) the lineage tracks.
+    tracked={(s.source_id,s.source_version) for s in lineage.sources}
+    assert all((e.source_id,e.source_version) in tracked for e in publication.evidence)
+
+
+def test_service_restart_removed_cgroup_settles_and_prunes_tombstones(tmp_path):
+    """systemd deletes the service cgroup on stop; recovery must not block forever."""
+    import os
+    from uuid import uuid4
+    from member_dashboard.exit_control import ExitRegistry
+    from member_dashboard.quota_broker import QuotaBroker,process_identity
+    from member_dashboard.store import WebStore
+    from member_dashboard.compute_launcher import CgroupLauncher
+    quota=WebStore(tmp_path/'quota.sqlite3');quota.migrate()
+    registry=ExitRegistry(QuotaBroker(quota),supervisor_uid=123,compute_uid=456,cgroup_root=Path('/sys/fs/cgroup/synthetic'))
+    gone,alive=str(uuid4()),str(uuid4())
+    boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+    with quota.transaction() as con:
+        con.execute('INSERT INTO trusted_workers VALUES (?,?,?,?,?,?)',(gone,boot+':999999999:1',str(tmp_path/'groups'/gone),1,1.0,'registered'))
+        con.execute('INSERT INTO trusted_workers VALUES (?,?,?,?,?,?)',(alive,process_identity(os.getpid()),str(tmp_path/'groups'/alive),1,2.0,'registered'))
+    assert registry.reconcile(gone) and not registry.reconcile(alive)
+    root=tmp_path/'groups';root.mkdir()
+    class Control:
+        def call(self,method): return registry.dispatch({'method':method},peer_uid=123)
+        def reconcile(self,key): return registry.reconcile(key)
+        def forget(self,key): return registry.dispatch({'method':'forget','worker':key},peer_uid=123)['ok']
+    launcher=CgroupLauncher.__new__(CgroupLauncher);launcher.root=root;launcher.control=Control()
+    assert launcher.recover() is None  # A live owner still blocks replacement.
+    assert not Control().forget(alive) and Control().forget(gone)
+    with quota.transaction() as con:
+        assert [r[0] for r in con.execute('SELECT worker FROM trusted_workers')]==[alive]
+    with pytest.raises(ValueError): registry.dispatch({'method':'forget','worker':alive},peer_uid=456)
+
+
+def test_authority_restart_after_downtime_resumes_only_an_intact_chain(tmp_path):
+    from member_dashboard.authority import DenialJournal,CheckpointStore
+    clock=[1000.0]
+    root=tmp_path/'journal';root.mkdir(mode=0o700)
+    checkpoint=CheckpointStore.create(tmp_path/'checkpoint')
+    journal=DenialJournal.create(root/'journal',root/'anchor',checkpoint=checkpoint,clock=lambda:clock[0])
+    journal.append('feature_disabled','options')
+    clock[0]+=3600  # Server was down for an hour.
+    with pytest.raises(ValueError): journal.current()
+    with pytest.raises(ValueError): journal.renew()
+    journal.restart_renew()
+    assert journal.current()[0][1]=='feature_disabled'
+    # A rolled-back journal (older copy) still cannot resume.
+    head=(1,journal.current()[0][4])
+    clock[0]+=3600
+    checkpoint.advance(head,'f'*64)
+    with pytest.raises(ValueError): journal.restart_renew()
+
+
+def test_symbol_catalog_reads_provisioned_list_and_fails_closed(tmp_path):
+    from member_dashboard.operations import symbol_catalog
+    from member_dashboard.providers import SymbolError
+    path=tmp_path/'symbols.json';path.write_text('{"NVDA":"equity","BRK.B":"equity","QQQ":"fund"}')
+    catalog=symbol_catalog(path)
+    assert catalog.lookup('nvda')=='NVDA' and catalog.lookup('BRK-B')=='BRK.B'
+    with pytest.raises(SymbolError): catalog.lookup('ZZZZ')
+    with pytest.raises(SymbolError): symbol_catalog(tmp_path/'missing.json').lookup('NVDA')
+
+
+async def test_api_and_compute_research_specs_match_exactly(dashboard,tmp_path):
+    from member_dashboard.operations import register_research_specs,research_registry
+    from member_dashboard.providers import ProviderRegistry
+    api=register_research_specs(ProviderRegistry())
+    config={'budget_socket':str(tmp_path/'none.sock'),'schwab_credentials':str(tmp_path/'none.json'),'schwab_state':str(tmp_path),
+            'analysis_settings':str(tmp_path/'none-settings.json'),'assistant_key':str(tmp_path/'none.key')}
+    compute=await research_registry(ProviderRegistry(),dashboard.store,dashboard.app.state.source_policy,object(),config)
+    try:
+        assert set(api.providers)==set(compute.providers)=={'sec','options','em_daily','em_weekly','analysis'}
+        for section in api.providers:
+            assert api.providers[section].descriptor()==compute.providers[section].descriptor()
+    finally:
+        await next(iter(compute.providers.values())).operation.__self__.context.sec_context.client.close()

@@ -1,5 +1,30 @@
 # Member dashboard launch package
 
+## This server (Phase C, 2026-10-05/06) — installed, loopback only
+
+Running as systemd services on 127.0.0.1 (API :3445, website :3444); no public address until go-live.
+The sections below this one are the original design notes; where they say "template" or
+"not installed", this section is the current state.
+
+- **Setup:** `provision.sh` (root, re-runnable): users `md-api/-supervisor/-compute/-quota/-authority/-archive/-frontend`,
+  state under `/var/lib/member-dashboard`, configs in `/etc/member-dashboard`, units, symbol list, owner-attested
+  data permissions. Keys are copied by script from `/root/.openclaw/.env.service`, never printed.
+- **Release:** `release.sh` copies code into `/opt/member-dashboard/current` with readable permissions and restarts;
+  `release.sh --web` also rebuilds the website. Python 3.12 env: `/opt/member-dashboard/venv` (tests: `testvenv`).
+- **Assistant:** OpenRouter `openai/gpt-4o-mini-2024-07-18`, key in `/etc/member-dashboard/providers/openrouter.key`.
+  Cap: `DAILY_USD` (default 3) rolling 24 h, enforced by the quota service before every model call; change with
+  `DAILY_USD=5 bash provision.sh && systemctl restart member-dashboard-quota`.
+- **Data:** home feed reads the bot DB read-only (supervisor bind of the workspace + ACL on `consensus.db*`).
+  Research: SEC from EDGAR; options/expected moves from Schwab using the bot's access token, copied each minute by
+  `member-dashboard-schwab-sync.timer`. The dashboard never refreshes Schwab tokens: Schwab rotates the refresh
+  token on every refresh, so a second refresher would log the bot out. Overnight the bot stops using Schwab,
+  so `member-dashboard-schwab-renew.service` (runs before each copy, as `openclaw`) calls the bot's own locked
+  refresh to keep its token fresh.
+- **Logs:** `journalctl --namespace=member-dashboard`. The compute child's own output is discarded by design.
+- **Public site (live 2026-10-06):** nginx on 443 for `akash.ignorelist.com` (provision.sh step 10), port 80 closed.
+  First admin: as root in a real terminal, `cd /opt/member-dashboard/current && /opt/member-dashboard/venv/bin/python -m member_dashboard.manage create-admin --username NAME`.
+  Still open: backups (64 MB database cap in the backup tool), certificate auto-renew, egress restriction for the compute child.
+
 **NOT READY for production.** These files are review templates. Every service has
 an unconditional false start condition, and fixed Linux role composition rejects
 unknown fields, paths or identities. Nothing in a configuration file can assert production readiness.

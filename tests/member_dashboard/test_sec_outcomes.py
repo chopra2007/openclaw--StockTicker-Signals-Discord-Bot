@@ -566,7 +566,7 @@ def test_review_schwab_chain_preserves_explicit_spot_observation(tmp_path,sec_wi
          'totalVolume':100,'openInterest':500,'volatility':20,'quoteTimeInLong':1791223800000}
     data={'status':'SUCCESS','underlyingPrice':100,'underlying':{'quoteTime':observed*1000 if observed else None},
           'callExpDateMap':{'2026-10-09:4':{'100':[leg]}},'putExpDateMap':{'2026-10-09:4':{'100':[leg]}}}
-    sec_wire.replies['/chains?symbol=SPY&contractType=ALL&toDate=2026-10-09']=(200,data,{})
+    sec_wire.replies['/chains?symbol=SPY&contractType=ALL&toDate=2026-10-09&includeUnderlyingQuote=true']=(200,data,{})
     client,meter,_=isolated_schwab(tmp_path,sec_wire)
     try:
         chain=client.get_option_chain('SPY',to_date='2026-10-09')
@@ -574,3 +574,12 @@ def test_review_schwab_chain_preserves_explicit_spot_observation(tmp_path,sec_wi
         assert chain.calls.iloc[0]['providerQuoteTime']==1791223800000
         assert len(sec_wire.requests)==len(meter.reservations)==2
     finally: client.close()
+
+
+def test_borrowed_schwab_token_never_refreshes(tmp_path,sec_wire):
+    from consensus_engine.scanners.schwab_client import SchwabError
+    from dataclasses import replace
+    client,meter,directory=isolated_schwab(tmp_path,sec_wire)
+    client.context=replace(client.context,refresh_allowed=False)
+    with pytest.raises(SchwabError,match='borrowed_token_stale'): client.get_quote('SPY')
+    assert sec_wire.requests==[] and meter.reservations==[]

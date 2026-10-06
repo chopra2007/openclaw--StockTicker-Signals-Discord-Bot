@@ -1,6 +1,7 @@
 # Not installable until an existing authorized host and certificate are supplied.
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
+    add_header Strict-Transport-Security "max-age=31536000" always;
     server_name UNCONFIGURED_AUTHORIZED_HOST;
     ssl_certificate UNCONFIGURED_CERTIFICATE_PATH;
     ssl_certificate_key UNCONFIGURED_PRIVATE_KEY_PATH;
@@ -12,5 +13,9 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 10s;
     }
-    location / { proxy_pass http://127.0.0.1:3444; }
+    location / {
+        proxy_pass http://127.0.0.1:3444;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
 }

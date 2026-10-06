@@ -82,7 +82,7 @@ class DenialJournal:
         private_output(self.anchor.parent,self.anchor,{'revision':0,'digest':ZERO,'issued_at':now,'expires_at':now+300})
         return self
 
-    def _read(self,con):
+    def _read(self,con,*,allow_expired=False):
         self._protected(self.anchor)
         if self.anchor.stat().st_size>4096: raise ValueError('authority_anchor_limit')
         anchor=json.loads(self.anchor.read_bytes())
@@ -90,7 +90,8 @@ class DenialJournal:
         if (set(anchor)!={'revision','digest','issued_at','expires_at'}
                 or type(anchor['revision']) is not int or not 0<=anchor['revision']<=LIMIT
                 or not all(type(anchor[k]) in (int,float) and math.isfinite(anchor[k]) for k in ('issued_at','expires_at'))
-                or not anchor['issued_at']<=now<anchor['expires_at']<=anchor['issued_at']+300):
+                or not anchor['issued_at']<=now or not anchor['expires_at']<=anchor['issued_at']+300
+                or not (allow_expired or now<anchor['expires_at'])):
             raise ValueError('current_authority_expired_or_invalid')
         rows=con.execute('SELECT * FROM denials ORDER BY revision LIMIT ?',(LIMIT+1,)).fetchall()
         if len(rows)!=anchor['revision']: raise ValueError('authority_revision_mismatch')
@@ -190,11 +191,16 @@ class DenialJournal:
         """Trusted updater heartbeat; stale/mismatched state cannot be renewed."""
         with self._publication_lock(): return self._renew()
 
-    def _renew(self):
+    def restart_renew(self):
+        """Updater startup after downtime. Appends only pass through the updater, so a
+        stopped updater missed none; the full chain must still match the high-water mark."""
+        with self._publication_lock(): return self._renew(allow_expired=True)
+
+    def _renew(self,*,allow_expired=False):
         self._protected(self.path)
         with closing(sqlite3.connect(self.path,timeout=2)) as con:
             con.execute('BEGIN IMMEDIATE')
-            _,anchor=self._read(con)
+            _,anchor=self._read(con,allow_expired=allow_expired)
             now=float(self.clock())
             temporary=self.anchor.parent/(str(uuid4())+'.anchor')
             private_output(self.anchor.parent,temporary,{**anchor,'issued_at':now,'expires_at':now+300})

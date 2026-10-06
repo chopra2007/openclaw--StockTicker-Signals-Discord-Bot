@@ -146,7 +146,9 @@ class ComputeWorker:
         try:
             while not stop_requested() and not self.restart_requested:
                 await self.run_once()
-                await asyncio.sleep(.05)
+                # Idle polling costs several authority-fenced transactions per pass; back off
+                # to 1 s when nothing is running (a new job waits at most ~1 s to start).
+                await asyncio.sleep(.05 if self.current or self.assistant_current else 1.0)
         finally:
             self.runtime.shutdown()
 

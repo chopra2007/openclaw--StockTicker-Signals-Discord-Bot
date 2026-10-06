@@ -1,0 +1,7 @@
+[Unit]
+Description=Copy the bot's Schwab access token to the member dashboard (never refreshes)
+Wants=member-dashboard-schwab-renew.service
+After=member-dashboard-schwab-renew.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/member-dashboard/deploy/schwab-token-sync.py

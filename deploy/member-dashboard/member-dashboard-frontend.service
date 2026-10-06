@@ -1,11 +1,11 @@
 [Unit]
-Description=Member dashboard frontend (unconfigured)
+Description=Member dashboard frontend
 [Service]
 Type=simple
-ExecCondition=/usr/bin/false
-User=UNCONFIGURED_FRONTEND_USER
-Group=UNCONFIGURED_FRONTEND_GROUP
+User=md-frontend
+Group=md-frontend
 WorkingDirectory=/opt/member-dashboard/current/web/member-dashboard
+Environment=NEXT_TELEMETRY_DISABLED=1
 ExecStart=/opt/member-dashboard/node/bin/node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3444
 Slice=member-dashboard.slice
 UMask=0077
@@ -22,12 +22,15 @@ CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 IPAddressDeny=any
 IPAddressAllow=localhost
-InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard /etc/member-dashboard /run/member-dashboard-quota /run/member-dashboard-market
+InaccessiblePaths=-/root -/home/openclaw -/var/lib/member-dashboard -/etc/member-dashboard -/run/member-dashboard-quota -/run/member-dashboard-market
 TasksMax=24
 MemoryMax=512M
 KillMode=control-group
 TimeoutStopSec=10
-Restart=no
+Restart=on-failure
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 LogNamespace=member-dashboard
+[Install]
+WantedBy=multi-user.target

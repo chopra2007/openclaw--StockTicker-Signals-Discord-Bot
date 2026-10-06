@@ -284,8 +284,12 @@ class MemberResearchProvider:
             raise ValueError('feature_unavailable')
         from consensus_engine.analysis.research_compute import MemberResearchProvider as PureProvider
         from .market_reader import safe_url
-        services=self.context.analysis_services
-        if services is None or self.context.analysis_records is None: raise ValueError('analysis_records_unavailable')
+        services,records=self.context.analysis_services,self.context.analysis_records
+        collector=self.context.analysis_collector
+        if collector is not None:
+            records={ticker:await collector(ticker)}
+            services=collector.services()
+        if services is None or records is None: raise ValueError('analysis_records_unavailable')
         def approved(rows,use):
             lineage=self.context.lineage['analysis']
             tracked={(source.source_id,source.source_version) for source in lineage.sources}
@@ -293,7 +297,7 @@ class MemberResearchProvider:
                 raise ValueError('untracked_evidence')
             for row in rows:
                 self._authorize('analysis',use,observed_at=row.observed_at)
-        record=self.context.analysis_records[ticker]
+        record=records[ticker]
         approved(record.evidence,'retain')
         async def synthesis(request):
             approved(request.evidence,'model_input')
@@ -307,7 +311,7 @@ class MemberResearchProvider:
             self._authorize('analysis','model_input')
             approved(response.evidence,'retain')
             return response
-        result=await PureProvider(self.context.analysis_records,replace(services,synthesis=synthesis,gap_fill=gap)).compute(ticker)
+        result=await PureProvider(records,replace(services,synthesis=synthesis,gap_fill=gap)).compute(ticker)
         observed=min((item.observed_at for item in result.evidence if item.observed_at is not None),default=None)
         self._authorize('analysis',observed_at=observed)
         structured=result.structured

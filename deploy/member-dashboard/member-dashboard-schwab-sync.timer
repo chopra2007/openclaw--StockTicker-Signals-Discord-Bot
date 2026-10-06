@@ -1,0 +1,8 @@
+[Unit]
+Description=Copy the bot's Schwab access token every minute
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+[Install]
+WantedBy=timers.target

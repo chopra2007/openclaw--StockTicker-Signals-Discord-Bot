@@ -63,6 +63,9 @@ class ExitRegistry:
         _,owner,cgroup,inode,_,_=row
         try:
             path=Path(cgroup)
+            # A populated cgroup cannot be removed, and the compute UID cannot move
+            # itself elsewhere; a vanished group (service restart) held no process.
+            if not path.exists() and not path.is_symlink(): return confirmed_process_exit(owner)
             if path.resolve(strict=True)!=path or path.stat().st_ino!=inode: return False
             events=dict(line.split() for line in (path/'cgroup.events').read_text().splitlines())
             return events.get('populated')=='0' and confirmed_process_exit(owner)
@@ -90,6 +93,10 @@ class ExitRegistry:
             return {'workers':[row[0] for row in rows]}
         if request.get('method')=='register' and set(request)=={'method','worker','pid'}:
             return {'ok':self.register(request['worker'],request['pid'])}
+        if request.get('method')=='forget' and set(request)=={'method','worker'}:
+            # Only after the supervisor committed the web settlement for a reconciled worker.
+            with self.broker.store.transaction() as con:
+                return {'ok':con.execute("DELETE FROM trusted_workers WHERE worker=? AND state='reconciled'",(request['worker'],)).rowcount==1}
         if request.get('method')=='reconcile' and set(request)=={'method','worker'}:
             if not isinstance(request['worker'],str) or len(request['worker'])>128: raise ValueError('invalid_worker')
             return {'ok':self.reconcile(request['worker'])}

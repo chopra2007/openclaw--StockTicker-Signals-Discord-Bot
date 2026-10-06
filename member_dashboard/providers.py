@@ -29,6 +29,7 @@ class ProviderContext:
     sec_context: object = None
     analysis_records: object = None
     analysis_services: object = None
+    analysis_collector: object = None  # Collects ResearchInputs per ticker at compute time.
     chart_renderer: object = None
     supplied_metrics: object = None
     input_dependencies: object = None
@@ -46,7 +47,7 @@ class ProviderContext:
         from .contracts import Feature, FieldDependency
         from typing import get_args
         paths={}
-        for name in ('analysis_records','analysis_services'):
+        for name in ('analysis_records','analysis_services','analysis_collector'):
             if getattr(self,name) is not None: paths[name]=('analysis','payload')
         for section,rows in (self.supplied_metrics or {}).items():
             if section not in lineage or len(rows)>20: raise ValueError('Invalid input dependencies')

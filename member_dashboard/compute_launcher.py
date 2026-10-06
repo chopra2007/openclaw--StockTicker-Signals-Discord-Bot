@@ -29,6 +29,7 @@ class ExitClient:
             send_frame(con,request);return receive_frame(con)
     def register(self,worker,pid): return self.call('register',worker,pid).get('ok') is True
     def reconcile(self,worker): return self.call('reconcile',worker).get('ok') is True
+    def forget(self,worker): return self.call('forget',worker).get('ok') is True
 
 
 class CgroupChild:
@@ -73,8 +74,8 @@ class CgroupLauncher:
         for worker in response['workers']:
             if str(UUID(worker))!=worker: raise ValueError('invalid_worker')
             path=self.root/worker
-            if path.is_symlink() or not path.is_dir(): raise ValueError('missing_retained_cgroup')
-            (path/'cgroup.kill').write_text('1')
+            if path.is_symlink(): raise ValueError('missing_retained_cgroup')
+            if path.is_dir(): (path/'cgroup.kill').write_text('1')
             if not self.control.reconcile(worker): return None
         return response['workers']
 
@@ -82,6 +83,7 @@ class CgroupLauncher:
         # cgroup interface files are not children; cap retained worker directories.
         if sum(p.is_dir() for p in self.root.iterdir())>=32: raise ValueError('retained_cgroup_capacity')
         worker=str(uuid4());path=self.root/worker;path.mkdir()
+        path.chmod(0o755)  # The independent broker reads cgroup.procs/events; the unit umask is 0007.
         parent,child=socket.socketpair();parent.setsockopt(socket.SOL_SOCKET,socket.SO_PASSCRED,1);parent.settimeout(5)
         process=None
         try:

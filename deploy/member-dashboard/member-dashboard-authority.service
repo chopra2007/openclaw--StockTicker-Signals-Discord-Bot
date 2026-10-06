@@ -1,11 +1,10 @@
-# REVIEW TEMPLATE. Independent denial continuity only; no positive rights grants.
+# Installed by provision.sh. Independent denial continuity only; no positive rights grants.
 [Unit]
 Description=Member dashboard denial authority
 [Service]
 Type=simple
-ExecCondition=/usr/bin/false
-User=UNCONFIGURED_ROLE_USER
-Group=UNCONFIGURED_ROLE_GROUP
+User=md-authority
+Group=md-authority
 WorkingDirectory=/opt/member-dashboard/current
 Slice=member-dashboard.slice
 UMask=0077
@@ -25,11 +24,16 @@ TasksMax=8
 MemoryMax=256M
 KillMode=control-group
 TimeoutStopSec=10
-Restart=no
+Restart=on-failure
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 LogNamespace=member-dashboard
+# A killed server leaves its socket file behind; binding again would fail.
+ExecStartPre=/bin/rm -f /run/member-dashboard-authority/authority.sock
 ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations authority --config /etc/member-dashboard/authority.json
 ReadWritePaths=/var/lib/member-dashboard/denials /var/lib/member-dashboard-high-water /run/member-dashboard-authority
 ReadOnlyPaths=/etc/member-dashboard/authority.json
-InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard/web /var/lib/member-dashboard/quota /etc/member-dashboard/providers
+InaccessiblePaths=-/root -/home/openclaw -/var/lib/member-dashboard/web -/var/lib/member-dashboard/quota -/etc/member-dashboard/providers
+[Install]
+WantedBy=multi-user.target

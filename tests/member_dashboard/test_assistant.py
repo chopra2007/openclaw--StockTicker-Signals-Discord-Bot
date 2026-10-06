@@ -264,17 +264,18 @@ async def test_direct_transport_quota_before_wire_per_turn_no_refunds(transport_
         async def __aexit__(self,*args): pass
         def post(self,url,**kwargs):
             calls.append((url,kwargs));assert kwargs['allow_redirects'] is False
-            assert kwargs['json']['max_completion_tokens']==2048
+            assert kwargs['json']['max_tokens']==2048 and 'store' not in kwargs['json']
+            assert url=='https://openrouter.ai/api/v1/chat/completions' and kwargs['json']['model']=='openai/gpt-4o-mini-2024-07-18'
             return Response()
     monkeypatch.setattr(module.aiohttp,'ClientSession',Session)
     transport=DirectTransport('synthetic',client,('model-request',),('model-token',),dashboard.clock()+100,clock=dashboard.clock)
     for i in range(2):
         result=await transport.complete([{'text':'question'}],{},TurnBudget('turn-'+str(i),30))
         assert result.input_tokens==5
-    with pytest.raises(BudgetDeferred): await transport.complete([{'text':'question'}],{},TurnBudget('turn-3',30))
     assert len(calls)==2
     with dashboard.store.transaction() as con:
-        assert con.execute("SELECT sum(units) FROM provider_admissions WHERE scope_id='model-token'").fetchone()[0]==260096
+        expected=module.input_reserve(module.wire_body([{'text':'question'}],{}))+2048
+        assert con.execute("SELECT sum(units) FROM provider_admissions WHERE scope_id='model-token'").fetchone()[0]==2*expected
         assert con.execute("SELECT sum(units) FROM provider_admissions WHERE scope_id='model-request'").fetchone()[0]==2
     # A finished attempt cannot be replayed, even with the same identity.
     with pytest.raises(BudgetDeferred): await transport.complete([],{},TurnBudget('turn-0',30))
@@ -399,7 +400,7 @@ async def test_source_time_lineage_and_uncited_evidence_retraction(assistant,res
 async def test_direct_transport_consumes_bounded_fragmented_response(transport_budget,dashboard,monkeypatch):
     import asyncio,json
     from member_dashboard import assistant_transport as module
-    assert module.ENDPOINT=='https://api.openai.com/v1/chat/completions'
+    assert module.ENDPOINT=='https://openrouter.ai/api/v1/chat/completions'
     body=json.dumps({'model':module.MODEL,'choices':[{'finish_reason':'stop','message':{'content':'{"answer":"fragmented"}'}}]}).encode()
     seen=[]
     async def server(reader,writer):
@@ -473,3 +474,61 @@ def test_research_and_assistant_claims_share_one_durable_lane(assistant,research
     with ThreadPoolExecutor(2) as pool:
         results=list(pool.map(claim,[False,True]))
     assert sum(value is not None for value in results)==1
+
+
+async def test_direct_transport_dollar_cap_stops_spending(dashboard,monkeypatch):
+    import json
+    from member_dashboard import assistant_transport as module
+    from member_dashboard.quota_broker import QuotaBroker,Identity
+    broker=QuotaBroker(dashboard.store,clock=dashboard.clock)
+    who=Identity('dashboard','synthetic-assistant')
+    body=module.wire_body([{'text':'question'}],{})
+    per_turn=module.input_reserve(body)*module.INPUT_USD+2048*module.OUTPUT_USD
+    broker.configure_scope('requests',window_seconds=86400,verified_limit=1000,bot_reserved=0,dashboard_allocated=1000,safety_margin=0,verified=True,expires_at=dashboard.clock()+100)
+    broker.configure_scope('usd',window_seconds=86400,verified_limit=per_turn*2.5,bot_reserved=0,dashboard_allocated=per_turn*2.5,safety_margin=0,verified=True,expires_at=dashboard.clock()+100)
+    broker.configure_endpoint(module.QUOTA_ENDPOINT,['requests','usd'],participation_verified=True,minimum_units=1e-9)
+    class Client:
+        def reserve(self,scopes,caller,endpoint,units,attempt): return broker.reserve(scopes,who,endpoint,units,attempt)
+        def finish(self,identity,outcome): return broker.finish(identity,who,outcome,None)
+    calls=[]
+    class Response:
+        status=200
+        def __init__(self): self.content=self;self.sent=False
+        async def read(self,limit):
+            if self.sent:return b''
+            self.sent=True
+            return json.dumps(dict(model=module.MODEL,choices=[dict(finish_reason='stop',message=dict(content='{"answer":"safe"}'))],usage=dict(prompt_tokens=5,completion_tokens=4))).encode()
+        async def __aenter__(self): return self
+        async def __aexit__(self,*args): pass
+    class Session:
+        def __init__(self,**kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self,*args): pass
+        def post(self,url,**kwargs): calls.append(kwargs);return Response()
+    monkeypatch.setattr(module.aiohttp,'ClientSession',Session)
+    transport=module.DirectTransport('synthetic',Client(),('requests',),(),dashboard.clock()+100,clock=dashboard.clock,cost_scopes=('usd',))
+    assert transport.available(dashboard.clock())
+    for i in range(2): await transport.complete([{'text':'question'}],{},module.TurnBudget('cap-'+str(i),30))
+    with pytest.raises(module.AssistantUnavailable): await transport.complete([{'text':'question'}],{},module.TurnBudget('cap-2',30))
+    assert len(calls)==2
+    with dashboard.store.transaction() as con:
+        assert con.execute("SELECT sum(units) FROM provider_admissions WHERE scope_id='usd'").fetchone()[0]==pytest.approx(2*per_turn)
+
+
+def test_api_descriptor_matches_compute_transport_without_key():
+    import hashlib
+    from member_dashboard.assistant_transport import DirectTransport,TransportDescriptor
+    direct=DirectTransport('sk-or-synthetic',object(),('requests',),(),200.0,cost_scopes=('usd',))
+    twin=TransportDescriptor(hashlib.sha256(b'sk-or-synthetic').hexdigest(),('requests',),(),200.0,cost_scopes=('usd',))
+    assert twin.fingerprint==direct.fingerprint and twin.model==direct.model
+    assert twin.available(100.0) and not twin.available(200.0)
+    assert 'sk-or-synthetic' not in repr(direct) and not TransportDescriptor('x',('requests',),(),200.0,('usd',)).available(100.0)
+
+
+def test_wire_body_names_the_exact_tools():
+    from member_dashboard.assistant_transport import wire_body
+    from member_dashboard.assistant_tools import TOOL_SCHEMAS
+    system=wire_body([{'text':'q'}],TOOL_SCHEMAS)['messages'][0]['content']
+    assert 'Exact tool names: get_research, lookup_market, request_research.' in system
+    assert 'answer is one plain-text string' in system
+    assert 'Exact tool names' not in wire_body([{'text':'q'}],{})['messages'][0]['content']

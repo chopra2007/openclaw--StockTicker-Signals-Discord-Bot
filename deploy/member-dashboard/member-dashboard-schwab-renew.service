@@ -1,0 +1,12 @@
+[Unit]
+Description=Keep the bot's Schwab access token fresh for the member dashboard (bot's own locked refresh)
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=/home/openclaw/.openclaw/.env.service
+# The bot only refreshes when it uses Schwab, so overnight the copied token goes stale.
+# Same refresh code and file lock as the bot (safe with rotation); renew 5 min early so
+# the per-minute copy always hands the dashboard a token with minutes to spare.
+ExecStart=/usr/bin/python3 -c "import consensus_engine.scanners.schwab_client as s; s.REFRESH_EARLY = 300; s.get_access_token()"

@@ -4,8 +4,8 @@ Description=Member dashboard archive retention
 [Service]
 Type=oneshot
 ExecCondition=/usr/bin/false
-User=UNCONFIGURED_ROLE_USER
-Group=UNCONFIGURED_ROLE_GROUP
+User=md-archive
+Group=md-archive
 WorkingDirectory=/opt/member-dashboard/current
 Slice=member-dashboard.slice
 UMask=0077
@@ -33,4 +33,4 @@ ExecStart=/opt/member-dashboard/venv/bin/python -m member_dashboard.operations a
 RuntimeMaxSec=45
 ReadWritePaths=/var/lib/member-dashboard/archives
 ReadOnlyPaths=/etc/member-dashboard/archive.json /etc/member-dashboard/archive-key
-InaccessiblePaths=/root /home/openclaw /var/lib/member-dashboard/web /var/lib/member-dashboard/quota /var/lib/member-dashboard/denials /var/lib/member-dashboard-high-water /etc/member-dashboard/providers
+InaccessiblePaths=-/root -/home/openclaw -/var/lib/member-dashboard/web -/var/lib/member-dashboard/quota -/var/lib/member-dashboard/denials -/var/lib/member-dashboard-high-water -/etc/member-dashboard/providers

@@ -753,6 +753,9 @@ class SchwabContext:
     clock: object
     token_url: str
     market_url: str
+    # Schwab rotates the refresh token on every refresh, so a second refresher would
+    # log the bot out. The dashboard borrows the bot's synced access token instead.
+    refresh_allowed: bool = True
 
 
 class SchwabClient:
@@ -795,6 +798,7 @@ class SchwabClient:
                 access = token.get('access_token')
                 if not isinstance(access, str) or not access: raise SchwabError('invalid_token_state')
                 return access
+            if not self.context.refresh_allowed: raise SchwabError('borrowed_token_stale')
             frozen = _refresh_created(document)
             if not math.isfinite(frozen) or now >= frozen + REFRESH_TTL:
                 self.context.state.mark_expired(now)
@@ -842,7 +846,8 @@ class SchwabClient:
             expirations = [value for value in self.get_expirations(symbol) if value >= today]
             if not expirations: return None
             to_date = expirations[min(nearest,len(expirations))-1]
-        params={'symbol':to_schwab_symbol(symbol),'contractType':'ALL','toDate':to_date}
+        # includeUnderlyingQuote supplies underlying.quoteTime, the spot observation time.
+        params={'symbol':to_schwab_symbol(symbol),'contractType':'ALL','toDate':to_date,'includeUnderlyingQuote':'true'}
         if from_date: params['fromDate']=from_date
         data = self._get('/chains',params)
         if data.get('status') not in ('SUCCESS',None): raise SchwabError('chain_unavailable')

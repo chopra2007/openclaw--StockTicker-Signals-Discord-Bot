@@ -1222,18 +1222,25 @@ Use `enable savings`, `disable savings`, or `$savings` to control smaller output
 
 Make research evidence checks reproducible without private ignored files or server-only manifests, so clean-clone CI can pass every check.
 
-## 121. Complete the member dashboard production launch — PARKED: external permissions and capacity
+## 121. Complete the member dashboard production launch — LIVE; follow-ups open
 
-**Details:** [Deployment runbook](deploy/member-dashboard/README.md) and
-[local verification](docs/member-dashboard-verification.md).
+**Details:** [Deployment runbook](deploy/member-dashboard/README.md),
+[Phase C plan + log](todo/member-dashboard-phaseC-plan.md).
 
-**CURRENT STATUS (2026-10-05 Pacific):** Local implementation, independent review
-and synthetic verification are complete. Nothing was deployed or enabled.
-The server still fails disk headroom. Real source/use permissions, positive
-current authority, account/IP quota coverage and restricted assistant access
-remain unverified; real provider mappings stay closed. Finish those evidence-based
-integrations, production identity/filesystem/egress/HTTPS and backup/deletion
-proofs, the separately authorized same-host bot comparison, and the development
-dependency re-audit before seeking owner approval of the concrete launch result.
-Do not guess credentials or rights, delete unrelated files, enable the templates,
-or treat the synthetic load result as production acceptance.
+**CURRENT STATUS (2026-10-06 Pacific):** LIVE at https://akash.ignorelist.com (owner approved go-live
+2026-10-06). All roles run as their own users, enabled at boot; nginx on 443, port 80 closed.
+Proven live: assistant answers (OpenRouter gpt-4o-mini, $3/day cap stops spending), feed cards from the
+bot DB, SEC/options/expected moves/analysis (AI write-up shares the $3 cap), public sign-in + research.
+Bot speed unchanged with the dashboard on (fresh `!all` median 90.1 s off vs 91.7 s on). Disk 29 GB free.
+
+**Open follow-ups:**
+1. Owner: create the first admin (needs your password typed in):
+   in an SSH terminal as root (it needs a real terminal for the hidden password prompt):
+   `cd /opt/member-dashboard/current && /opt/member-dashboard/venv/bin/python -m member_dashboard.manage create-admin --username NAME`
+   then suspend test member `phasec_probe` in the admin page (kept for the 07:00 PDT 2026-10-06 market-hours check).
+   Raw bot mentions (`ticker_signals`) are deliberately NOT member feed cards (~55k/day; 90-day retention ≈ 12 GB).
+2. Backups: built-in encrypted backup caps the database at 64 MB (30 files / 128 MB total); the web DB is
+   already 42 MB (mostly bot feed cards, rebuildable). Decide: back up accounts only, or raise caps.
+3. Certificate auto-renew is OFF (renewal opens port 80 briefly); reminder fires 2026-12-15, expiry 2027-01-04.
+4. Egress: the worker can reach the whole internet (no per-host allowlist yet).
+5. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` size (42 MB after first day).

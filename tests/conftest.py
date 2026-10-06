@@ -12,6 +12,16 @@ if importlib.util.find_spec("fastapi") is None:
     collect_ignore = ["member_dashboard"]
 
 
+    class _NeedsWebEnvironment(pytest.Module):
+        def collect(self):
+            pytest.skip("member dashboard tests need the web environment")
+
+    def pytest_pycollect_makemodule(module_path, parent):
+        # collect_ignore misses test files named directly on the command line.
+        if "member_dashboard" in module_path.parts:
+            return _NeedsWebEnvironment.from_parent(parent, path=module_path)
+
+
 @pytest.fixture(autouse=True)
 def no_discord_alerts():
     """Prevent any test from firing real Discord alerts."""
