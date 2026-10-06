@@ -177,10 +177,13 @@ async def test_cross_reference_still_caches():
     stack_patches = _patches(news_cascade_mock=cascade_mock)
     for p in stack_patches:
         p.start()
+    # The cache key includes a 5-minute time slot; pin the clock mid-slot so the
+    # two calls can't straddle a slot boundary (flaked under the parallel suite).
     try:
-        # First call populates the L1 cache; second call must hit it.
-        result1 = await cross_reference("NVDA", tweet)
-        result2 = await cross_reference("NVDA", tweet)
+        with patch("time.time", return_value=1_800_000_150.0):
+            # First call populates the L1 cache; second call must hit it.
+            result1 = await cross_reference("NVDA", tweet)
+            result2 = await cross_reference("NVDA", tweet)
     finally:
         for p in stack_patches:
             p.stop()
