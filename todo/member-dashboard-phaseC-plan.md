@@ -90,3 +90,9 @@ Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file i
 - Backups NOT enabled: backup tool caps the DB at 64 MB (owner decision, TODO #121 follow-up).
 - Market-hours proof task scheduled 07:00 PDT (`/root/task_system/member-dashboard-check/run.sh` → notifications.log).
 - CI red (run 37420925542): 8 research tests pass here but fail in CI (local data) → restored to `.test-baseline`.
+
+## Session notes 2026-10-06 (afternoon/evening)
+Owner fix rounds 1-3 done and live; details and done-tests in [UX fixes](member-dashboard-ux-fixes.md).
+Commits fea6f73 (assistant live data, news + analyst calls in analysis, SEC 90 days), 55e8b47 (Apple-style
+redesign, chat assistant, Ask in place), 03ca05f (risks after plan, real article links). Testing phase: member
+throttles lifted. Open: browser test suite not run (port 3444 is the live site), egress allowlist, ideas list in TODO #121.
