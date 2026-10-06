@@ -10,5 +10,5 @@ function OwnedChart({id,horizon}:{id:string;horizon:string}){const [url,setUrl]=
 export function ExpectedMove({payload}:{payload:MovePayload}){const main=payload.ranges[0];const spot=payload.spot?.value;const move=main?.expected_move?.value;
  const pct=spot&&move?(100*move/spot).toFixed(1)+'%':null;
  return <><div className="move-line"><span className="move-big">±{money(move)}</span>{pct&&<span className="move-pct">{pct}</span>}</div>
- <p className="move-range">{money(main?.lower?.value)} – {money(main?.upper?.value)}{payload.expiry?<> · by {formatDay(payload.expiry)}</>:null}</p>
+ <p className="move-range">{money(main?.lower?.value)} – {money(main?.upper?.value)}{payload.expiry?<>, by {formatDay(payload.expiry)}</>:null}</p>
  {payload.chart_asset_id&&<OwnedChart key={payload.chart_asset_id} id={payload.chart_asset_id} horizon={payload.horizon==='daily'?'Daily':'Weekly'}/>}</>}

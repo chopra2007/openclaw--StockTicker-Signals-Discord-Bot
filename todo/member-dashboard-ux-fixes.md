@@ -97,3 +97,8 @@ ChatGPT/Claude; research reads like a real analyst note (news + catalysts, not j
 8. **Look and wording.** Done: Apple-style look (system font, light/dark, grouped rounded lists, frosted top
    bar, big titles); no redundant or hard-to-read text anywhere.
 History page: passable, only restyled with the rest.
+Status 2026-10-06 15:35 PDT: all 8 round-2 items done and checked live as `claude_qa` (desktop, phone light + dark,
+no console errors): assistant answers NVDA/MU/AMD from live data with news in ~6 s, general questions answered,
+off-topic refused; Enter sends; title = first question; Ask opens in place on the ticker page; MU/NVDA analysis
+leads with news + analyst calls, specific risks; SEC shows 90 days with plain names. Browser test specs updated
+to the new wording but NOT run: their test server needs port 3444, which the live site uses.

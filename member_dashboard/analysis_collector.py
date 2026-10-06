@@ -37,7 +37,8 @@ SYSTEM = (
     'the most important recent news or catalyst (name the event and its date), then what analysts are saying, '
     'then the price trend and options positioning. Skip any point the data does not support.\n'
     'Then `## Risk Considerations` with 2-3 bullets starting `- `: specific business, news or positioning '
-    'risks, no price levels.\n'
+    'risks named from the data (an event, a competitor, a valuation or positioning fact), no price levels, never '
+    'generic lines like "market volatility" or "broader market trends".\n'
     'No other sections, no trade plan restatement, no @mentions, no URLs, no filler.'
 )
 

@@ -18,7 +18,7 @@ export async function join(page:Page,request:APIRequestContext){
   await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Create account'}).click();
   await expect(page.getByRole('heading',{name:'Sign in'})).toBeVisible();
   await page.getByLabel('Username',{exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);
-  await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Market overview'})).toBeVisible();
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Overview',exact:true})).toBeVisible();
   return username;
 }
-export async function research(page:Page,ticker='SPY') {await page.getByRole('searchbox',{name:'Ticker'}).fill(ticker);await page.getByRole('button',{name:'Research',exact:true}).click();await expect(page.getByRole('heading',{name:`${ticker} research`,exact:true})).toBeVisible();}
+export async function research(page:Page,ticker='SPY') {await page.getByRole('searchbox',{name:'Search a ticker'}).fill(ticker);await page.getByRole('searchbox',{name:'Search a ticker'}).press('Enter');await expect(page.getByRole('heading',{name:ticker,exact:true,level:1})).toBeVisible();}

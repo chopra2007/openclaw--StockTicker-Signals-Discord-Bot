@@ -27,14 +27,15 @@ def _insider_line(detail):
     rows=detail.data if detail is not None and detail.status in ('ok','partial') and detail.data else ()
     if not rows: return 'Insider transaction details unavailable.'
     first=rows[0]
+    name=first.reporter_name.title() if first.reporter_name.isupper() else first.reporter_name
     trades=[r for r in rows if r.transaction_type in ('Open Market Purchase','Open Market Sale')]
     if trades:
         verb='bought' if trades[0].transaction_type=='Open Market Purchase' else 'sold'
         shares=sum(r.shares or 0 for r in trades); value=sum((r.shares or 0)*(r.price or 0) for r in trades)
         amount=f' for ${value/1e6:,.1f}M' if value>=1e6 else f' for ${value:,.0f}' if value else ''
-        return f'{first.reporter_name} ({first.title}) {verb} {shares:,.0f} shares{amount} on the open market.'
+        return f'{name} ({first.title}) {verb} {shares:,.0f} shares{amount} on the open market.'
     kinds=sorted({r.transaction_type.lower() for r in rows if r.transaction_type!='Unknown'})
-    return f'{first.reporter_name} ({first.title}): routine {", ".join(kinds) or "transaction"}, not an open-market trade.'
+    return f'{name} ({first.title}): routine {", ".join(kinds) or "transaction"}, not an open-market trade.'
 
 class MemberResearchProvider:
     def __init__(self, context):

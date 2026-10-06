@@ -35,15 +35,27 @@ export function sourceLabel(url: string | null | undefined): string | null {
 }
 
 /**
- * The AI write-up arrives as markdown-ish prose ("**TL;DR:** ..." + a long paragraph).
- * Show it as one headline and a few short points. Sentences about entries, stops and
- * targets are dropped: the trade plan block shows those numbers.
+ * The write-up arrives as "**TL;DR:** verdict", "## Key Points" bullets and "## Risk Considerations"
+ * bullets (owner report 2026-10-06). Older write-ups are one long paragraph: those become a headline
+ * and up to 4 sentences, dropping sentences about entries, stops and targets (the plan block shows them).
  */
-export function summarize(text: string): {headline: string; points: string[]} {
-  const clean = text.replace(/\*\*/g, '').replace(/^\s*(TL;?DR)\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
-  const sentences = clean.split(/(?<=[.!?])\s+(?=[A-Z$"(])/).map(s => s.trim()).filter(Boolean);
+export function parseNote(text: string): {headline: string; points: string[]; risks: string[]} {
+  const clean = text.replace(/\*\*/g, '').replace(/\r/g, '');
+  const parts = clean.split(/^#{1,3}\s+(.+)$/m);
+  const bullets = (body: string) => body.split('\n').map(l => l.trim()).filter(l => /^[-•*]\s+/.test(l)).map(l => l.replace(/^[-•*]\s+/, ''));
+  if (parts.length > 1) {
+    const headline = parts[0].replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
+    let points: string[] = [], risks: string[] = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      const name = parts[i].toLowerCase(), body = parts[i + 1] || '';
+      if (name.includes('risk')) risks = risks.concat(bullets(body));
+      else points = points.concat(bullets(body));
+    }
+    return {headline, points: points.slice(0, 5), risks: risks.slice(0, 3)};
+  }
+  const flat = clean.replace(/^\s*TL;?DR\s*:?\s*/i, '').replace(/\s+/g, ' ').trim();
+  const sentences = flat.split(/(?<=[.!?])\s+(?=[A-Z$"(])/).map(s => s.trim()).filter(Boolean);
   const headline = sentences.shift() || '';
   const planWords = /\b(buy zone|entry|stop[- ]loss|stop|targets?|risk[- ]reward|price target)\b/i;
-  const points = sentences.filter(s => !planWords.test(s) && s.length > 20).slice(0, 4);
-  return {headline, points};
+  return {headline, points: sentences.filter(s => !planWords.test(s) && s.length > 20).slice(0, 4), risks: []};
 }

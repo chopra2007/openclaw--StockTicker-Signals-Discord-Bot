@@ -81,8 +81,8 @@ try {
   await Promise.all(pages.map(async(page,index)=>{
     const ticker=index<Math.ceil(members/2)?'SPY':['QQQ','AAPL','MSFT'][index%3];
     const started=performance.now();
-    await page.getByRole('searchbox',{name:'Ticker'}).fill(ticker);
-    await page.getByRole('button',{name:'Research ticker'}).click();
+    await page.getByRole('searchbox',{name:'Search a ticker'}).fill(ticker);
+    await page.getByRole('searchbox',{name:'Search a ticker'}).press('Enter');
     await expect(page.getByTestId('em_weekly-status')).toHaveText('Completed',{timeout:90000});
     completion.push((performance.now()-started)/1000);
     await page.goto('/');

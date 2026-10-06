@@ -55,14 +55,14 @@ export function HistoryList(){
   finally{if(!current.signal.aborted)setDeleting(false);}
  }
  return <AppShell><main className="workspace" id="main">
-  <div className="page-intro"><p className="eyebrow">PRIVATE TO YOUR ACCOUNT</p><h1 tabIndex={-1}>Your history</h1><p className="lede">Reopen the original research, with source access checked today.</p></div>
-  <div className="section-heading"><Button variant="outline" onClick={()=>choose('reports')} aria-pressed={resource==='reports'}>Saved reports</Button>{member?.features.assistant.enabled&&<Button variant="outline" onClick={()=>choose('conversations')} aria-pressed={resource==='conversations'}>Conversations</Button>}</div>
+  <div className="page-intro"><h1 tabIndex={-1}>History</h1><p className="lede">Your saved reports and chats. Only you can see them.</p></div>
+  <div className="section-heading"><Button variant="outline" onClick={()=>choose('reports')} aria-pressed={resource==='reports'}>Saved reports</Button>{member?.features.assistant.enabled&&<Button variant="outline" onClick={()=>choose('conversations')} aria-pressed={resource==='conversations'}>Chats</Button>}</div>
   {deleteError&&<p role="alert">{deleteError}</p>}
   {!allowed?<p>Conversation access is unavailable.</p>:<div className="report-layout history-layout"><aside className="report-sidebar"><div className="card">
-   <h2>{resource==='reports'?'Saved reports':'Conversations'}</h2>
+   <h2>{resource==='reports'?'Saved reports':'Chats'}</h2>
    {list.error&&<p role="alert">{list.error}</p>}
    {!list.data&&!list.error&&<p role="status">Loading your history…</p>}
-   {list.data?.items.length===0&&<p>{resource==='reports'?'No saved reports yet.':'No conversations yet.'}</p>}
+   {list.data?.items.length===0&&<p>{resource==='reports'?'No saved reports yet. Search a ticker to create one.':'No chats yet.'}</p>}
    {list.data?.items.map(item=><div className="filing" key={item.id}><p>{'ticker' in item?item.ticker||'Saved report':item.title||'Conversation'}</p><p className="small">{formatPacific(item.created_at)}</p><Button variant="outline" aria-label={(resource==='reports'?'Open saved report':'Open conversation')+' '+formatPacific(item.created_at)} onClick={()=>{setSelected(item.id);setMessageCursor(null);setDeleteError('');}}>Open</Button></div>)}
    <div className="section-heading">{previous.length>0&&<Button variant="outline" onClick={()=>{setCursor(previous[previous.length-1]);setPrevious(x=>x.slice(0,-1));}}>Previous page</Button>}{list.data?.cursor&&<Button variant="outline" onClick={()=>{setPrevious(x=>[...x,cursor]);setCursor(list.data!.cursor);}}>Next page</Button>}</div>
   </div></aside><div className="report-column">
@@ -73,6 +73,6 @@ export function HistoryList(){
    {saved&&<>{saved.availability==='unavailable'&&<p className="notice">Saved content is unavailable under current access or source permissions.</p>}{sections.map(name=>saved.sections[name]?<div key={name}>{saved.annotations[name]?.map((notice,i)=><p key={i} className="notice">{labels[name]}: evidence {notice.status==='retracted'?'was retracted':'is unavailable'}{notice.recorded_at!==null?' · '+formatPacific(notice.recorded_at):''}. Dependent content is withheld.</p>)}<ResearchSection result={saved.sections[name]!}/></div>:null)}</>}
    {conversation&&<>{conversation.messages.map(message=><article className="card" key={message.id}><h3>{message.role==='user'?'You':'Market Assistant'}</h3><p className="small">{formatPacific(message.created_at)}</p><p>{message.text??'This message is unavailable under current source permissions.'}</p><EvidenceList items={message.evidence}/>{message.annotations.map((notice,i)=><p className="notice" key={i}>Evidence {notice.status==='retracted'?'was retracted':'is unavailable'}. Dependent content is withheld.</p>)}</article>)}{conversation.cursor&&<Button variant="outline" onClick={()=>setMessageCursor(conversation.cursor)}>Next messages</Button>}{messageCursor&&<Button variant="outline" onClick={()=>setMessageCursor(null)}>First messages</Button>}</>}
   </div></div>}
-  <details className="card context-note"><summary>Account help: history and deletion</summary><p>Reports retain their original permitted results, including failed and unavailable sections. Refreshing research creates a separate saved report. Feed cleanup does not impose a time limit on your saved history.</p><p>Deleting a report removes your copy and stops pending delivery. Another member’s saved copy is separate. Deleting a conversation stops new messages from being delivered to it.</p><p>A source may withdraw access or require removal. That applies to every affected copy, including saved reports, charts and assistant messages. Restricted content is hidden or removed; it is never replaced with newer research. Your own source-free conversation text is retained separately.</p><p>Private backups must expire within 30 days, sooner or be excluded where a source requires it. Restores must apply current deletion records before any content is available. Deleted items must not reappear after restore.</p></details>
+  <details className="card context-note"><summary>How deleting works</summary><p>Deleting a report or chat removes your copy for good. Other members’ copies are separate. A refresh saves a new report and keeps the old one.</p></details>
  </main></AppShell>;
 }

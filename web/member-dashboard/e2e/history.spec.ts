@@ -22,7 +22,7 @@ test('history: reopen original, delete owned report and clear selected content',
  await join(page,request);await research(page);
  for(const name of ['analysis','options','em_daily','em_weekly','sec'])await expect(page.getByTestId(name+'-status')).toHaveText('Completed');
  const original=await page.locator('#analysis').textContent();const stats=await control(request,{action:'stats'});
- await page.getByRole('link',{name:'History',exact:true}).click();await expect(page.getByRole('heading',{name:'Your history',exact:true})).toBeVisible();
+ await page.getByRole('link',{name:'History',exact:true}).click();await expect(page.getByRole('heading',{name:'History',exact:true,level:1})).toBeVisible();
  await page.getByRole('button',{name:/Open saved report/}).first().click();await expect(page.getByTestId('analysis-status')).toHaveText('Completed');
  expect(await page.locator('#analysis').textContent()).toBe(original);expect(await control(request,{action:'stats'})).toEqual(stats);
  await expect(page.getByAltText('Daily expected move chart; numerical ranges follow')).toBeVisible();
@@ -48,7 +48,7 @@ test('history: active access refresh withdraws sections and pauses while hidden'
 test('history: private conversation reopen and delete without starting assistant',async({page,request})=>{
  const username=await join(page,request);await control(request,{action:'conversation',username});
  const posts:string[]=[];page.on('request',r=>{if(r.method()==='POST')posts.push(r.url());});
- await page.goto('/history');await page.getByRole('button',{name:'Conversations',exact:true}).click();
+ await page.goto('/history');await page.getByRole('button',{name:'Chats',exact:true}).click();
  await page.getByRole('button',{name:/Open conversation/}).click();await expect(page.getByText('My saved question')).toBeVisible();
  await page.getByRole('button',{name:'Delete selected conversation'}).click();await expect(page.getByText('No conversations yet.')).toBeVisible();
  await expect(page.getByText('My saved question')).toHaveCount(0);expect(posts).toEqual([]);
