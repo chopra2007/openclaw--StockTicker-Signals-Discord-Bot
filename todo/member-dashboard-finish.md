@@ -88,12 +88,12 @@ These are real outside requirements, not code. Synthetic tests never prove them.
 
 | Gate | Status | Who |
 |---|---|---|
-| Disk: needs ≥10 GiB free and ≥15% free (≈11.3 GiB on the 75 GB disk) | 5.2 GiB free (93% used) | user: bigger disk, or approve a named cleanup |
+| Disk: needs ≥10 GiB free and ≥15% free (≈11.3 GiB on the 75 GB disk) | MET 2026-10-05: 29 GB free (61% used) after the Drive offload (`todo/vps-offload-2026-10-05.md`). Recheck with `df -h /` before launch | done |
 | Data-provider permission to show members data/analysis (Finnhub terms forbid sharing derived results without written OK) | none recorded; all real sources off | user |
 | Assistant model access (dedicated key; design picked OpenAI `gpt-4o-mini-2024-07-18`) | none; assistant off | user |
 | Provider quota/account evidence for the shared budget | unverified | user / research |
 | HTTPS domain + certificate, production service users | not set | user decision, then agent |
-| Same-server bot speed comparison with dashboard running | not measured (needs disk first) | agent |
+| Same-server bot speed comparison with dashboard running | not measured (disk now OK, so it can run) | agent |
 | Owner go-live approval | not given | user |
 | 9 dev-tool advisories (`braces`, build-time only, no fix released) | accepted risk, tracked | none now |
 
