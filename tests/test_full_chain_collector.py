@@ -183,3 +183,24 @@ def test_write_json_converts_numpy_true_false_values(tmp_path):
     path = tmp_path / "proof.json"
     collector._write_json({"passed": np.bool_(True)}, path)
     assert json.loads(path.read_text()) == {"passed": True}
+
+
+def test_option_rows_keep_only_nearest_expirations_when_chain_is_unbounded():
+    chain = _chain()
+    extra = chain.calls.iloc[[0]].copy()
+    extra["expiry"] = "2026-10-16"
+    extra["contractSymbol"] = "AAPL  261016C00100000"
+    chain = collector.schwab_client.Chain(
+        calls=pd.concat([chain.calls, extra], ignore_index=True), puts=chain.puts,
+        underlying_price=100.0, is_delayed=False, expirations=["2026-09-04", "2026-10-16"],
+    )
+    captured = datetime(2026, 8, 31, 18, 1, tzinfo=timezone.utc)
+    rows = collector._option_rows("AAPL", chain, {"c": 100}, captured, .15, nearest=1)
+    assert set(rows["expiration"]) == {"2026-09-04"}
+
+
+def test_crossed_share_tolerates_rare_glitch_but_not_widespread_crossing():
+    ok = pd.DataFrame({"bid": [1.0] * 20000 + [1.2], "ask": [1.1] * 20000 + [1.1]})
+    bad = pd.DataFrame({"bid": [1.0] * 90 + [1.2] * 10, "ask": [1.1] * 100})
+    assert collector._crossed_share(ok) <= collector.MAX_CROSSED_SHARE
+    assert collector._crossed_share(bad) > collector.MAX_CROSSED_SHARE

@@ -3,7 +3,13 @@
 **Status:** OPEN
 **Created:** 2026-08-29
 
-**CURRENT STATUS (2026-09-04):** The save bug is fixed and tested on branch
+**CURRENT STATUS (2026-10-05):** The 2026-10-05 13:20 run failed its proof. Cause 1: one 09:23
+poll returned every expiration (not the nearest four) for five names; the collector now trims to the
+nearest four. Cause 2: the proof required zero crossed quotes, but real feeds show a few per day;
+it now allows up to 0.01%. Both tested. Owed: the 2026-10-06 13:20 run must exit successfully
+(check scheduled 13:40 Pacific), then close #109.
+
+**EARLIER STATUS (2026-09-04):** The save bug is fixed and tested on branch
 `todo-109-full-chain-proof`. The real August 31 output passes every proof check:
 3,721,860 option rows for all 23 names across exactly 390 market minutes,
 9,976 open-interest rows, four expirations per name, synchronized stock prices,

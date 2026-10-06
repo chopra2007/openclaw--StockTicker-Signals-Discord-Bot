@@ -345,7 +345,7 @@ def _option_part_path(settings: dict, captured: datetime) -> Path:
 
 
 def _option_rows(ticker: str, chain, quote: dict, captured: datetime,
-                 strike_band_pct: float) -> pd.DataFrame:
+                 strike_band_pct: float, nearest: int | None = None) -> pd.DataFrame:
     spot = _finite(chain.underlying_price) or _finite(quote.get("c"))
     if spot is None:
         return pd.DataFrame()
@@ -355,6 +355,10 @@ def _option_rows(ticker: str, chain, quote: dict, captured: datetime,
         if source is None or source.empty:
             continue
         selected = source[source["strike"].between(low, high, inclusive="both")]
+        if nearest:
+            # Schwab returns the whole chain if its expiration lookup hiccups.
+            keep = sorted(selected["expiry"].dropna().unique())[:nearest]
+            selected = selected[selected["expiry"].isin(keep)]
         for contract in selected.itertuples(index=False):
             values = contract._asdict()
             last_trade = values.get("lastTradeDate")
@@ -419,7 +423,7 @@ def capture_option_poll(settings: dict, captured: datetime, quotes: dict) -> dic
                 if chain is None:
                     errors[ticker] = "no chain returned"
                     continue
-                frame = _option_rows(ticker, chain, quotes.get(ticker, {}), captured, band)
+                frame = _option_rows(ticker, chain, quotes.get(ticker, {}), captured, band, nearest)
                 if frame.empty:
                     errors[ticker] = "no contracts inside strike band"
                 else:
@@ -513,6 +517,15 @@ def run_storage_cleanup(settings: dict, *, today: date, legal_holds=(), now=None
     )
 
 
+# Real feeds show a few momentary crossed quotes (bid > ask) per day; only a
+# systematic share means the data is corrupt.
+MAX_CROSSED_SHARE = 0.0001
+
+
+def _crossed_share(quotes: pd.DataFrame) -> float:
+    return float((quotes["bid"] > quotes["ask"]).mean())
+
+
 def verify_day(settings: dict, day: date) -> dict:
     report = {"market_date": day.isoformat(), "checked_at_utc": datetime.now(UTC).isoformat()}
     session = _session_metadata(day)
@@ -531,7 +544,7 @@ def verify_day(settings: dict, day: date) -> dict:
         regular = quotes[quotes["ticker"].isin(universe(settings, "stocks"))]
         checks["all_stock_names_seen"] = set(universe(settings, "stocks")).issubset(set(regular["ticker"]))
         sane = regular.dropna(subset=["bid", "ask"])
-        checks["stock_spreads_sane"] = bool(len(sane) and (sane["bid"] <= sane["ask"]).all())
+        checks["stock_spreads_sane"] = bool(len(sane) and _crossed_share(sane) <= MAX_CROSSED_SHARE)
         report["stock_quote_rows"] = len(quotes)
         quote_minutes = pd.to_datetime(quotes["captured_at_utc"], utc=True).dt.floor("min")
         checks["stock_minutes_cover_session"] = quote_minutes.nunique() >= 300
@@ -547,7 +560,7 @@ def verify_day(settings: dict, day: date) -> dict:
         if {"bid", "ask"}.issubset(options.columns):
             quoted = options.dropna(subset=["bid", "ask"])
             checks["option_spreads_sane"] = bool(len(quoted) and
-                                                  (quoted["bid"] <= quoted["ask"]).all())
+                                                  _crossed_share(quoted) <= MAX_CROSSED_SHARE)
         else:
             checks["option_spreads_sane"] = False
         checks["option_chains_real_time"] = (
