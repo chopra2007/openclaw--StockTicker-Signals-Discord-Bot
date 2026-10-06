@@ -53,7 +53,7 @@ _COMPUTED_SIGNAL_RE = re.compile(
 )
 # Strip only the apology clause inside the parenthetical, keep the formula.
 _HIGH_VOL_APOLOGY_RE = re.compile(
-    r"\s*;\s*high-vol\s+data\s+unavailable", re.IGNORECASE,
+    r"\s*;\s*high[-‐‑]vol\s+data\s+unavailable", re.IGNORECASE,
 )
 _DANGLING_SPACE_RE = re.compile(r" {2,}")
 # Match thesis-reversal language only — generic financial vocabulary like

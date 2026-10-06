@@ -66,7 +66,8 @@ def _reformat_trade_plan(narrative: str) -> str:
             cols = [c.strip() for c in line.strip().strip("|").split("|")]
             if len(cols) < 2:
                 continue
-            param, level = cols[0], cols[1]
+            # The model sometimes writes "Stop‑Loss" (non-breaking hyphen).
+            param, level = re.sub(r"[‐‑]", "-", cols[0]), cols[1]
             if not param or set(param) <= {"-", " "}:  # separator row
                 continue
             if param.lower() == "parameter":  # header row
