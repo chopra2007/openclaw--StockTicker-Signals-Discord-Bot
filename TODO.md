@@ -1240,7 +1240,7 @@ Bot speed unchanged with the dashboard on (fresh `!all` median 90.1 s off vs 91.
    then suspend test member `phasec_probe` in the admin page (kept for the 07:00 PDT 2026-10-06 market-hours check).
    Raw bot mentions (`ticker_signals`) are deliberately NOT member feed cards (~55k/day; 90-day retention ≈ 12 GB).
 2. Backups: built-in encrypted backup caps the database at 64 MB (30 files / 128 MB total); the web DB is
-   already 42 MB (mostly bot feed cards, rebuildable). Decide: back up accounts only, or raise caps.
+   now 77 MB and steady after the history copy (bot feed cards, rebuildable). Decide: back up accounts only, or raise caps.
 3. Certificate auto-renew is OFF (renewal opens port 80 briefly); reminder fires 2026-12-15, expiry 2027-01-04.
 4. Egress: the worker can reach the whole internet (no per-host allowlist yet).
-5. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` size (42 MB after first day).
+5. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` size (77 MB, steady, 2026-10-06 06:00).
