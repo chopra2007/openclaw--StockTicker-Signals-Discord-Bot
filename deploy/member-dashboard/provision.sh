@@ -199,7 +199,10 @@ install -m 0644 "$REPO"/deploy/member-dashboard/journald.conf /etc/systemd/journ
 install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard-schwab-{sync.service,sync.timer,renew.service} /etc/systemd/system/
 install -d -m 0755 "$OPT/deploy" && install -m 0755 "$REPO"/deploy/member-dashboard/{schwab-token-sync,web-snapshot}.py "$OPT/deploy/"
 systemctl daemon-reload
-systemctl enable --now member-dashboard-schwab-sync.timer member-dashboard-archive.timer >/dev/null
+install -m 0644 "$REPO"/deploy/member-dashboard/member-dashboard-size-check.{service,timer} /etc/systemd/system/
+setfacl -m u:openclaw:--x "$LIB/web"  # Size check may stat the DB, never read it.
+systemctl daemon-reload
+systemctl enable --now member-dashboard-schwab-sync.timer member-dashboard-archive.timer member-dashboard-size-check.timer >/dev/null
 echo "provisioned; start with: systemctl enable --now member-dashboard-{authority,quota,api,worker,frontend}"
 
 # 9. Owner-attested data permissions (owner decision 2026-10-05: provider permissions are the

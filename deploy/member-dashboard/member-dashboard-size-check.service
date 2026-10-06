@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily member dashboard database size and disk check (alerts #errors on a change)
+
+[Service]
+Type=oneshot
+User=openclaw
+WorkingDirectory=/home/openclaw/.openclaw/workspace
+EnvironmentFile=/home/openclaw/.openclaw/.env.service
+ExecStart=/usr/bin/python3 /home/openclaw/.openclaw/workspace/scripts/member_dashboard_size_check.py

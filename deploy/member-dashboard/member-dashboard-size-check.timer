@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily member dashboard size check (08:00 PDT)
+
+[Timer]
+OnCalendar=*-*-* 08:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1240,4 +1240,5 @@ shares the Schwab login). Raw bot mentions (`ticker_signals`) are deliberately N
 
 **Open follow-ups:**
 1. Egress: the worker can reach the whole internet (no per-host allowlist yet).
-2. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` (77 MB, steady, 2026-10-06).
+2. (Automated) Daily 08:00 size check alerts #errors if the dashboard DB passes 300 MB, grows 50 MB in a day, or
+   disk drops under 15% free; history in `/home/openclaw/.openclaw/state/member-dashboard-size.jsonl`.
