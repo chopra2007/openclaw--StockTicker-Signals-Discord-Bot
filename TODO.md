@@ -1243,4 +1243,6 @@ Bot speed unchanged with the dashboard on (fresh `!all` median 90.1 s off vs 91.
    now 77 MB and steady after the history copy (bot feed cards, rebuildable). Decide: back up accounts only, or raise caps.
 3. Certificate auto-renew is OFF (renewal opens port 80 briefly); reminder fires 2026-12-15, expiry 2027-01-04.
 4. Egress: the worker can reach the whole internet (no per-host allowlist yet).
+6. Shared Schwab limit: dashboard + bot use one Schwab app; at 07:00 2026-10-06 a dashboard research run pushed the
+   bot's TODO #109 option poll into a 429 cooldown (one poll lost). Lower the dashboard's 40/60 s Schwab budget.
 5. Web DB growth: watch `/var/lib/member-dashboard/web/web.sqlite3` size (77 MB, steady, 2026-10-06 06:00).
