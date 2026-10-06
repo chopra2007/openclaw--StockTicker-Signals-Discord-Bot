@@ -102,3 +102,10 @@ no console errors): assistant answers NVDA/MU/AMD from live data with news in ~6
 off-topic refused; Enter sends; title = first question; Ask opens in place on the ticker page; MU/NVDA analysis
 leads with news + analyst calls, specific risks; SEC shows 90 days with plain names. Browser test specs updated
 to the new wording but NOT run: their test server needs port 3444, which the live site uses.
+
+## Round 3 — owner 2026-10-06 ~15:40 PDT
+1. Ticker page: "Risks" right after "Trade plan". Done (live order: Trade plan > Risks > Latest news > Analyst calls).
+2. "Latest news" rows must open the articles. Cause: Google News links are redirects, which the site's link-safety
+   rule strips. Fix: the server asks Google for each of the top 5 real article addresses (falls back to the Google
+   link); rows are tappable with an arrow. Verified live on NVDA: 5/5 links go to Yahoo, Barron's, Motley Fool,
+   Seeking Alpha.

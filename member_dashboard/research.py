@@ -347,6 +347,7 @@ class MemberResearchProvider:
         payload=AnalysisPayload(summary=result.narrative[:4000],direction=structured.direction.lower(),score=metric(result.score_breakdown.total,'points','shared additive research score'),
                                 conflicts=list(result.conflicts),levels=levels)
         approved(result.evidence,'display_raw')
+        from .news import article_url
         evidence=[Evidence(id=row.id,source_id=row.source_id,source_version=row.source_version,observed_at=row.observed_at,
-                           url=safe_url(row.url),excerpt=row.excerpt[:4000],research_only=row.research_only) for row in result.evidence[:200]]
+                           url=article_url(row.url) if row.id.startswith('news-') else safe_url(row.url),excerpt=row.excerpt[:4000],research_only=row.research_only) for row in result.evidence[:200]]
         return self._result('analysis',payload,observed_at=observed,evidence=evidence)

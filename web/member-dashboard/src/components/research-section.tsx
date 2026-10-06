@@ -15,9 +15,10 @@ function Analysis({p,evidence}:{p:Extract<Payload,{kind:'analysis'}>;evidence:Ev
  return <>{headline&&<p className="summary-headline">{headline}</p>}
  {points.length>0&&<ul className="summary-points">{points.map((s,i)=><li key={i}>{s}</li>)}</ul>}
  {(stop!=null||targets.length>0)&&<div className="trade-plan"><h3>Trade plan</h3><dl className="plan"><div><dt>Buy zone</dt><dd>{entry}</dd></div><div><dt>Stop</dt><dd className="down">{money(stop)}</dd></div><div><dt>Targets</dt><dd className="up">{targets.map(money).join(', ')||'—'}</dd></div></dl></div>}
- {news.length>0&&<><h3>Latest news</h3><ul className="links">{news.map(n=>{const m=/^(.*) \(([^()]+)\)$/.exec(n.excerpt);return <li key={n.id}><SafeLink url={n.url}>{m?m[1]:n.excerpt}</SafeLink><small>{m?m[2]+', ':''}{timeAgo(n.observed_at)}</small></li>;})}</ul></>}
- {calls.length>0&&<><h3>Analyst calls</h3><ul className="links">{calls.map(c=><li key={c.id}><p>{c.excerpt.replace(/^Analyst call:\s*/,'')}</p><small>{c.url?<SafeLink url={c.url}>{sourceLabel(c.url)}</SafeLink>:'Analyst'}{c.observed_at?', '+timeAgo(c.observed_at):''}</small></li>)}</ul></>}
- {risks.length>0&&<><h3>Risks</h3><ul className="summary-points risks">{risks.map((s,i)=><li key={i}>{s}</li>)}</ul></>}</>}
+ {risks.length>0&&<><h3>Risks</h3><ul className="summary-points risks">{risks.map((s,i)=><li key={i}>{s}</li>)}</ul></>}
+ {news.length>0&&<><h3>Latest news</h3><ul className="links">{news.map(n=>{const m=/^(.*) \(([^()]+)\)$/.exec(n.excerpt);const body=<><span>{m?m[1]:n.excerpt}</span><small>{m?m[2]+', ':''}{timeAgo(n.observed_at)}</small></>;
+  return <li key={n.id}>{n.url?.startsWith('https://')?<a className="row-link" href={n.url} target="_blank" rel="noreferrer noopener" aria-label={(m?m[1]:n.excerpt)+' (opens the article)'}>{body}<span className="chevron" aria-hidden="true">↗</span></a>:<div>{body}</div>}</li>;})}</ul></>}
+ {calls.length>0&&<><h3>Analyst calls</h3><ul className="links">{calls.map(c=><li key={c.id}><p>{c.excerpt.replace(/^Analyst call:\s*/,'')}</p><small>{c.url?<SafeLink url={c.url}>{sourceLabel(c.url)}</SafeLink>:'Analyst'}{c.observed_at?', '+timeAgo(c.observed_at):''}</small></li>)}</ul></>}</>}
 
 function Options({p}:{p:Extract<Payload,{kind:'options'}>}){const top=[...p.contracts].sort((a,b)=>(b.premium?.value??0)-(a.premium?.value??0)).slice(0,5);
  const ratio=p.put_call_ratio?.value;

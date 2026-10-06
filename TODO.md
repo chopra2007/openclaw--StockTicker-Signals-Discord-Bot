@@ -1238,7 +1238,18 @@ Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebu
 proven). Certificate auto-renew timer on (dry run passed). Dashboard Schwab share lowered 40 → 15/min (the bot
 shares the Schwab login). Raw bot mentions (`ticker_signals`) are deliberately NOT member feed cards.
 
+**Owner fix rounds 2026-10-06 (all live, issue notes + done-tests: [UX fixes](todo/member-dashboard-ux-fixes.md)):**
+round 1 = readable feed/setups/report; round 2 = Apple-style redesign, chat-style assistant with live data
+(news, signal, trade plan), Ask opens in place on a ticker page, analysis uses Google News + analyst calls,
+SEC 90 days; round 3 = Risks right after Trade plan, news rows open the real article.
+TESTING PHASE: member throttles lifted until the owner says "ready to ship" (list in the UX fixes note).
+
 **Open follow-ups:**
-1. Egress: the worker can reach the whole internet (no per-host allowlist yet).
+1. Egress: the worker can reach the whole internet (no per-host allowlist yet). Now also needs news.google.com.
+3. Browser test suite (web/member-dashboard/e2e) updated to the new wording but not run: its test server needs
+   port 3444, which the live site uses. Run it on a spare port or a copy before ship.
+4. Ideas to improve (owner asked for next steps 2026-10-06): price + day change in the ticker header even when
+   expected moves are unavailable; tap a setup card to see why the bot alerted; news for every setup ticker; earnings
+   date in the header; assistant shows its source links; suspend test member `claude_qa` and restore throttles at ship.
 2. (Automated) Daily 08:00 size check alerts #errors if the dashboard DB passes 300 MB, grows 50 MB in a day, or
    disk drops under 15% free; history in `/home/openclaw/.openclaw/state/member-dashboard-size.jsonl`.

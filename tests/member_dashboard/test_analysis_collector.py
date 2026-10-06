@@ -148,3 +148,11 @@ async def test_member_analysis_section_completes_from_collected_inputs(dashboard
     assert result.payload.summary and result.payload.direction in ('bullish','bearish','neutral','unclear')
     assert calls and calls[0].ticker=='NVDA'
     assert {e.source_id for e in result.evidence}=={SCHWAB_SOURCE}
+
+
+def test_news_links_are_plain_article_addresses():
+    """Owner 2026-10-06: Latest news must open the article; links stay https, no login or tracking query."""
+    from member_dashboard.news import article_url
+    assert article_url('https://www.barrons.com/articles/micron-x?mod=rss')=='https://www.barrons.com/articles/micron-x'
+    assert article_url('javascript:alert(1)') is None and article_url('http://a.com/x') is None
+    assert article_url('https://user:pw@a.com/x') is None and article_url('https://a.com:8443/x') is None
