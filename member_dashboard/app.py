@@ -23,6 +23,7 @@ from .admin import AdminService
 from .routes.admin import router as admin_router
 from .assistant import AssistantService
 from .routes.assistant import router as assistant_router
+from .routes.market import router as market_router
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -57,6 +58,7 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(feed_router)
     app.include_router(history_router)
     app.include_router(assistant_router)
+    app.include_router(market_router)
 
     def safe_error(status, code):
         return JSONResponse(status_code=status,

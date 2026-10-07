@@ -76,3 +76,20 @@ export function parseNote(text: string): Note {
   const planWords = /\b(buy zone|entry|stop[- ]loss|stop|targets?|risk[- ]reward|price target)\b/i;
   return {headline, points: sentences.filter(s => !planWords.test(s) && s.length > 20).slice(0, 4).map(text => ({label: null, text})), outlook: {}, risks: []};
 }
+
+/** "+$4.10" / "−$4.10": direction in the text itself, not only the colour. */
+export function signedMoney(value: number): string {
+  const rounded = Math.round(Math.abs(value) * 100) / 100;
+  return (rounded === 0 ? '' : value < 0 ? '−' : '+') + money(rounded);
+}
+
+/** "+1.74%" / "−0.32%". Rounds first, then picks the sign, so a tiny move reads "0.0%" and never "−0.0%". */
+export function signedPct(value: number, digits = 2): string {
+  const text = Math.abs(value).toFixed(digits);
+  return (Number(text) === 0 ? '' : value < 0 ? '−' : '+') + text + '%';
+}
+
+/** Colour class for a price move: green up, red down, none when it rounds to zero (same rounding as signedPct / signedMoney). */
+export function tone(value: number | null | undefined, digits = 2): string {
+  return value == null || Number(Math.abs(value).toFixed(digits)) === 0 ? '' : value > 0 ? 'up' : 'down';
+}

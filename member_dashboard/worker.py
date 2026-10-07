@@ -149,7 +149,7 @@ class ComputeWorker:
         try:
             while not stop_requested() and not self.restart_requested:
                 await self.run_once()
-                if (self.idle and not self.current and not self.assistant_current and self.clock() - self._idle_at >= 180
+                if (self.idle and not self.current and not self.assistant_current and self.clock() - self._idle_at >= 60
                         and (self._idle_task is None or self._idle_task.done())):
                     self._idle_at = self.clock()
                     self._idle_task = asyncio.create_task(self.idle())

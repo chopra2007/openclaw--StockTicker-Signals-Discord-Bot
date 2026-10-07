@@ -11,7 +11,11 @@ const metric=z.strictObject({value:z.number().finite().nullable(),unit:short,met
 const context=z.strictObject({name:z.enum(['net_gamma','gamma_flip','iv_skew','risk']),metric,observed_at:epoch,source_id:id,source_version:id});
 const evidence=z.strictObject({id,source_id:id,source_version:id,observed_at:epoch,url,excerpt:text,research_only:z.boolean()});
 const direction=z.enum(['bullish','bearish','neutral','unclear']);
-const analysis=z.strictObject({kind:z.literal('analysis'),summary:text,direction,score:metric.nullable(),catalysts:z.array(text).max(50),conflicts:z.array(text).max(50),levels:z.array(z.strictObject({label:short,price:metric,note:text.nullable().optional()})).max(50),risk_metrics:z.array(metric).max(50),context_metrics:z.array(context).max(20),horizons:z.array(z.strictObject({label:z.enum(['week','month','year']),low:metric.nullable(),high:metric.nullable(),middle:metric.nullable().optional(),note:text.nullable().optional()})).max(3).optional()});
+const num=z.number().finite().nullable().optional();
+const quote=z.strictObject({price:num,change:num,change_pct:num,previous_close:num,open:num,high:num,low:num,volume:num,avg_volume:num,high_52w:num,low_52w:num,pe:num,market_cap:num,ext_label:short.nullable().optional(),ext_price:num,ext_change:num,ext_change_pct:num,quote_time:num,next_earnings:short.nullable().optional()});
+const point=z.tuple([z.number().finite(),z.number().finite()]);
+const chart=z.strictObject({daily:z.array(point).max(400),intraday:z.array(point).max(400)});
+const analysis=z.strictObject({kind:z.literal('analysis'),summary:text,direction,score:metric.nullable(),catalysts:z.array(text).max(50),conflicts:z.array(text).max(50),levels:z.array(z.strictObject({label:short,price:metric,note:text.nullable().optional()})).max(50),risk_metrics:z.array(metric).max(50),context_metrics:z.array(context).max(20),horizons:z.array(z.strictObject({label:z.enum(['week','month','year']),low:metric.nullable(),high:metric.nullable(),middle:metric.nullable().optional(),note:text.nullable().optional()})).max(3).optional(),company:short.nullable().optional(),quote:quote.nullable().optional(),chart:chart.nullable().optional()});
 const sec=z.strictObject({kind:z.literal('sec'),coverage:z.enum(['complete','partial']),filings:z.array(z.strictObject({accession:id,form:short,filed_at:epoch,title:short,summary:text,url,detail_status:z.enum(['ok','unavailable','not_requested'])})).max(200),insiders:z.array(z.strictObject({accession:id,summary:text,conviction:z.enum(['routine','conviction','unknown']),transaction_value:metric.nullable()})).max(200),warning:text.nullable()});
 const options=z.strictObject({kind:z.literal('options'),contracts:z.array(z.strictObject({symbol:short,expiry:short,side:z.enum(['call','put']),strike:metric,volume:metric.nullable(),open_interest:metric.nullable(),premium:metric.nullable(),observed_at:epoch})).max(200),call_volume:metric.nullable(),put_volume:metric.nullable(),put_call_ratio:metric.nullable(),call_premium:metric.nullable(),put_premium:metric.nullable(),context_metrics:z.array(context).max(20)});
 const move=z.strictObject({kind:z.literal('move'),horizon:z.enum(['daily','weekly']),spot:metric.nullable(),expiry:short.nullable(),ranges:z.array(z.strictObject({method:short,lower:metric.nullable(),upper:metric.nullable(),expected_move:metric.nullable()})).max(10),quote_times:z.array(z.strictObject({source_id:id,observed_at:epoch,input_kind:z.enum(['call','put','underlying','selection','history']).nullable()})).max(20),chart_asset_id:id.nullable(),context_metrics:z.array(context).max(20)});
@@ -34,12 +38,14 @@ export type Metric=z.infer<typeof metric>;
 export type Evidence=z.infer<typeof evidence>;
 export type ContextMetric=z.infer<typeof context>;
 export type MovePayload=z.infer<typeof move>;
+export type Quote=z.infer<typeof quote>;
+export type Chart=z.infer<typeof chart>;
 export type FeedCard=z.infer<typeof upsertSchema>;
 export type FeedPage=z.infer<typeof feedSchema>;
 export type SourceFreshness=z.infer<typeof freshnessSchema>;
 
 const cursor=z.string().max(4096).nullable();
-const reportRef=z.strictObject({id,created_at:z.number().finite(),ticker:z.string().max(16).nullable()});
+const reportRef=z.strictObject({id,created_at:z.number().finite(),ticker:z.string().max(16).nullable(),direction:z.enum(['bullish','bearish','neutral','unclear']).nullable().optional(),price:z.number().finite().nullable().optional()});
 const annotation=z.strictObject({evidence_id:id,source_id:id,source_version:id,status:z.enum(['retracted','unavailable']),recorded_at:epoch});
 export const reportPageSchema=z.strictObject({items:z.array(reportRef).max(100),cursor});
 export const savedReportSchema=reportRef.extend({version:z.number().int().positive().nullable(),saved_at:epoch,finalized:z.boolean(),availability:z.enum(['available','pending','unavailable']),sections:z.partialRecord(z.enum(sections),section),annotations:z.partialRecord(z.enum(sections),z.array(annotation).max(200))}).refine(x=>Object.entries(x.sections).every(([key,value])=>key===value.section));
@@ -61,3 +67,16 @@ export const latestCardSchema=z.strictObject({id,ticker:z.string().max(16),direc
 export const latestPageSchema=z.strictObject({cards:z.array(latestCardSchema).max(50)});
 export type LatestCard=z.infer<typeof latestCardSchema>;
 export type TradePlan=z.infer<typeof plan>;
+
+/* Market strip, watchlist and track record. */
+const price=z.number().finite().nullable().optional();
+export const stripSchema=z.strictObject({quotes:z.array(z.strictObject({symbol:z.string().max(16),label:short,price,change:price,change_pct:price})).max(10),quote_time:epoch.optional()});
+const tickerQuote=z.strictObject({symbol:z.string().max(16),price,change:price,change_pct:price,quote_time:price});
+export const quotesSchema=z.strictObject({quotes:z.array(tickerQuote).max(100)});
+export const watchlistSchema=z.strictObject({items:z.array(tickerQuote.extend({added_at:z.number().finite(),new_alert:z.boolean()})).max(50),limit:z.number().int()});
+const horizon=z.strictObject({key:z.enum(['1h','1d','5d']),label:short,count:z.number().int(),up:z.number().int(),flat:z.number().int(),median_pct:price,spy_count:z.number().int(),spy_up:z.number().int(),spy_median_pct:price});
+export const recordSchema=z.strictObject({total:z.number().int(),days:z.number().int(),horizons:z.array(horizon).max(3),recent:z.array(z.strictObject({ticker:z.string().max(16),alerted_at:z.number().finite(),price:z.number().finite(),closed_1h:z.boolean(),move_1h:price,move_1d:price,move_5d:price})).max(50)});
+export type StripPage=z.infer<typeof stripSchema>;
+export type TickerQuote=z.infer<typeof tickerQuote>;
+export type WatchlistPage=z.infer<typeof watchlistSchema>;
+export type RecordPage=z.infer<typeof recordSchema>;

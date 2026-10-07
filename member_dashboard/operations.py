@@ -282,6 +282,7 @@ async def research_registry(registry,store,policy,runtime,config,*,telemetry=lam
                                     analysis_collector=collector,input_dependencies=dict(ANALYSIS_INPUTS)))
     for context in contexts: MemberResearchProvider(context).register(registry)
     registry.analysis_collector=collector  # Reused for trade setup levels when idle.
+    registry.schwab_client=client  # Reused for the market strip and the S&P 500 closes when idle.
     return registry
 
 
@@ -362,10 +363,20 @@ async def run_compute(config,worker):
     assistant=AssistantService(history,transport=transport,live=partial(snapshot,registry.analysis_collector),
                                live_lineage=research_lineages()[SCHWAB_SOURCE]['analysis'])
     from .setup_levels import refresh_one
-    async def setup_levels():
-        try: await refresh_one(store,registry.analysis_collector)
-        except Exception: pass  # A chore; the next idle minute tries again.
-    await ComputeWorker(jobs,registry,runtime,assistant=assistant,idle=setup_levels).serve()
+    from . import market_board,track_record
+    allowed=lambda:market_board.schwab_allowed(policy,'retain')
+    last_levels=[0.0]
+    async def chores():
+        # The worker calls this every minute while idle. Quotes are due every minute, levels every 3 minutes.
+        for chore in (lambda:market_board.refresh(store,registry.schwab_client,allowed),
+                      lambda:track_record.refresh_spy(store,registry.schwab_client,allowed)):
+            try: await chore()
+            except Exception: pass  # Chores; the next idle minute tries again.
+        if time.time()-last_levels[0]>=180:
+            last_levels[0]=time.time()
+            try: await refresh_one(store,registry.analysis_collector)
+            except Exception: pass
+    await ComputeWorker(jobs,registry,runtime,assistant=assistant,idle=chores).serve()
 
 
 def recover_worker_state(launcher,jobs,now):
@@ -398,8 +409,15 @@ def supervisor(config):
     feed=FeedService(store,auth,policy,signing_key=b'not-used-for-member-cursors-000000',reader=MarketReader(Path(config['market_path'])),
                      lineage_resolver=bot_feed_lineage,sources=member_feed_sources())
     worker=WorkerSupervisor(store,launcher,feed.feed_tick,jobs=jobs,reconcile=control.reconcile)
+    from . import track_record
+    reader=MarketReader(Path(config['market_path']),query_seconds=1.0)
+    next_sync=0.0
     try:
         while True:
+            if time.time()>=next_sync:
+                # Track record: copy posted alerts and their later prices every 10 minutes (a full chunk means more is waiting).
+                try: next_sync=time.time()+(60 if track_record.sync(store,reader,time.time())>=track_record.CHUNK else 600)
+                except Exception: next_sync=time.time()+600
             if worker.child is None:
                 if not recover_worker_state(launcher,jobs,time.time()):
                     feed.feed_tick(time.time());time.sleep(1);continue

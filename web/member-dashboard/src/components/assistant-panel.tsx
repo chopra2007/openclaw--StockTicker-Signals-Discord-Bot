@@ -3,7 +3,7 @@ import {useState} from 'react';
 import type {ConversationPage} from '@/lib/contracts';
 import {AppShell} from './app-shell';
 import {useSession} from './session';
-import {useHistoryRead} from './history-list';
+import {useHistoryRead,formatDate} from './history-list';
 import {Chat} from './chat';
 import {Button} from './ui/button';
 
@@ -21,10 +21,10 @@ export function AssistantPanel({ticker,conversation}:{ticker:string|null;convers
    <nav className="chat-list" aria-label="Your chats">
     <Button onClick={()=>open(null)}>New chat</Button>
     {list.data&&list.data.items.length>0&&<small>Recent</small>}
-    {list.data?.items.map(c=><button key={c.id} type="button" className="row" aria-current={selected===c.id} onClick={()=>open(c.id)}>{c.title}</button>)}
+    {list.data?.items.map(c=><button key={c.id} type="button" className="row" aria-current={selected===c.id} onClick={()=>open(c.id)}><span className="row-title">{c.title}</span><span className="row-date">{formatDate(c.created_at)}</span></button>)}
    </nav>
    <section className="chat-main" aria-label="Chat">
-    <Button variant="ghost" className="chats-toggle" onClick={()=>setShowList(true)}>‹ Chats</Button>
+    {!!list.data?.items.length&&<Button variant="ghost" className="chats-toggle" onClick={()=>setShowList(true)}>‹ All chats</Button>}
     <Chat key={ticker||'all'} conversationId={selected} ticker={ticker} autoFocus suggestions={ticker?[`Is ${ticker} a buy right now?`,`What’s driving ${ticker} this week?`,`What are the risks for ${ticker}?`]:SUGGESTIONS}
      onConversation={ref=>{setSelected(ref.id);setRevision(r=>r+1);}}
      heading={<><h2>Ask about any stock</h2><p>Get the signal, trade plan and latest news in plain English.</p></>}/>

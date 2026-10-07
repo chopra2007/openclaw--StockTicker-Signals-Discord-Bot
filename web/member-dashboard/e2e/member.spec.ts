@@ -109,7 +109,7 @@ test('assistant: Enter sends, the question names the chat, private access and de
  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();await page.screenshot({path:`.e2e/screenshots/assistant-${width}.png`,fullPage:true});}
  await page.setViewportSize({width:1440,height:1000});
  await page.goto('/history');await page.getByRole('button',{name:'Chats',exact:true}).click();await page.getByRole('button',{name:/Open conversation/}).first().click();
- await page.getByRole('button',{name:'Delete chat',exact:true}).click();
+ await page.getByRole('button',{name:'Delete chat',exact:true}).click();await page.getByRole('button',{name:'Yes, delete',exact:true}).click();
  await expect.poll(async()=>(await page.request.get('/api/v1/conversations/'+first.id)).status()).toBe(404);
 });
 

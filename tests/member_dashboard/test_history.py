@@ -393,3 +393,24 @@ def test_assistant_tail_page_is_bounded_owned_and_distinct_from_default(history,
     with pytest.raises(HistoryError):history.get_conversation(owner,conversation.id,cursor=tail.cursor)
     service.history.delete_conversation(owner,conversation.id)
     with pytest.raises(HistoryError):history.get_conversation(owner,conversation.id,tail=True)
+
+
+def test_report_list_rows_carry_signal_and_price_without_provider_calls(history, research, dashboard):
+    from member_dashboard.contracts import Metric
+    jobs, users, *_ = research
+    request = jobs.request_research(users[0], 'SPY', False, dashboard.clock())
+    while job := jobs.claim_job('fixture', dashboard.clock()):
+        result = fixture_result(job.kind, dashboard.clock())
+        if job.kind == 'analysis': result = result.model_copy(update={'payload': result.payload.model_copy(update={'direction': 'bullish'})})
+        if job.kind == 'em_daily': result = result.model_copy(update={'payload': result.payload.model_copy(update={'spot': Metric(value=123.45, unit='USD', method='fixture')})})
+        jobs.complete_job(job.id, job.lease_token, result, dashboard.clock())
+    row = history.list_reports(users[0]).items[0]
+    assert (row.id, row.ticker, row.direction, row.price) == (request.report_id, 'SPY', 'bullish', 123.45)
+    assert history.get_report(users[0], request.report_id).direction is None  # Detail keeps its own sections.
+
+
+def test_report_list_rows_without_saved_signal_stay_empty(history, research, dashboard):
+    jobs, users, *_ = research
+    completed(research, dashboard)
+    row = history.list_reports(users[0]).items[0]
+    assert (row.direction, row.price) == ('neutral', None)

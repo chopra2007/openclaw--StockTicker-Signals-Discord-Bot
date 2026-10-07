@@ -89,7 +89,7 @@ def test_migration_is_idempotent(dashboard):
     dashboard.store.migrate()
     with dashboard.store.transaction() as connection:
         assert connection.execute("SELECT id FROM members").fetchone()[0] == member_id
-        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
+        assert connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall() == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,), (11,), (12,)]
 
 
 @pytest.mark.parametrize('coverage',['intact','floor','orphan'])

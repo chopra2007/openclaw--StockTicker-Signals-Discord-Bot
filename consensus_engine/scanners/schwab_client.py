@@ -867,6 +867,22 @@ class SchwabClient:
         entry=value.get(to_schwab_symbol(symbol))
         return _map_quote(entry) if isinstance(entry,dict) else None
 
+    def get_quote_details(self, symbol):
+        """get_quote plus what the ticker report shows (member design round 2026-10-06), still one /quotes call:
+        52-week range, P/E, shares outstanding, today's change, the extended-hours trade and the company name.
+        Missing fields are None, never zero."""
+        value = self._get('/quotes',{'symbols':to_schwab_symbol(symbol),'fields':'quote,fundamental,extended,regular,reference'})
+        entry=value.get(to_schwab_symbol(symbol))
+        if not isinstance(entry,dict): return None
+        def number(block,key,scale=1):
+            v=(entry.get(block) or {}).get(key)
+            return v/scale if type(v) in (int,float) and math.isfinite(v) else None
+        return {**_map_quote(entry),'hi52':number('quote','52WeekHigh'),'lo52':number('quote','52WeekLow'),
+                'pe':number('fundamental','peRatio'),'shares':number('fundamental','sharesOutstanding'),
+                'reg_change':number('regular','regularMarketNetChange'),'reg_time':number('regular','regularMarketTradeTime',1000),
+                'ext_price':number('extended','lastPrice'),'ext_time':number('extended','tradeTime',1000),
+                'name':(entry.get('reference') or {}).get('description')}
+
     def get_price_history(self, symbol, *, period='5d', interval='1d', extended_hours=False):
         frequency, count = _FREQ_MAP.get(interval,('daily',1))
         params={'symbol':to_schwab_symbol(symbol),'frequencyType':frequency,'frequency':count,

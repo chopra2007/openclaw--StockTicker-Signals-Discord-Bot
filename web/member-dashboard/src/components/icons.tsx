@@ -5,3 +5,4 @@ export const ChatIcon=()=><svg {...base}><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20
 export const ClockIcon=()=><svg {...base}><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>;
 export const SearchIcon=()=><svg {...base} width={17} height={17}><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>;
 export const SendIcon=()=><svg {...base} width={18} height={18} strokeWidth={2.4}><path d="M12 19V5M6 11l6-6 6 6"/></svg>;
+export const StarIcon=()=><svg {...base}><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/></svg>;

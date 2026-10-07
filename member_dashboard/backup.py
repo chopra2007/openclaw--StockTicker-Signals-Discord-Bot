@@ -126,7 +126,8 @@ def maintain_archives(root,*,key_path,node,now=None):
 
 # Feed cards are copies of bot data and the feed re-imports them once its checkpoints are gone.
 FEED_TABLES=('publication_intervals','publication_heads','publication_evidence_refs','publication_retractions',
-             'publication_changes','publications','source_checkpoints','feed_source_status')
+             'publication_changes','publications','source_checkpoints','feed_source_status',
+             'market_quotes','index_daily','track_alerts')  # Schwab quotes and bot alerts re-copied by the worker and supervisor.
 
 
 def accounts_backup(staging,root,*,key_path,node,now=None,retention_seconds=14*86400):

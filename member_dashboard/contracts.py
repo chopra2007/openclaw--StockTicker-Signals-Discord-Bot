@@ -141,6 +141,37 @@ class Horizon(PublicModel):
     note: Text | None = None
 
 
+class Quote(PublicModel):
+    """Ticker-report header and key stats (design round 2026-10-06). A field Schwab did not give stays None."""
+    price: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+    previous_close: float | None = None
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    volume: float | None = None
+    avg_volume: float | None = None
+    high_52w: float | None = None
+    low_52w: float | None = None
+    pe: float | None = None
+    market_cap: float | None = None
+    ext_label: ShortText | None = None  # "After hours" or "Pre-market"
+    ext_price: float | None = None
+    ext_change: float | None = None
+    ext_change_pct: float | None = None
+    quote_time: float | None = None
+    next_earnings: ShortText | None = None  # ISO date
+
+
+Point = Annotated[list[float], Field(min_length=2, max_length=2)]  # [epoch seconds, close]
+
+
+class Chart(PublicModel):
+    daily: list[Point] = Field(default_factory=list, max_length=400)  # one year of closes, stamped 1:00 PM Pacific
+    intraday: list[Point] = Field(default_factory=list, max_length=400)  # last 5 sessions, 15-minute closes
+
+
 class AnalysisPayload(PublicModel):
     kind: Literal["analysis"] = "analysis"
     summary: Text
@@ -152,6 +183,9 @@ class AnalysisPayload(PublicModel):
     risk_metrics: list[Metric] = Field(default_factory=list, max_length=50)
     context_metrics: list[ContextMetric] = Field(default_factory=list, max_length=20)
     horizons: list[Horizon] = Field(default_factory=list, max_length=3)
+    company: ShortText | None = None
+    quote: Quote | None = None
+    chart: Chart | None = None
 
 
 class Filing(PublicModel):
@@ -272,6 +306,8 @@ class ReportRef(PublicModel):
     id: Identifier
     created_at: float
     ticker: Annotated[str, Field(max_length=16)] | None = None
+    direction: Literal['bullish', 'bearish', 'neutral', 'unclear'] | None = None  # List rows only.
+    price: float | None = None  # List rows only: price when the report was made, if saved.
 
 
 class ReportPage(PublicModel):
@@ -394,3 +430,71 @@ class LatestCard(PublicModel):
 
 class LatestPage(PublicModel):
     cards: list[LatestCard] = Field(max_length=50)
+
+
+# Market strip, watchlist and alert track record (design round 2026-10-06).
+Symbol = Annotated[str, Field(max_length=16)]
+
+
+class StripQuote(PublicModel):
+    symbol: Symbol
+    label: ShortText
+    price: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+
+
+class StripPage(PublicModel):
+    quotes: list[StripQuote] = Field(max_length=10)
+    quote_time: float | None = None  # The newest quote time, shown once.
+
+
+class TickerQuote(PublicModel):
+    symbol: Symbol
+    price: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+    quote_time: float | None = None
+
+
+class QuotesPage(PublicModel):
+    quotes: list[TickerQuote] = Field(max_length=100)
+
+
+class WatchItem(TickerQuote):
+    added_at: float
+    new_alert: bool = False  # The bot alerted on it in the last 24 hours.
+
+
+class WatchlistPage(PublicModel):
+    items: list[WatchItem] = Field(max_length=50)
+    limit: int
+
+
+class RecordHorizon(PublicModel):
+    key: Literal['1h', '1d', '5d']
+    label: ShortText
+    count: int  # Alerts with a price for this horizon.
+    up: int
+    flat: int
+    median_pct: float | None = None
+    spy_count: int = 0  # Alerts that also have S&P 500 closes for the same days.
+    spy_up: int = 0
+    spy_median_pct: float | None = None
+
+
+class RecordRow(PublicModel):
+    ticker: Symbol
+    alerted_at: float
+    price: float
+    closed_1h: bool = False  # Posted while the market was closed: no 1-hour move.
+    move_1h: float | None = None
+    move_1d: float | None = None
+    move_5d: float | None = None
+
+
+class RecordPage(PublicModel):
+    total: int
+    days: int  # The window the counts cover.
+    horizons: list[RecordHorizon] = Field(max_length=3)
+    recent: list[RecordRow] = Field(max_length=50)

@@ -3,7 +3,7 @@ from dataclasses import replace
 import math
 from .contracts import (SectionResult, SecPayload, Filing, InsiderSummary, Metric,
     OptionsPayload, OptionContract, MovePayload, MoveRange, QuoteTime, Evidence,
-    AnalysisPayload, Level, ContextMetric, Horizon)
+    AnalysisPayload, Level, ContextMetric, Horizon, Quote, Chart)
 from .providers import ProviderContext, ProviderSpec, ResearchCompletion
 
 
@@ -360,7 +360,7 @@ class MemberResearchProvider:
             response=await collector.synthesis(request)
             self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
             return response
-        study=await collector.study(ticker,write=write)
+        study=await collector.study(ticker,write=write,chart=True)
         approved(study.evidence,'retain')
         result,facts=study.result,study.facts
         observed=min((item.observed_at for item in result.evidence if item.observed_at is not None),default=None)
@@ -387,7 +387,10 @@ class MemberResearchProvider:
                                         note='Wall Street price targets'+(f' ({ratings})' if ratings else '')+'.'))
         payload=AnalysisPayload(summary=study.note[:4000],direction=result.structured.direction.lower(),
                                 score=metric(result.score_breakdown.total,'points','shared additive research score'),
-                                conflicts=list(result.conflicts),levels=levels,horizons=horizons)
+                                conflicts=list(result.conflicts),levels=levels,horizons=horizons,
+                                company=(study.display or {}).get('company'),
+                                quote=Quote(**study.display['quote']) if study.display else None,
+                                chart=Chart(**study.display['chart']) if study.display else None)
         approved(result.evidence,'display_raw')
         evidence=[Evidence(id=row.id,source_id=row.source_id,source_version=row.source_version,observed_at=row.observed_at,
                            url=article_url(row.url) if row.id.startswith('news-') else safe_url(row.url),excerpt=row.excerpt[:4000],research_only=row.research_only) for row in result.evidence[:200]]

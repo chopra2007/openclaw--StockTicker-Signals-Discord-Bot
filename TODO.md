@@ -1254,6 +1254,11 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    expected moves are unavailable; tap a setup card to see why the bot alerted; news for every setup ticker; earnings
    date in the header; assistant shows its source links; History page in the same chat-style look as the Assistant; suspend test member
    `claude_qa` and restore throttles at ship.
+5b. DONE 2026-10-06 night (design review round, LIVE): fresh-eyes review + competitor gap check + build; every
+   page now scores 4+ on clarity/readability/trust/speed. New: price + day change + after hours + key stats + chart on
+   reports, market strip, watchlist, alert track record (/record). Details, scores and the "not possible free" list:
+   [design review](todo/member-dashboard-design-review.md). Next ideas (free): top movers, earnings this week,
+   technical row (RSI/ATR), Discord DM alerts for watchlist tickers.
 5. DONE 2026-10-06 (round 4 + round 5): analysis upgrade LIVE (outlook, trade-plan reasons, news summaries;
    checked live on NVDA + MU, desktop + phone, light + dark). Round 5 (owner): #alerts group alerts on the home
    page (bot saves each post in `swarm_alerts`; last 7 days copied from the channel); site renamed "Market Edge";

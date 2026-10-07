@@ -68,7 +68,8 @@ class HistoryService:
             con.row_factory = sqlite3.Row
             self.jobs.auth.revalidate(principal, self.clock(), con=con)
             rows, cursor = self._page(con, principal, 'reports', cursor, limit)
-            return ReportPage(items=[self._report_ref(con,principal,r) for r in rows], cursor=cursor)
+            now = self.clock()
+            return ReportPage(items=[self._report_ref(con,principal,r).model_copy(update=self._row_summary(con,principal,r,now)) for r in rows], cursor=cursor)
 
     @staticmethod
     def _report_ref(con, principal, owner):
@@ -103,6 +104,48 @@ class HistoryService:
                     values[item['section']] = empty_result(item['section'],item['status'],job_id=item['job_id'])
         return values
 
+    def _visible_sections(self, con, principal, owner, version, now, only=None):
+        """Saved sections as current access allows; `only` limits the work to some sections (list rows)."""
+        values, annotations = {}, {}
+        try:
+            raw = json.loads(version['content_json'])
+            if not isinstance(raw,dict) or len(raw)>5: raise ValueError()
+            for name, item in raw.items():
+                if only is not None and name not in only: continue
+                saved = SectionResult.model_validate(item)
+                if name != saved.section: raise ValueError()
+                visible = None
+                if require_features(con,[name]):
+                    if saved.result_id is not None:
+                        parent = con.execute('SELECT m.* FROM market_results m JOIN report_owners o ON o.report_id=? AND o.member_id=? AND o.current_version_id=? AND o.deleted_at IS NULL WHERE m.id=?',
+                            (owner['report_id'],principal.member_id,version['id'],saved.result_id)).fetchone()
+                        current = self.jobs._read_result(con,parent,now,historical=True) if parent else None
+                        if current is not None and current.section == name:
+                            # Payload, evidence, timestamps and analysis version stay original.
+                            visible = saved.model_copy(update={'attributions':current.attributions,'delay_seconds':current.delay_seconds})
+                            notices = self._annotations(con,saved.evidence)
+                            if notices:
+                                annotations[name] = notices
+                                visible = empty_result(name).model_copy(update={'message':'Saved evidence was retracted.' if all(x.status=='retracted' for x in notices) else 'Saved evidence is unavailable.'})
+                    elif saved.payload is None and not saved.evidence and saved.status in ('failed','unavailable'):
+                        visible = empty_result(name,saved.status)
+                    elif saved.status in ('queued','running'):
+                        visible = self._pending(con,principal,owner,now).get(name)
+                values[name] = visible or empty_result(name)
+        except (ValueError,TypeError,ValidationError):
+            values, annotations = {}, {}
+        return values, annotations
+
+    def _row_summary(self, con, principal, owner, now):
+        """Signal and price for a list row, from the saved report under the same access checks as opening it. No provider calls."""
+        version = con.execute('SELECT v.* FROM report_versions v WHERE v.id=? AND v.report_id=?',(owner['current_version_id'],owner['report_id'])).fetchone()
+        if version is None: return {}
+        values, _ = self._visible_sections(con,principal,owner,version,now,only=('analysis','em_daily','em_weekly'))
+        analysis = values.get('analysis')
+        direction = analysis.payload.direction if analysis is not None and analysis.payload is not None else None
+        price = next((v.payload.spot.value for v in (values.get('em_daily'),values.get('em_weekly')) if v is not None and v.payload is not None and v.payload.spot is not None and v.payload.spot.value),None)
+        return dict(direction=direction,price=price)
+
     def get_report(self, principal, report_id):
         now = self.clock()
         with self.jobs.store.transaction() as con:
@@ -116,33 +159,7 @@ class HistoryService:
                 pending = self._pending(con,principal,owner,now)
                 return SavedReport(**reference,version=None,saved_at=None,finalized=False,
                     availability='pending' if pending else 'unavailable',sections=pending)
-            values, annotations = {}, {}
-            try:
-                raw = json.loads(version['content_json'])
-                if not isinstance(raw,dict) or len(raw)>5: raise ValueError()
-                for name, item in raw.items():
-                    saved = SectionResult.model_validate(item)
-                    if name != saved.section: raise ValueError()
-                    visible = None
-                    if require_features(con,[name]):
-                        if saved.result_id is not None:
-                            parent = con.execute('SELECT m.* FROM market_results m JOIN report_owners o ON o.report_id=? AND o.member_id=? AND o.current_version_id=? AND o.deleted_at IS NULL WHERE m.id=?',
-                                (report_id,principal.member_id,version['id'],saved.result_id)).fetchone()
-                            current = self.jobs._read_result(con,parent,now,historical=True) if parent else None
-                            if current is not None and current.section == name:
-                                # Payload, evidence, timestamps and analysis version stay original.
-                                visible = saved.model_copy(update={'attributions':current.attributions,'delay_seconds':current.delay_seconds})
-                                notices = self._annotations(con,saved.evidence)
-                                if notices:
-                                    annotations[name] = notices
-                                    visible = empty_result(name).model_copy(update={'message':'Saved evidence was retracted.' if all(x.status=='retracted' for x in notices) else 'Saved evidence is unavailable.'})
-                        elif saved.payload is None and not saved.evidence and saved.status in ('failed','unavailable'):
-                            visible = empty_result(name,saved.status)
-                        elif saved.status in ('queued','running'):
-                            visible = self._pending(con,principal,owner,now).get(name)
-                    values[name] = visible or empty_result(name)
-            except (ValueError,TypeError,ValidationError):
-                values, annotations = {}, {}
+            values, annotations = self._visible_sections(con,principal,owner,version,now)
             available = any(v.status in ('completed','failed') for v in values.values())
             pending = any(v.status in ('queued','running') for v in values.values())
             return SavedReport(**reference,version=version['version'],saved_at=version['created_at'],
