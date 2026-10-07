@@ -109,3 +109,13 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   $3/day cap; drop Google link decoding (server gets blocked).
 - **Next:** CSS for `.outlook` and level reasons, `npm run typecheck && build`, release.sh (backend + --web),
   live browser check NVDA + MU desktop/phone, then mark round 4 live.
+
+### Session notes 2026-10-06 (round 5: redesign, #alerts on home, Market Edge)
+- **Done + live:** round-4 analysis styling released (outlook rows, plan reasons, news summaries); checked live NVDA + MU,
+  desktop/phone, light/dark. #alerts group alerts on Overview: bot saves each post to `swarm_alerts`
+  (`db.insert_swarm_alert`, called from `send_swarm_alert`); dashboard source `swarm_alerts` -> `/api/v1/alerts/latest`
+  (newest per ticker, feed access); 54 posts from the last 7 days copied from the channel. Renamed to "Market Edge".
+  Ticker links open reports on tap (`TickerLink`); a bare /ticker address shows "Get X report" (never auto-starts work).
+  Home lists capped with "Show all"; History rebuilt (switch, tap rows, bubbles, phone back).
+- **Commits:** 2482ccc and the two after it. Tests: 710 pass, same 5 pre-existing failures.
+- **Next:** 2026-10-07 13:10 PDT task checks the first new alert reached the site (notifications.log); e2e suite not re-run.
