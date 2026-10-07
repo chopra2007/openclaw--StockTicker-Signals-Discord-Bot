@@ -148,3 +148,17 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   day change, existing checks, and free broader-universe feasibility, in that order.
 - No paid service or model call introduced. Claude plugin was unavailable; separate
   Codex review was performed and is not represented as Claude consensus.
+
+### Session notes — 2026-10-07 Pacific (password rule follow-up)
+
+- Five-character lowercase-only passwords now work for signup and reset, verified
+  locally in a browser and through the deployed HTTPS API. Existing passwords work.
+  Temporary QA member disabled and sessions revoked. Functional commit: 102020f.
+- Account/admin checks: 128 passed, 2 skipped. All 20 screener checks plus new
+  password browser workflow and two existing sign-in checks passed. Build and type
+  check pass. Routine regression: 4,488 passed, 121 skipped, six existing research
+  failures; no failures outside .test-baseline. Existing chat lint issue remains.
+- Latest live cache has previous close for all 56 fresh stock quotes. Next session
+  verifies daily changes across trading sessions and missing-data cases, repairs
+  existing dashboard checks, then assesses dependable free broader stock coverage.
+  Full evidence remains in `todo/member-dashboard-screener.md`. No paid additions.

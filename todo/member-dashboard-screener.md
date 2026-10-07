@@ -249,6 +249,39 @@ otherwise state its absence and proceed only with free work.
 Lower priority after these: chart coverage labels and keyboard point navigation.
 Comparison, monitored alerts and speculative ranking models remain deferred.
 
+### Follow-up — 2026-10-07 Pacific (password rule and regression review)
+
+- Owner requested a minimum of five characters, without uppercase or digit
+  requirements. Changed the shared server password rule and signup/reset form
+  from 15 to 5; maximum remains 128. Existing passwords continue to work.
+- Added a real browser signup/login/reset workflow and server tests for the
+  five-lowercase boundary, invalid lengths, invite preservation and old-password
+  rejection after reset. Updated operational documentation and obsolete password
+  rejection fixtures. Commit: 102020f.
+- Local account/admin checks: 128 passed, 2 skipped. Browser: new password workflow,
+  two existing authentication checks and all 20 screener checks passed. Production
+  build, type check and changed-file lint passed. Full lint retains the existing
+  chat.tsx:41 error and unused-variable warning.
+- Deployed the frontend and API; live HTTPS signup, login, reset and old-password
+  rejection passed with a generated five-letter lowercase password. Four characters
+  were rejected. Disabled the temporary QA member and revoked its sessions.
+  No existing member credentials changed. Backup: /opt/member-dashboard/todo121-password-rollback.
+- Previous session's background gate completed: 4,488 passed, 121 skipped, six
+  failures already listed in .test-baseline; push completed. The fresh routine
+  regression run also finished with 4,488 passed, 121 skipped and exactly those six
+  existing research failures; no failure IDs outside .test-baseline. The routine
+  server interpreter skips dashboard tests because their optional web dependencies
+  are absent; the separate locked web test environment ran the 128 account/admin
+  checks above, and the deployed HTTPS probe verified the actual production API.
+- Rechecked live quote coverage at 2:15 PM Pacific: all 56 cached stock quotes
+  were fresh within the API's 30-minute window and contained previous close; none
+  had a zero change. The earlier missing-value observation is not current.
+  Next session should trace day-change accuracy across regular/after-hours sessions,
+  refreshes and missing-data cases before choosing a fix. Keep the existing formula.
+- Next priorities remain reliable market-data presentation, existing regression
+  repair, and whether dependable broader-market screening is possible without
+  additional cost. No paid service, dependency or AI call introduced.
+
 ### Session notes — 2026-10-07 Pacific (session close)
 
 Approved cached-data screener is live and verified. Commits dd84bb6 and e9f2a6a

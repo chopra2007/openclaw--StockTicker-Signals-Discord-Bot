@@ -1231,8 +1231,8 @@ alerts/setups with explained matches, inspection, watchlists and locally saved w
 This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
 
 **Next session — highest-value screener improvements (in order):**
-1. Diagnose missing previous-close/day-change data in the existing cached quote source; restore accurate
-   signed changes where supported, with timestamps and explicit missing-data handling.
+1. Verify accurate daily price changes across market sessions, refreshes and missing data. The latest
+   check found previous close in all 56 fresh stock quotes; recheck before choosing a fix.
 2. Repair the existing test/lint backlog: 17 browser failures, 8 Python failures and one lint error.
    Update stale UI expectations and Windows/Linux portability without weakening access/data checks.
 3. Assess a reliable, genuinely free broader-universe snapshot before adding volume, liquidity,
