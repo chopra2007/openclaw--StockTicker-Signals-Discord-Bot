@@ -195,3 +195,56 @@ screenshot is retained locally at
 
 Next data priority: verify previous-close coverage in the existing quote source
 before expanding performance filters; preserve explicit missing-data outcomes.
+
+## Next-session checklist — highest-value work
+
+Saved at the owner's request on 2026-10-07 Pacific. These are open follow-ups
+under TODO #121; the approved bounded screener remains complete. Start with the
+existing implementation and live data, preserve source permissions and bot/API
+isolation, and introduce no paid services or dependencies. Confer with Claude
+before consequential decisions if the plugin is available without paid access;
+otherwise state its absence and proceed only with free work.
+
+### 1. Restore trustworthy day-change coverage
+
+- Trace an actual cached quote from the existing provider through worker storage,
+  member API and screener rendering. Determine why previous close/change is absent;
+  do not assume a formatting problem or change the formula without evidence.
+- Starting points: the quote collection/cache path, `/market/quotes`, existing
+  market-board tests, `src/lib/use-screener.ts` and `src/lib/screener.ts`.
+- Acceptance: where previous close is available, displayed and filtered change
+  uses the existing `(price / previous close - 1) * 100` definition. Test positive,
+  negative, zero and missing values, quote/session timestamps and refresh behavior.
+  Unsupported observations remain missing; never substitute an old alert price.
+- Recheck current live data: the missing values observed this session may change.
+
+### 2. Make the existing regression checks dependable
+
+- Reproduce the exact existing failing IDs recorded in the implementation ledger:
+  17 browser tests, 8 Python tests and the `chat.tsx:41` lint error. Keep the 20 new
+  screener tests and all original passing tests green.
+- Repair stale report/history/status selectors and assistant labels. Resolve
+  Windows date formatting, SQLite backup locking and Linux-only test assumptions
+  with appropriate implementation fixes or platform-specific tests.
+- Use the existing isolated synthetic composition and locked test dependencies;
+  no production research submissions or paid model calls are needed.
+- Acceptance: affected checks pass, or a genuine platform limitation is explicitly
+  separated from product behavior. Do not delete tests, disable lint rules or
+  weaken authentication, privacy and withdrawal assertions to obtain green output.
+
+### 3. Establish whether broader screening can be supported for free
+
+- Inventory existing data first. Assess complete universe membership, company,
+  volume/average volume, market cap, timestamps and historical sample coverage.
+- Verify that any proposed source is genuinely free for this use, with usable
+  licensing, rate limits and predictable coverage. No signups, billing upgrades,
+  usage-based charges or replacement of a working dependency for fashion.
+- Acceptance before implementing filters: documented coverage/freshness/missing
+  data and definitions, a bounded performance measurement, and a realistic free
+  collection/cache plan. Add relative volume only with comparable volume periods
+  and sufficient observations. Never imply unusualness predicts returns.
+- If no reliable free snapshot exists, retain the current signal shortlist and
+  document the evidence instead of manufacturing broad-market functionality.
+
+Lower priority after these: chart coverage labels and keyboard point navigation.
+Comparison, monitored alerts and speculative ranking models remain deferred.

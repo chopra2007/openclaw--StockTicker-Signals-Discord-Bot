@@ -1228,6 +1228,16 @@ Make research evidence checks reproducible without private ignored files or serv
 alerts/setups with explained matches, inspection, watchlists and locally saved workflows.
 This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
 
+**Next session — highest-value screener improvements (in order):**
+1. Diagnose missing previous-close/day-change data in the existing cached quote source; restore accurate
+   signed changes where supported, with timestamps and explicit missing-data handling.
+2. Repair the existing test/lint backlog: 17 browser failures, 8 Python failures and one lint error.
+   Update stale UI expectations and Windows/Linux portability without weakening access/data checks.
+3. Assess a reliable, genuinely free broader-universe snapshot before adding volume, liquidity,
+   market-cap or relative-volume filters. Verify coverage, freshness, licensing and quotas first;
+   retain the bounded signal screener if reliable free coverage is unavailable.
+Acceptance checks and starting points: [next-session checklist](todo/member-dashboard-screener.md#next-session-checklist--highest-value-work).
+
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
@@ -1253,8 +1263,9 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
 1. Egress: the worker can reach the whole internet (no per-host allowlist yet). Now also needs news.google.com.
 2. (Automated) Daily 08:00 size check alerts #errors if the dashboard DB passes 300 MB, grows 50 MB in a day, or
    disk drops under 15% free; history in `/home/openclaw/.openclaw/state/member-dashboard-size.jsonl`.
-3. Browser test suite (web/member-dashboard/e2e) updated to the new wording but not run: its test server needs
-   port 3444, which the live site uses. Run it on a spare port or a copy before ship.
+3. Browser suite was independently run locally on 2026-10-07: 30 passed, 17 original failures remain;
+   all 20 new screener tests pass. Repair this backlog using the isolated synthetic server on Windows,
+   which avoids the production host's port 3444. Full Python suite: 723 passed, 17 skipped, 8 existing failures.
 4. Ideas to improve (owner asked for next steps 2026-10-06): price + day change in the ticker header even when
    expected moves are unavailable; tap a setup card to see why the bot alerted; news for every setup ticker; earnings
    date in the header; assistant shows its source links; History page in the same chat-style look as the Assistant; suspend test member
