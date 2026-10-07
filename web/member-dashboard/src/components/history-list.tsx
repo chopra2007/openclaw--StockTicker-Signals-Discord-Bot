@@ -2,12 +2,13 @@
 import {useEffect,useRef,useState} from 'react';
 import {api,ApiError} from '@/lib/api';
 import {type ReportPage,type SavedReport,type ConversationPage,type SavedConversation,sections,labels} from '@/lib/contracts';
-import {formatPacific} from '@/lib/time';
+import {formatShort} from '@/lib/time';
 import {AppShell} from './app-shell';
 import {useSession} from './session';
 import {ResearchSection} from './research-section';
 import {EvidenceList} from './research-details';
 import {Button} from './ui/button';
+import {Answer} from './chat';
 
 /** Current access refresh replaces or clears every visible page, without work submission. */
 export function useHistoryRead<T>(path:string|null,accessKey:string,interval=15000){
@@ -54,25 +55,33 @@ export function HistoryList(){
   catch(e){if(!current.signal.aborted)setDeleteError(e instanceof ApiError?e.message:'Unable to delete this item.');}
   finally{if(!current.signal.aborted)setDeleting(false);}
  }
+ const open=(id:string)=>{setSelected(id);setMessageCursor(null);setDeleteError('');};
+ const kind=resource==='reports'?'report':'chat';
  return <AppShell><main className="workspace" id="main">
   <div className="page-intro"><h1 tabIndex={-1}>History</h1><p className="lede">Your saved reports and chats. Only you can see them.</p></div>
-  <div className="section-heading"><Button variant="outline" onClick={()=>choose('reports')} aria-pressed={resource==='reports'}>Saved reports</Button>{member?.features.assistant.enabled&&<Button variant="outline" onClick={()=>choose('conversations')} aria-pressed={resource==='conversations'}>Chats</Button>}</div>
+  {member?.features.assistant.enabled&&<div className="switch" role="group" aria-label="Show">{(['reports','conversations'] as const).map(r=><button key={r} type="button" aria-pressed={resource===r} onClick={()=>choose(r)}>{r==='reports'?'Reports':'Chats'}</button>)}</div>}
   {deleteError&&<p role="alert">{deleteError}</p>}
-  {!allowed?<p>Conversation access is unavailable.</p>:<div className="report-layout history-layout"><aside className="report-sidebar"><div className="card">
-   <h2>{resource==='reports'?'Saved reports':'Chats'}</h2>
+  {!allowed?<p>Chats are not available on your account.</p>:<div className="history-layout" data-open={selected?'':undefined}><aside className="history-index">
    {list.error&&<p role="alert">{list.error}</p>}
-   {!list.data&&!list.error&&<p role="status">Loading your history…</p>}
-   {list.data?.items.length===0&&<p>{resource==='reports'?'No saved reports yet. Search a ticker to create one.':'No chats yet.'}</p>}
-   {list.data?.items.map(item=><div className="filing" key={item.id}><p>{'ticker' in item?item.ticker||'Saved report':item.title||'Conversation'}</p><p className="small">{formatPacific(item.created_at)}</p><Button variant="outline" aria-label={(resource==='reports'?'Open saved report':'Open conversation')+' '+formatPacific(item.created_at)} onClick={()=>{setSelected(item.id);setMessageCursor(null);setDeleteError('');}}>Open</Button></div>)}
-   <div className="section-heading">{previous.length>0&&<Button variant="outline" onClick={()=>{setCursor(previous[previous.length-1]);setPrevious(x=>x.slice(0,-1));}}>Previous page</Button>}{list.data?.cursor&&<Button variant="outline" onClick={()=>{setPrevious(x=>[...x,cursor]);setCursor(list.data!.cursor);}}>Next page</Button>}</div>
-  </div></aside><div className="report-column">
-   {selected&&<div className="card"><div className="section-heading"><h2>{saved?.ticker?saved.ticker+' saved report':resource==='reports'?'Saved report':'Saved conversation'}</h2><Button variant="outline" disabled={deleting} onClick={()=>void remove()}>{resource==='reports'?'Delete selected report':'Delete selected conversation'}</Button></div>{saved&&<p className="small">Saved {formatPacific(saved.saved_at)} · {saved.version?'Version '+saved.version:'No saved version'} · {saved.finalized?'Finished':'Not finalized'}</p>}</div>}
+   {!list.data&&!list.error&&<div className="skeleton-list" aria-label="Loading"><span/><span/><span/></div>}
+   {list.data?.items.length===0&&<p className="panel-empty">{resource==='reports'?'No saved reports yet. Search a ticker to create one.':'No chats yet. Ask the Assistant a question to start one.'}</p>}
+   {!!list.data?.items.length&&<ul className="history-rows">{list.data.items.map(item=><li key={item.id}><button type="button" aria-current={selected===item.id||undefined} aria-label={(resource==='reports'?'Open saved report ':'Open conversation ')+('ticker' in item?item.ticker||'':item.title||'')+', '+formatShort(item.created_at)} onClick={()=>open(item.id)}>
+    <span className="row-title">{'ticker' in item?item.ticker||'Saved report':item.title||'Chat'}</span><span className="row-time">{formatShort(item.created_at)}</span><span className="chevron" aria-hidden="true">›</span></button></li>)}</ul>}
+   {(previous.length>0||list.data?.cursor)&&<div className="pager">{previous.length>0&&<Button variant="ghost" onClick={()=>{setCursor(previous[previous.length-1]);setPrevious(x=>x.slice(0,-1));}}>Newer</Button>}{list.data?.cursor&&<Button variant="ghost" onClick={()=>{setPrevious(x=>[...x,cursor]);setCursor(list.data!.cursor);}}>Older</Button>}</div>}
+  </aside><div className="history-detail">
+   {selected&&<div className="detail-head"><Button variant="ghost" className="back" onClick={()=>{setSelected(null);setMessageCursor(null);}}>‹ {resource==='reports'?'Reports':'Chats'}</Button>
+    <div><h2>{saved?.ticker?saved.ticker+' report':conversation?.title||(resource==='reports'?'Report':'Chat')}</h2>{saved&&<p className="small">Saved {formatShort(saved.saved_at)}</p>}</div>
+    <Button variant="ghost" className="danger" disabled={deleting} onClick={()=>void remove()}>Delete {kind}</Button></div>}
    {detail.error&&selected&&<p role="alert">{detail.error}</p>}
-   {selected&&!detail.data&&!detail.error&&<p role="status">Loading saved content…</p>}
-   {!selected&&<div className="card empty-state">Select an item to reopen it.</div>}
-   {saved&&<>{saved.availability==='unavailable'&&<p className="notice">Saved content is unavailable under current access or source permissions.</p>}{sections.map(name=>saved.sections[name]?<div key={name}>{saved.annotations[name]?.map((notice,i)=><p key={i} className="notice">{labels[name]}: evidence {notice.status==='retracted'?'was retracted':'is unavailable'}{notice.recorded_at!==null?' · '+formatPacific(notice.recorded_at):''}. Dependent content is withheld.</p>)}<ResearchSection result={saved.sections[name]!}/></div>:null)}</>}
-   {conversation&&<>{conversation.messages.map(message=><article className="card" key={message.id}><h3>{message.role==='user'?'You':'Market Assistant'}</h3><p className="small">{formatPacific(message.created_at)}</p><p>{message.text??'This message is unavailable under current source permissions.'}</p><EvidenceList items={message.evidence}/>{message.annotations.map((notice,i)=><p className="notice" key={i}>Evidence {notice.status==='retracted'?'was retracted':'is unavailable'}. Dependent content is withheld.</p>)}</article>)}{conversation.cursor&&<Button variant="outline" onClick={()=>setMessageCursor(conversation.cursor)}>Next messages</Button>}{messageCursor&&<Button variant="outline" onClick={()=>setMessageCursor(null)}>First messages</Button>}</>}
+   {selected&&!detail.data&&!detail.error&&<div className="panel"><div className="skeleton-list" aria-label="Loading"><span/><span/><span/></div></div>}
+   {!selected&&<div className="panel panel-empty history-pick">Pick a {kind} on the left to open it.</div>}
+   {saved&&<div className="report-grid">{saved.availability==='unavailable'&&<p className="notice">This report can no longer be shown under current access.</p>}{sections.map(name=>saved.sections[name]?<div key={name}>{saved.annotations[name]?.map((notice,i)=><p key={i} className="notice">{labels[name]}: a source {notice.status==='retracted'?'was withdrawn':'is no longer available'}{notice.recorded_at!==null?' ('+formatShort(notice.recorded_at)+')':''}, so the parts that used it are hidden.</p>)}<ResearchSection result={saved.sections[name]!}/></div>:null)}</div>}
+   {conversation&&<div className="panel history-chat">{messageCursor&&<Button variant="ghost" onClick={()=>setMessageCursor(null)}>Back to the start</Button>}
+    {conversation.messages.map(message=><div key={message.id} className={'bubble '+(message.role==='user'?'me':'them')}>{message.text==null?'This message can no longer be shown under current access.':message.role==='user'?message.text:<Answer text={message.text}/>}
+     <EvidenceList items={message.evidence}/>{message.annotations.map((notice,i)=><p className="small" key={i}>A source {notice.status==='retracted'?'was withdrawn':'is no longer available'}, so parts are hidden.</p>)}
+     <time className="bubble-time">{formatShort(message.created_at)}</time></div>)}
+    {conversation.cursor&&<Button variant="ghost" onClick={()=>setMessageCursor(conversation.cursor)}>Later messages</Button>}</div>}
   </div></div>}
-  <details className="card context-note"><summary>How deleting works</summary><p>Deleting a report or chat removes your copy for good. Other members’ copies are separate. A refresh saves a new report and keeps the old one.</p></details>
+  <p className="foot-note">Deleting removes your copy for good. A refresh saves a new report and keeps the old one.</p>
  </main></AppShell>;
 }

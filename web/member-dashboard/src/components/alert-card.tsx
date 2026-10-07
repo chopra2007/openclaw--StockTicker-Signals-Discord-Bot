@@ -1,9 +1,9 @@
-import Link from 'next/link';
+import {TickerLink} from './ticker-link';
 import type {LatestCard} from '@/lib/contracts';
 import {money,timeAgo} from '@/lib/format';
 import {formatWhen} from '@/lib/time';
 
-const VIEW={bullish:'Bullish',bearish:'Bearish',unclear:'No clear view'} as const;
+const VIEW={bullish:'Bullish',bearish:'Bearish',unclear:'Unclear'} as const;
 
 /** One #alerts post: several analysts on the same ticker in a short time. */
 export function AlertCard({card,now}:{card:LatestCard;now:number}){const g=card.group!;
@@ -13,7 +13,7 @@ export function AlertCard({card,now}:{card:LatestCard;now:number}){const g=card.
  const split=[up&&`${up} bullish`,down&&`${down} bearish`,open&&`${open} unclear`].filter(Boolean).join(', ');
  return <article className="alert" data-fresh={fresh||undefined}>
   <div className="alert-head">
-   <Link href={'/ticker/'+encodeURIComponent(card.ticker)} className="alert-ticker">{card.ticker}</Link>
+   <TickerLink ticker={card.ticker} className="alert-ticker"/>
    {card.price!=null&&<span className="alert-price">{money(card.price)}</span>}
    <time className="alert-time" dateTime={new Date(card.observed_at*1000).toISOString()} title={timeAgo(card.observed_at,now)}>{fresh&&<span className="new-dot" aria-label="New"/>}{formatWhen(card.observed_at,now*1000)}</time>
   </div>
@@ -23,6 +23,6 @@ export function AlertCard({card,now}:{card:LatestCard;now:number}){const g=card.
   </div>
   <p className="vote-label">{split}</p>
   <details className="alert-calls"><summary>What they said</summary>
-   <ul>{g.calls.map(c=><li key={c.analyst}><span className={'view view-'+c.view}>{VIEW[c.view]}</span><span className="who">@{c.analyst}</span><p>{c.reason}</p></li>)}</ul>
+   <ul>{g.calls.map(c=><li key={c.analyst}><span className={'view view-'+c.view}>{VIEW[c.view]}</span><span className="who">@{c.analyst}</span><p className={c.reason==='reason not stated'?'no-reason':undefined}>{c.reason==='reason not stated'?'No reason given':c.reason}</p></li>)}</ul>
   </details>
  </article>}

@@ -7,6 +7,7 @@ import {AppShell} from './app-shell';
 import {ResearchSection} from './research-section';
 import {Chat} from './chat';
 import {Direction} from './feed-card';
+import {TickerLink} from './ticker-link';
 import {money} from '@/lib/format';
 import {Button} from './ui/button';
 import {useResearch} from '@/lib/use-research';
@@ -44,6 +45,6 @@ export function TickerReport({symbol,requestId}:{symbol:string;requestId:string|
    suggestions={[`Is ${ticker} a buy right now?`,`What’s driving ${ticker} this week?`,`What are the risks?`]}/>
   {chatId&&<div className="ask-sheet-foot"><span>Saved to your chats.</span><Link href={'/assistant?c='+chatId}>Open in Assistant</Link></div>}</section>}
  {error&&<p role="alert">{error}</p>}{refreshError&&<p ref={alert} tabIndex={-1} role="alert">{refreshError}</p>}
- {!requestId?<div className="panel panel-empty">Search a ticker above to start a report.</div>:!data&&!error?<div className="panel"><div className="skeleton-list"><span/><span/><span/></div></div>:
+ {!requestId?<div className="panel start-report"><p>Price levels, news, outlook and options for {symbol}.</p><TickerLink ticker={symbol} className="button button-primary">Get {symbol} report</TickerLink></div>:!data&&!error?<div className="panel"><div className="skeleton-list"><span/><span/><span/></div></div>:
  <div className="report-grid">{section('analysis')}<div className="report-pair">{section('em_daily')}{section('em_weekly')}</div>{section('options')}{section('sec')}</div>}
  </main></AppShell>}

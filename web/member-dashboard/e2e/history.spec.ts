@@ -27,9 +27,9 @@ test('history: reopen original, delete owned report and clear selected content',
  expect(await page.locator('#analysis').textContent()).toBe(original);expect(await control(request,{action:'stats'})).toEqual(stats);
  await expect(page.getByAltText('Daily expected move chart; numerical ranges follow')).toBeVisible();
  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();if(width===1440){const content=await page.locator('.report-column').boundingBox(),sidebar=await page.locator('.report-sidebar').boundingBox();expect(content!.width).toBeGreaterThan(sidebar!.width);}await page.screenshot({path:`.e2e/screenshots/history-${width}.png`,fullPage:true});}
- await page.getByRole('button',{name:'Delete selected report',exact:true}).click();
- await expect(page.getByText('No saved reports yet.')).toBeVisible();await expect(page.locator('#analysis')).toHaveCount(0);await expect(page.locator('img')).toHaveCount(0);
- await page.reload();await expect(page.getByText('No saved reports yet.')).toBeVisible();
+ await page.getByRole('button',{name:'Delete report',exact:true}).click();
+ await expect(page.getByText(/^No saved reports yet\./)).toBeVisible();await expect(page.locator('#analysis')).toHaveCount(0);await expect(page.locator('img')).toHaveCount(0);
+ await page.reload();await expect(page.getByText(/^No saved reports yet\./)).toBeVisible();
 });
 
 test('history: active access refresh withdraws sections and pauses while hidden',async({page,request})=>{
@@ -50,7 +50,7 @@ test('history: private conversation reopen and delete without starting assistant
  const posts:string[]=[];page.on('request',r=>{if(r.method()==='POST')posts.push(r.url());});
  await page.goto('/history');await page.getByRole('button',{name:'Chats',exact:true}).click();
  await page.getByRole('button',{name:/Open conversation/}).click();await expect(page.getByText('My saved question')).toBeVisible();
- await page.getByRole('button',{name:'Delete selected conversation'}).click();await expect(page.getByText('No conversations yet.')).toBeVisible();
+ await page.getByRole('button',{name:'Delete chat',exact:true}).click();await expect(page.getByText(/^No chats yet\./)).toBeVisible();
  await expect(page.getByText('My saved question')).toHaveCount(0);expect(posts).toEqual([]);
 });
 
@@ -60,6 +60,6 @@ test('history: cross-account IDs and deleted reports fail closed',async({page,re
  const other=await browser.newContext({ignoreHTTPSErrors:true,baseURL:'https://localhost:3443'});const otherPage=await other.newPage();
  await join(otherPage,request);expect((await other.request.get('/api/v1/reports/'+id)).status()).toBe(404);
  await page.goto('/history');await page.getByRole('button',{name:/Open saved report/}).first().click();await expect(page.getByTestId('analysis-status')).toHaveText('Completed');
- await page.getByRole('button',{name:'Delete selected report'}).click();await expect(page.getByText('No saved reports yet.')).toBeVisible();
+ await page.getByRole('button',{name:'Delete report',exact:true}).click();await expect(page.getByText(/^No saved reports yet\./)).toBeVisible();
  expect((await page.request.get('/api/v1/reports/'+id)).status()).toBe(404);await other.close();
 });

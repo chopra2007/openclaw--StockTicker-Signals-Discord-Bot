@@ -49,7 +49,7 @@ test('failure is independent and invalid or unknown symbols create no work',asyn
 test('direct ticker routes never start research or assistant and private results stay private',async({page,request})=>{
   await page.goto('/ticker/SPY?request=unknown');await expect(page.getByRole('heading',{name:'Sign in'})).toBeVisible();await join(page,request);
   const stats=await control(request,{action:'stats'});const unsafe:string[]=[];page.on('request',r=>{if(r.method()==='POST')unsafe.push(r.url());});
-  await page.goto('/ticker/SPY');await expect(page.getByText('Search a ticker above to start a report.')).toBeVisible();expect(unsafe).toEqual([]);expect(await control(request,{action:'stats'})).toEqual(stats);
+  await page.goto('/ticker/SPY');await expect(page.getByRole('link',{name:'Get SPY report'})).toBeVisible();expect(unsafe).toEqual([]);expect(await control(request,{action:'stats'})).toEqual(stats);
   await page.goto('/ticker/SPY?request=not-owned');await expect(page.locator('p[role=alert]')).toContainText('not found');
 });
 test('terminal access checks withdraw source payloads and charts; expiry clears everything',async({page,request})=>{
@@ -109,7 +109,7 @@ test('assistant: Enter sends, the question names the chat, private access and de
  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();await page.screenshot({path:`.e2e/screenshots/assistant-${width}.png`,fullPage:true});}
  await page.setViewportSize({width:1440,height:1000});
  await page.goto('/history');await page.getByRole('button',{name:'Chats',exact:true}).click();await page.getByRole('button',{name:/Open conversation/}).first().click();
- await page.getByRole('button',{name:'Delete selected conversation',exact:true}).click();
+ await page.getByRole('button',{name:'Delete chat',exact:true}).click();
  await expect.poll(async()=>(await page.request.get('/api/v1/conversations/'+first.id)).status()).toBe(404);
 });
 
