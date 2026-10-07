@@ -119,3 +119,12 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   Home lists capped with "Show all"; History rebuilt (switch, tap rows, bubbles, phone back).
 - **Commits:** 2482ccc and the two after it. Tests: 710 pass, same 5 pre-existing failures.
 - **Next:** 2026-10-07 13:10 PDT task checks the first new alert reached the site (notifications.log); e2e suite not re-run.
+
+## Session notes 2026-10-06 (night: design review round)
+- **Done (LIVE, commit a1323fb):** fresh-eyes review + competitor gap check + build, per
+  `todo/member-dashboard-design-review-kickoff.md`. Report: price, day change, after hours, key stats, chart with
+  trade-plan lines; Overview market strip; `/watchlist`; `/record` alert track record; sign-in/Assistant/History polish.
+  All pages score 4+; details, scores and "not possible free" list in `todo/member-dashboard-design-review.md`.
+- **Tests (once, at end):** site 733 passed / 4 known failures (migration test now fixed); bot 4,488 passed / 6 baseline.
+- **Open:** P15 "Next year" paragraph still long; 1-hour track-record rule ignores exchange holidays; Schwab
+  individual-developer terms for showing data to members not checked; e2e suite still not run (port 3444).
