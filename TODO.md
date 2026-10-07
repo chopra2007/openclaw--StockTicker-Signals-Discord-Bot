@@ -1254,10 +1254,14 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    expected moves are unavailable; tap a setup card to see why the bot alerted; news for every setup ticker; earnings
    date in the header; assistant shows its source links; History page in the same chat-style look as the Assistant; suspend test member
    `claude_qa` and restore throttles at ship.
-5. IN PROGRESS (round 4, owner: "as good or better than Gemini"): analysis upgrade built + tested on live NVDA/MU
-   data but NOT deployed or committed-as-live. Remaining: page styling for outlook rows + level reasons
-   (`research-section.tsx`, `globals.css`), typecheck/build, deploy backend + web, live browser check NVDA + MU.
-   Notes: [Phase C plan](todo/member-dashboard-phaseC-plan.md) session notes 2026-10-06 (round 4).
+5. DONE 2026-10-06 (round 4 + round 5): analysis upgrade LIVE (outlook, trade-plan reasons, news summaries;
+   checked live on NVDA + MU, desktop + phone, light + dark). Round 5 (owner): #alerts group alerts on the home
+   page (bot saves each post in `swarm_alerts`; last 7 days copied from the channel); site renamed "Market Edge";
+   tapping a ticker opens its report (a bare /ticker address still never starts one); home lists show 6-8 then
+   "Show all"; History rebuilt (Reports/Chats switch, tap-a-row, chat bubbles, phone back button).
+   Open: first NEW alert through the live path checks itself 2026-10-07 13:10 PDT (task -> notifications.log);
+   e2e (Playwright) suite not re-run, wording in e2e/history.spec.ts + member.spec.ts updated by hand;
+   pre-existing lint error in chat.tsx (setState inside an effect).
 6. Insider selling (90-day Form 4 totals) is not in the analysis write-up yet; Gemini's note had it.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests

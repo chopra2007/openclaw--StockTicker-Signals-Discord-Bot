@@ -40,7 +40,7 @@ export function TickerReport({symbol,requestId}:{symbol:string;requestId:string|
  const analysis=data?.sections.analysis?.payload;
  const canAsk=!!member?.features.assistant.enabled;
  return <AppShell><main className="workspace" id="main"><div className="page-head report-head"><div><h1 tabIndex={-1}>{ticker}</h1>{(spot!=null||analysis?.kind==='analysis')&&<p className="price">{spot!=null&&<span>{money(spot)}</span>}{analysis?.kind==='analysis'&&<Direction value={analysis.direction}/>}</p>}</div>
- <div className="report-actions">{canAsk&&<Button aria-expanded={asking} aria-controls="ask-sheet" onClick={()=>setAsking(a=>!a)}>{asking?'Close':'Ask about '+ticker}</Button>}{requestId&&<Button variant="outline" onClick={()=>void refresh()} disabled={busy}>{busy?'Refreshing…':'Refresh'}</Button>}</div></div>
+ <div className="report-actions">{canAsk&&<Button variant={requestId?undefined:"outline"} aria-expanded={asking} aria-controls="ask-sheet" onClick={()=>setAsking(a=>!a)}>{asking?'Close':'Ask about '+ticker}</Button>}{requestId&&<Button variant="outline" onClick={()=>void refresh()} disabled={busy}>{busy?'Refreshing…':'Refresh'}</Button>}</div></div>
  {canAsk&&asking&&<section id="ask-sheet" className="ask-sheet" aria-label={'Ask about '+ticker}><Chat conversationId={chatId} onConversation={ref=>setChatId(ref.id)} ticker={ticker} autoFocus
    suggestions={[`Is ${ticker} a buy right now?`,`What’s driving ${ticker} this week?`,`What are the risks?`]}/>
   {chatId&&<div className="ask-sheet-foot"><span>Saved to your chats.</span><Link href={'/assistant?c='+chatId}>Open in Assistant</Link></div>}</section>}
