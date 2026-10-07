@@ -13,6 +13,7 @@ from fastapi import Request
 from PIL import Image, ImageDraw
 import uvicorn
 from member_dashboard.app import create_app
+from member_dashboard.routes.auth import AnonymousCsrf
 from member_dashboard.settings import Settings
 from member_dashboard.contracts import ContentLineage, SourceContribution, SectionResult
 from member_dashboard.source_policy import SourcePolicy, SourcePermission
@@ -148,6 +149,7 @@ def create_synthetic(run: Path, *, initialize=True, worker_id='browser-fixture')
             # Browser cases share this disposable fixture, but not an address
             # budget. Never reset between requests or members within a case.
             with store.transaction() as con: con.execute('DELETE FROM auth_attempts')
+            app.state.anonymous_csrf = AnonymousCsrf()
         if action=='assistant': assistant_transport.enabled=command['enabled']
         if action=='invite':
             return {'token':auth.issue_invite_trusted(admin,time.time()).token}

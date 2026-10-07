@@ -1225,7 +1225,8 @@ Make research evidence checks reproducible without private ignored files or serv
 ## 121. Complete the member dashboard production launch — LIVE; follow-ups open
 
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
-[Phase C plan + log](todo/member-dashboard-phaseC-plan.md).
+[Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
+[cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
 **CURRENT STATUS (2026-10-06 Pacific):** LIVE at https://akash.ignorelist.com (owner approved go-live
 2026-10-06). All roles run as their own users, enabled at boot; nginx on 443, port 80 closed.
