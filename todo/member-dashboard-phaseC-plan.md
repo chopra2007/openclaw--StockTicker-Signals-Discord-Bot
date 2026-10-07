@@ -128,3 +128,9 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
 - **Tests (once, at end):** site 733 passed / 4 known failures (migration test now fixed); bot 4,488 passed / 6 baseline.
 - **Open:** P15 "Next year" paragraph still long; 1-hour track-record rule ignores exchange holidays; Schwab
   individual-developer terms for showing data to members not checked; e2e suite still not run (port 3444).
+
+### Session notes 2026-10-07 (00:05 PDT: on/off switch)
+- Added `scripts/dashboard_power.sh on|off|status` (commit f6c1f1f) and the trigger skill `~/.claude/skills/dashboard-power`
+  ("turn off/on the dashboard"). Off = disable --now the 5 dashboard services + 3 timers (stays off after reboot), frees ~350 MB;
+  on = Schwab token sync first, then everything, site back in ~10 s. Tested live twice each way; left ON.
+- Limits: while off the site shows nginx's plain 502 page; `release.sh` restarts api/worker/frontend even when off.
