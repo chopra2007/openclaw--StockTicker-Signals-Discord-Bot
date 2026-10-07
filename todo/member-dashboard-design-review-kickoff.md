@@ -3,6 +3,15 @@
 Site: https://akash.ignorelist.com ("Market Edge"). Code: `web/member-dashboard/` (Next.js) and `member_dashboard/` (API).
 Owner is not a coder: report in plain language, times in PDT only.
 
+## Hard rule: no paid data (owner, 2026-10-06)
+Use only data the bot already has or sources that are completely free. Never sign up, subscribe, start a trial
+or pay for anything. Never suggest paid options either.
+- Already have: Schwab (quotes, price history, option chains), the bot's database (alerts, analyst calls, insider
+  filings, options flow), SEC EDGAR, Nasdaq's public pages, Bing and Google News feeds, Finnhub free tier,
+  yfinance, and the AI budget we already pay for.
+- If a gap needs data we don't have and can't get free, list it as "not possible free". Don't build it, and don't
+  ask the owner to pay.
+
 ## Goal
 Look at the site as a first-time member who trades stocks over minutes to days. Make it look professional and
 purposeful and easy to read, with an iPhone feel. Then find what good stock sites offer that this one lacks.
@@ -27,13 +36,13 @@ Use web search, and screenshots where pages are public.
 - List the features those sites have that this site lacks. Examples to check: a price chart on the report,
   a watchlist, price or alert notifications, an earnings calendar, a market overview (indexes and sectors),
   a screener, news per ticker, and the track record of the bot's past alerts.
-- For each gap, note how useful it would be to our members and the cost to build: data we already have
-  (Schwab, the bot's database, news feeds) versus data we'd need to buy.
+- For each gap, note how useful it would be to our members and which free source would supply it.
+  Gaps with no free source go in a separate "not possible free" list.
 - Rank the top 5 by value ÷ effort.
 
 ## Part 3: build
 - Fix every design problem found in Part 1.
-- Build the top gaps that use data we already have. Ask the owner before anything that costs money or needs a new data source.
+- Build the top gaps using only free or already-available data. Nothing paid, ever.
 - Rules:
   - Never start research from a bare /ticker address.
   - Never expose keys.
@@ -46,5 +55,5 @@ Use web search, and screenshots where pages are public.
 ## Done when
 - Every Part 1 problem is fixed or listed with a reason.
 - Every page scores 4 or higher on all four measures.
-- The top gaps are built and checked live, or listed for the owner's approval.
+- The top gaps are built and checked live; anything that needs paid data is listed as "not possible free".
 - The owner gets a short plain-language summary with before and after screenshots.
