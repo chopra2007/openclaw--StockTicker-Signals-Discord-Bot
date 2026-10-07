@@ -1,6 +1,6 @@
 # TODO #121 — Cached-data stock screener
 
-**Status:** IMPLEMENTED — live QA in progress
+**Status:** COMPLETE — approved bounded screener live and verified
 **Created:** 2026-10-07 Pacific
 
 ## Audit and agreed scope
@@ -143,7 +143,8 @@ market session status is not guessed. Relative volume, percentiles, z-scores and
 new composite scores are intentionally absent.
 
 Named screens are browser/member-local (up to 20), not cross-device sync. The
-inspector searches the latest 100 owned saved reports; saved charts can have gaps
+inspector uses the latest report for a symbol within the latest 100 owned saved
+reports; older charts remain accessible through History. Saved charts can have gaps
 or short histories. Chart point inspection uses the existing pointer behavior;
 daily closing data is also available as a table. No full WCAG certification is
 claimed. Column resizing/dragging, comparisons, reliable monitored alerts, broad
@@ -160,3 +161,37 @@ No paid API, data source, component library, subscription, hosting/database
 feature or other service was introduced. Existing locked dependencies and the
 existing official Playwright browser were used. No paid Claude/model request was
 made. No new worker, monitoring system, or automatic research job was added.
+
+## Live deployment and browser verification
+
+Frontend-only release is live at https://akash.ignorelist.com/screener. All 50
+original deployed source files were hash-verified against the starting commit
+before replacement. The old complete frontend is retained at
+`/opt/member-dashboard/todo-121-frontend-rollback`; the pre-wording-refinement
+build is retained at `/opt/member-dashboard/todo-121-frontend-before-chart-note`.
+Only frontend was restarted. API, worker, authority, quota, consensus bot and
+gateway remained active; public route and frontend health returned 200. Current
+frontend logs show ready startup without application errors. No GitHub push.
+
+Real signed-in Chrome checks covered price bounds ($10–$100 produced 5 of 30
+setup candidates), ascending price sort, OPCH observed/required match explanation
+and dated levels, named screen save/reload/reset/reopen/remove, NVDA watchlist
+add/remove and automatic closing when removed from a watchlist-only screen,
+setups/alerts universe switching, mobile filtering, tablet layout, History
+navigation and browser Back with filters retained. Temporary watchlist and saved
+screen changes were removed, and empty original watchlist was verified. Browser
+viewport overrides were reset. Final console warning/error check returned [].
+
+Live data limitation observed: cached quotes returned prices but absent day-change
+values; cells show a dash, and active change filters exclude missing observations.
+Current source direction is often unclear. Neither value is fabricated or
+inferred from trade-plan direction. Saved chart availability is explicit; only
+the newest owned report for that symbol is inspected, and History offers others.
+
+Final build, typecheck and changed-component lint passed after the chart-coverage
+wording clarification; all 20 screener tests were rerun and passed again. Live
+screenshot is retained locally at
+`web/member-dashboard/.e2e/screenshots/live-screener-final.jpg`.
+
+Next data priority: verify previous-close coverage in the existing quote source
+before expanding performance filters; preserve explicit missing-data outcomes.

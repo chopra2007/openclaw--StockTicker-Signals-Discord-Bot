@@ -1224,6 +1224,10 @@ Make research evidence checks reproducible without private ignored files or serv
 
 ## 121. Complete the member dashboard production launch — LIVE; follow-ups open
 
+**2026-10-07:** Approved cached-data screener is live and browser-verified. Screens recent
+alerts/setups with explained matches, inspection, watchlists and locally saved workflows.
+This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
+
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
