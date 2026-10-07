@@ -1224,6 +1224,8 @@ Make research evidence checks reproducible without private ignored files or serv
 
 ## 121. Complete the member dashboard production launch — LIVE; follow-ups open
 
+**File:** `member-dashboard-phaseC-plan.md`
+
 **2026-10-07:** Approved cached-data screener is live and browser-verified. Screens recent
 alerts/setups with explained matches, inspection, watchlists and locally saved workflows.
 This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
@@ -1242,11 +1244,7 @@ Acceptance checks and starting points: [next-session checklist](todo/member-dash
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-06 Pacific):** LIVE at https://akash.ignorelist.com (owner approved go-live
-2026-10-06). All roles run as their own users, enabled at boot; nginx on 443, port 80 closed.
-Proven live: assistant answers (OpenRouter gpt-4o-mini, $3/day cap stops spending), feed cards from the
-bot DB, SEC/options/expected moves/analysis (AI write-up shares the $3 cap), public sign-in + research.
-Bot speed unchanged with the dashboard on (fresh `!all` median 90.1 s off vs 91.7 s on). Disk 29 GB free.
+**CURRENT STATUS (2026-10-07 Pacific):** Dashboard and approved cached-data screener are live. Screening, match explanations, inspection, watchlists and local saved workflows are verified; all 20 new tests pass. Existing browser/Python/lint failures remain documented. Next: verify missing previous-close/day-change coverage, repair regression checks, then assess reliable free broader-universe data. Other launch follow-ups remain open.
 
 **Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
 Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebuild; 14-day retention; restore

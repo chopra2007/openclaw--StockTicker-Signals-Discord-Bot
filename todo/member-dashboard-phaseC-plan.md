@@ -1,5 +1,8 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
+**Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
+**CURRENT STATUS (2026-10-07 Pacific):** Dashboard and approved cached-data screener are live. Screening, match explanations, inspection, watchlists and local saved workflows are verified; all 20 new tests pass. Existing browser/Python/lint failures remain documented. Next: verify missing previous-close/day-change coverage, repair regression checks, then assess reliable free broader-universe data. Other launch follow-ups remain open.
+
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
 ## What the code really has (found at start)
@@ -134,3 +137,14 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   ("turn off/on the dashboard"). Off = disable --now the 5 dashboard services + 3 timers (stays off after reboot), frees ~350 MB;
   on = Schwab token sync first, then everything, site back in ~10 s. Tested live twice each way; left ON.
 - Limits: while off the site shows nginx's plain 502 page; `release.sh` restarts api/worker/frontend even when off.
+
+### Session notes — 2026-10-07 Pacific (TODO #121 screener)
+
+- Approved bounded cached-data screener implemented and deployed; actual desktop,
+  tablet/mobile interactions and source/missing-data behavior verified.
+- Twenty new tests pass. Independent full browser run: 30 passed, 17 original
+  failures; Python: 723 passed, 17 skipped, 8 existing failures reproduced.
+- Next-session checklist saved in `todo/member-dashboard-screener.md`: missing
+  day change, existing checks, and free broader-universe feasibility, in that order.
+- No paid service or model call introduced. Claude plugin was unavailable; separate
+  Codex review was performed and is not represented as Claude consensus.

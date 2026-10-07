@@ -1,6 +1,6 @@
 # TODO #121 — Cached-data stock screener
 
-**Status:** COMPLETE — approved bounded screener live and verified
+**Status:** COMPLETE — approved bounded screener live and verified (2026-10-07 Pacific)
 **Created:** 2026-10-07 Pacific
 
 ## Audit and agreed scope
@@ -248,3 +248,14 @@ otherwise state its absence and proceed only with free work.
 
 Lower priority after these: chart coverage labels and keyboard point navigation.
 Comparison, monitored alerts and speculative ranking models remain deferred.
+
+### Session notes — 2026-10-07 Pacific (session close)
+
+Approved cached-data screener is live and verified. Commits dd84bb6 and e9f2a6a
+contain implementation and live QA; d9ce7a1 saves the next-session priorities.
+All 20 new tests pass, with no new original regression failures. Existing full
+suite/lint failures remain documented. Next session starts with missing previous
+close/day-change coverage, then regression portability/selectors, then reliable
+free broader-universe feasibility. No paid service/dependency/model call added.
+All work is committed; session-close gate/publish uses the authoritative VPS
+master checkout, which already contains this session's implementation commits.
