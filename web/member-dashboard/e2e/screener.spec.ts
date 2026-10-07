@@ -13,6 +13,45 @@ async function open(page:import('@playwright/test').Page,request:import('@playwr
  await expect(page.getByRole('heading',{name:'Screener',exact:true})).toBeVisible();
  await expect(page.getByText('3 of 3 symbols matched',{exact:true})).toBeVisible();
 }
+
+test('account closes outside and with Escape',async({page,request})=>{
+ await open(page,request);const menu=page.locator('.member-menu');
+ await menu.locator('summary').click();await expect(menu).toHaveAttribute('open','');
+ await page.getByRole('heading',{name:'Screener',exact:true}).click();await expect(menu).not.toHaveAttribute('open','');
+ await menu.locator('summary').click();await page.keyboard.press('Escape');await expect(menu).not.toHaveAttribute('open','');
+});
+
+test('combined universe keeps both sources and deduplicates symbols',async({page,request})=>{
+ await open(page,request);
+ await page.route('**/api/v1/alerts/latest',route=>route.fulfill({json:{cards:[card('ALPHA'),card('GROUP','bearish')]}}));
+ await page.getByLabel('Universe',{exact:true}).selectOption('both');
+ await expect(page.getByText('4 of 4 symbols matched',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Inspect ALPHA',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('button',{name:'Inspect GROUP',exact:true})).toBeVisible();
+ await page.reload();await expect(page.getByLabel('Universe',{exact:true})).toHaveValue('both');
+});
+
+test('combined refresh denial wins over another source outage',async({page,request})=>{
+ await open(page,request);await page.getByLabel('Universe',{exact:true}).selectOption('both');
+ await expect(page.getByRole('button',{name:'Inspect ALPHA',exact:true})).toBeVisible();
+ let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/v1/alerts/latest',async route=>{await gate;await route.fulfill({status:403,json:{}});});
+ await page.route('**/api/v1/setups/latest',async route=>{await route.fulfill({status:503,json:{}});release();});
+ await page.getByRole('button',{name:'Refresh data',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Inspect ALPHA',exact:true})).toHaveCount(0);
+});
+
+test('cached setup chart and dated original source image need no research request',async({page,request})=>{
+ await open(page,request);const writes:string[]=[];page.on('request',r=>{if(r.method()==='POST')writes.push(r.url());});
+ await page.route('**/api/v1/setups/latest',route=>route.fulfill({json:{cards:[{...cards[0],chart:{daily:[[now-86400,10],[now,12]],intraday:[]},chart_at:now,company:'A long company name',group:{analysts:2,span:'5 min',calls:[{analyst:'chart_author',view:'unclear',reason:'Chart attached; directional intent not stated.',posted_at:now-120,observed_at:now-60,url:'https://x.com/chart_author/status/123',image_urls:['https://pbs.twimg.com/media/chart.png']}]}}]}}));
+ await page.route('https://pbs.twimg.com/media/chart.png',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>'}));
+ await page.getByRole('button',{name:'Refresh data',exact:true}).click();await expect(page.getByText('1 of 1 symbols matched',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Inspect ALPHA',exact:true}).click();const panel=page.getByRole('dialog');
+ await expect(panel).toContainText('Cached setup daily closes');await expect(panel).toContainText('Posted');
+ await panel.getByText('Attached chart 1',{exact:true}).click();await expect(panel.getByRole('img',{name:'Original chart attached by @chart_author'})).toBeVisible();
+ await expect(panel.getByRole('link',{name:'Original post'})).toHaveAttribute('href','https://x.com/chart_author/status/123');
+ expect(writes).toEqual([]);
+});
 test('screen, explain and inspect without spending or losing criteria',async({page,request})=>{
  await open(page,request);const writes:string[]=[];page.on('request',r=>{if(r.method()==='POST')writes.push(r.url());});
  await page.getByLabel('Minimum price ($)').fill('10');await page.getByLabel('Maximum price ($)').fill('100');

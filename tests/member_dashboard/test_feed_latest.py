@@ -69,6 +69,46 @@ def test_setup_levels_picks_due_ticker_and_waits_for_members(feed):
     assert computed == ['TEST']
 
 
+def test_setup_keeps_chart_already_collected_without_ai(feed):
+    from types import SimpleNamespace
+    from member_dashboard import setup_levels
+    from test_market_board import allow_schwab
+    allow_schwab(feed)
+    publish(feed, key='chart-alert', excerpt='Analyst upgrade', feature='setups')
+    now=feed.dashboard.clock()
+    display=dict(company='Test Company',quote={},chart=dict(daily=[[now-86400,9.0],[now,10.0]],intraday=[]))
+    class Collector:
+        async def study(self, ticker):
+            return SimpleNamespace(result=SimpleNamespace(structured=SimpleNamespace(direction='BULLISH',current_price=10)),
+                facts=dict(price=10,trade_plan=dict(entry_low=9,entry_high=10,stop=8,targets=[dict(price=12)])),display=display)
+    asyncio.run(setup_levels.refresh_one(feed.dashboard.store, Collector(), clock=lambda:now,retain_context=lambda:True))
+    card=latest(feed,'setups')[0]
+    assert card['chart']['daily']==display['chart']['daily']
+    assert card['company'] is None  # Company metadata may have a separate source permission.
+    assert card['chart_at']==now
+
+
+def test_setup_chart_is_not_retained_without_permission(feed):
+    from member_dashboard import setup_levels
+    levels(feed)
+    with feed.dashboard.store.transaction() as con:
+        con.execute("UPDATE setup_levels SET context_json='{}'")
+    class Collector:
+        async def study(self,ticker): raise AssertionError('No research needed')
+    asyncio.run(setup_levels.refresh_one(feed.dashboard.store,Collector(),clock=feed.dashboard.clock,retain_context=lambda:False))
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT context_json FROM setup_levels').fetchone()[0] is None
+
+
+def test_policy_purge_removes_disallowed_setup_chart(feed):
+    levels(feed)
+    with feed.dashboard.store.transaction() as con:
+        con.execute("UPDATE setup_levels SET context_json='{}'")
+    feed.policy.purge(feed.dashboard.clock())
+    with feed.dashboard.store.transaction() as con:
+        assert con.execute('SELECT context_json FROM setup_levels').fetchone()[0] is None
+
+
 def swarm_rows(path, now, rows):
     import json, sqlite3
     con = sqlite3.connect(path)
@@ -100,6 +140,26 @@ def test_group_alerts_from_the_alerts_channel(feed, tmp_path):
     cards = latest(feed, 'alerts')
     assert [(c['ticker'], c['direction'], c['group']['analysts']) for c in cards] == [('NVDA', 'unclear', 3), ('AVGO', 'bullish', 2)]
     calls = cards[0]['group']['calls']
-    assert calls[0] == {'analyst': 'MarketRebels', 'view': 'bullish', 'reason': 'Analyst says: Clears $6 trillion'}
+    assert {k:calls[0][k] for k in ('analyst','view','reason')} == {'analyst': 'MarketRebels', 'view': 'bullish', 'reason': 'Analyst says: Clears $6 trillion'}
     assert calls[1]['reason'] == 'reason not stated' and cards[0]['group']['span'] == '52 min' and cards[0]['price'] == 242.44
     assert latest(feed, 'feed') == []  # Analyst calls leave group alerts to their own panel.
+
+
+def test_group_alert_preserves_each_post_time_source_and_chart(feed, tmp_path):
+    from dataclasses import replace
+    from member_dashboard.market_reader import MarketReader, SourceCheckpoint, SourceName
+    from member_dashboard.publication import publishable
+    from test_source_policy import lineage
+    now = feed.dashboard.clock()
+    member = dict(analyst='chart_author', direction='unclear', reason='', reason_kind='none',
+                  observed_at=now-120, link='https://x.com/chart_author/status/123',
+                  image_urls=['https://pbs.twimg.com/media/chart.png'])
+    swarm_rows(tmp_path/'bot.db', now, [('MU', 60, [member, dict(member, analyst='another_author')])])
+    batch = MarketReader(tmp_path/'bot.db', clock=feed.dashboard.clock).read_batch(SourceName.SWARM, SourceCheckpoint())
+    sources = lineage(); sources.required_features = ['feed']
+    assert feed.publisher.save(publishable(replace(batch.records[0], lineage=sources)), now)
+    call = latest(feed, 'alerts')[0]['group']['calls'][0]
+    assert call['observed_at'] == now-120
+    assert call['url'] == member['link']
+    assert call['image_urls'] == member['image_urls']
+    assert 'Chart attached' in call['reason']

@@ -451,7 +451,9 @@ async def test_send_swarm_alert_pings_user():
                      analysts=["a1", "a2"], member_times={"a1": 1.0, "a2": 2.0},
                      opened_at=1.0, now_ts=120.0, count=2,
                      member_details=[
-                         SwarmMemberDetail("a1", "long", "Breakout", "https://example.test/a1", 1.0),
+                         SwarmMemberDetail("a1", "long", "Breakout", "https://example.test/a1", 1.0,
+                                           source_url="https://x.com/a1/status/123",
+                                           image_urls=["https://pbs.twimg.com/media/chart.png"], source_posted_at=0.5),
                          SwarmMemberDetail("a2", "long", "Earnings", "https://example.test/a2", 2.0),
                      ])
     captured = {}
@@ -483,6 +485,40 @@ async def test_send_swarm_alert_pings_user():
     row = await (await (await dbm.get_db()).execute("SELECT * FROM swarm_alerts")).fetchone()
     assert (row["ticker"], row["analyst_count"], row["span_text"], row["price"], row["message_id"]) == ("NVDA", 2, "2 min", 100.0, "999")
     assert [(m["analyst"], m["direction"], m["reason"]) for m in json.loads(row["members_json"])] == [("a1", "long", "Breakout"), ("a2", "long", "Earnings")]
+    assert json.loads(row["members_json"])[0]["observed_at"] == 1.0
+    assert json.loads(row["members_json"])[0]["posted_at"] == 0.5
+    assert json.loads(row["members_json"])[0]["source_url"] == "https://x.com/a1/status/123"
+    assert json.loads(row["members_json"])[0]["image_urls"] == ["https://pbs.twimg.com/media/chart.png"]
+
+
+def test_neutral_chart_keeps_media_without_inventing_direction():
+    from consensus_engine.alerts.discord import format_swarm_alert
+    sw = _swarm_with_details(("unclear", "reason not stated"))
+    sw.member_details[0].image_urls = ["https://pbs.twimg.com/media/chart.png"]
+    embed = format_swarm_alert(sw)
+    assert "Chart attached; directional intent not stated" in str(embed)
+    assert "[Chart](https://pbs.twimg.com/media/chart.png)" in str(embed)
+    assert "Bullish" not in str(embed)
+
+
+async def test_swarm_member_keeps_exact_source_and_neutral_chart_metadata():
+    import consensus_engine.db as dbm
+    from consensus_engine.analysis.herding import _swarm_members
+    await _ins("MU", "chart_analyst", 100, raw_text="$MU.", view_direction="unclear")
+    conn = await dbm.get_db()
+    # Reproduce the additive migration independently of its implementation.
+    columns = [r[1] for r in await (await conn.execute("PRAGMA table_info(analyst_post_views)")).fetchall()]
+    if "image_urls_json" not in columns:
+        await conn.execute("ALTER TABLE analyst_post_views ADD COLUMN image_urls_json TEXT DEFAULT '[]'")
+    if "source_posted_at" not in columns:
+        await conn.execute("ALTER TABLE analyst_post_views ADD COLUMN source_posted_at REAL")
+    await conn.execute("UPDATE analyst_post_views SET source_url=?, image_urls_json=?, source_posted_at=?",
+                       ("https://x.com/chart_analyst/status/123", json.dumps(["https://pbs.twimg.com/media/chart.png"]), 90))
+    _, _, details = await _swarm_members(conn, "MU", 99, 101, {"chart_analyst"})
+    assert details[0].source_url == "https://x.com/chart_analyst/status/123"
+    assert details[0].image_urls == ["https://pbs.twimg.com/media/chart.png"]
+    assert details[0].direction == "unclear"
+    assert details[0].source_posted_at == 90
 
 
 async def test_send_swarm_alert_dry_run():

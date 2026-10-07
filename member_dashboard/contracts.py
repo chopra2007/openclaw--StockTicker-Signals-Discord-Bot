@@ -73,6 +73,22 @@ class Evidence(PublicModel):
     research_only: bool
 
 
+class GroupCall(PublicModel):
+    analyst: str = Field(max_length=40)
+    view: Literal['bullish','bearish','unclear']
+    reason: Text
+    observed_at: float | None = None
+    url: str | None = Field(default=None, max_length=2048)
+    image_urls: list[Annotated[str, Field(max_length=2048)]] = Field(default_factory=list, max_length=4)
+    posted_at: float | None = None
+
+
+class GroupAlert(PublicModel):
+    analysts: int = Field(ge=2, le=1000)
+    span: str = Field(max_length=32)
+    calls: list[GroupCall] = Field(max_length=20)
+
+
 class FeedPayload(PublicModel):
     ticker: str = Field(max_length=16)
     direction: Literal['bullish','bearish','neutral','unclear']
@@ -85,6 +101,7 @@ class FeedPayload(PublicModel):
     invalidation: float | None = None
     attributions: list[Annotated[str,Field(max_length=1536)]] = Field(default_factory=list,max_length=200)
     evidence: list[Evidence] = Field(default_factory=list,max_length=200)
+    group: GroupAlert | None = None
 
 
 class FeedUpsert(PublicModel):
@@ -391,19 +408,6 @@ class TradePlan(PublicModel):
     computed_at: float
 
 
-class GroupCall(PublicModel):
-    analyst: str = Field(max_length=40)
-    view: Literal['bullish','bearish','unclear']
-    reason: Text
-
-
-class GroupAlert(PublicModel):
-    """A #alerts post: several analysts on one ticker in a short time (owner request 2026-10-06)."""
-    analysts: int = Field(ge=2, le=1000)
-    span: str = Field(max_length=32)
-    calls: list[GroupCall] = Field(max_length=20)
-
-
 def group_alert(text):
     """Read back market_reader's "N analysts in SPAN" + "@handle (view): reason" lines."""
     import re
@@ -426,6 +430,10 @@ class LatestCard(PublicModel):
     observed_at: float
     plan: TradePlan | None = None
     group: GroupAlert | None = None
+    source: str | None = Field(default=None, max_length=64)
+    chart: Chart | None = None
+    chart_at: float | None = None
+    company: ShortText | None = None
 
 
 class LatestPage(PublicModel):
@@ -481,6 +489,11 @@ class RecordHorizon(PublicModel):
     spy_count: int = 0  # Alerts that also have S&P 500 closes for the same days.
     spy_up: int = 0
     spy_median_pct: float | None = None
+    graded: int = 0
+    favorable: int = 0
+    adverse: int = 0
+    pending: int = 0
+    unavailable: int = 0
 
 
 class RecordRow(PublicModel):
@@ -491,6 +504,13 @@ class RecordRow(PublicModel):
     move_1h: float | None = None
     move_1d: float | None = None
     move_5d: float | None = None
+    direction: Literal['bullish','bearish','unclear'] = 'unclear'
+    status_1h: Literal['pending','unavailable','closed','recorded'] = 'pending'
+    status_1d: Literal['pending','unavailable','closed','recorded'] = 'pending'
+    status_5d: Literal['pending','unavailable','closed','recorded'] = 'pending'
+    favorable_1h: bool | None = None
+    favorable_1d: bool | None = None
+    favorable_5d: bool | None = None
 
 
 class RecordPage(PublicModel):

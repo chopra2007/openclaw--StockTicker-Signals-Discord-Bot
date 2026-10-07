@@ -1,3 +1,4 @@
+import {SourceCall} from './source-call';
 import {TickerLink} from './ticker-link';
 import {PriceTag} from './price-tag';
 import {WatchButton} from './watch-button';
@@ -5,7 +6,7 @@ import type {LatestCard,TickerQuote} from '@/lib/contracts';
 import {timeAgo} from '@/lib/format';
 import {formatShort} from '@/lib/time';
 
-const VIEW={bullish:'Bullish',bearish:'Bearish',unclear:'Unclear'} as const;
+
 
 /** One #alerts post: several analysts on the same ticker in a short time. */
 export function AlertCard({card,now,quote}:{card:LatestCard;now:number;quote?:TickerQuote}){const g=card.group!;
@@ -23,6 +24,6 @@ export function AlertCard({card,now,quote}:{card:LatestCard;now:number;quote?:Ti
   </div>
   <p className="alert-line"><strong>{g.analysts} analysts</strong> posted within {g.span}{split&&<span className="alert-split"> · {split}</span>}</p>
   <details className="alert-calls"><summary>What they said</summary>
-   <ul>{g.calls.map(c=><li key={c.analyst}><span className={'view view-'+c.view}>{VIEW[c.view]}</span><span className="who">@{c.analyst}</span><p className={c.reason==='reason not stated'?'no-reason':undefined}>{c.reason==='reason not stated'?'No reason given':c.reason}</p></li>)}</ul>
+   <ul>{g.calls.map(c=><li key={c.analyst}><SourceCall call={c}/></li>)}</ul>
   </details>
  </article>}

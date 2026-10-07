@@ -102,9 +102,9 @@ class AsyncConnection:
                     """INSERT INTO alert_history
                        (ticker, confidence_score, catalyst, catalyst_type,
                         consensus_breakdown, technical_data, analyst_mentions,
-                        alerted_at, price_at_alert)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    alert_params,
+                        alerted_at, price_at_alert, direction)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (*alert_params, outcome_event[3]),
                 )
                 legacy_alert_id = cursor.lastrowid
                 self._conn.execute(
@@ -2221,6 +2221,9 @@ async def _run_column_migrations(conn) -> None:
         # schema v34: durable, ticker-specific analyst group-card evidence.
         ("signal_events", "analyst_post_view_id", "INTEGER REFERENCES analyst_post_views(id)"),
         ("analyst_post_views", "image_evidence_json", "TEXT"),
+        ("analyst_post_views", "image_urls_json", "TEXT DEFAULT '[]'"),
+        ("analyst_post_views", "source_posted_at", "REAL"),
+        ("alert_history", "direction", "TEXT NOT NULL DEFAULT 'unclear'"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
         ("youtube_evidence_spans", "parser_version",   "TEXT"),
@@ -2312,7 +2315,25 @@ async def _run_column_migrations(conn) -> None:
         existing = {r["name"] for r in await cur.fetchall()}
         if col not in existing:
             await conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
+    if {'alert_history','measurement_alert_events_v1','measurement_decision_events_v1','measurement_candidates_v1'} <= existing_tables:
+        await conn.execute(ALERT_DIRECTION_RESTORE_SQL)
     await conn.commit()
+
+
+ALERT_DIRECTION_RESTORE_SQL = """
+WITH linked AS (
+ SELECT a.legacy_alert_id AS id, min(c.direction) AS direction, min(c.ticker) AS ticker
+ FROM measurement_alert_events_v1 a
+ JOIN measurement_decision_events_v1 d ON d.decision_id=a.decision_id
+ JOIN measurement_candidates_v1 c ON c.candidate_id=d.candidate_id
+ GROUP BY a.legacy_alert_id
+ HAVING count(DISTINCT c.direction)=1 AND count(DISTINCT c.ticker)=1
+ AND min(c.direction) IN ('long','short')
+)
+UPDATE alert_history SET direction=(SELECT direction FROM linked WHERE linked.id=alert_history.id)
+WHERE direction='unclear' AND EXISTS
+ (SELECT 1 FROM linked WHERE linked.id=alert_history.id AND linked.ticker=alert_history.ticker)
+"""
 
 
 async def _dedup_legacy_rows(conn) -> None:
@@ -2580,12 +2601,29 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
     )
 
 
+def _public_chart_urls(values):
+    """Keep public chart attachments even when they express no trading direction."""
+    from urllib.parse import urlsplit
+    out=[]
+    for value in values if isinstance(values,list) else []:
+        if not isinstance(value,str) or len(value)>2048 or any(ord(c)<33 for c in value): continue
+        try:
+            u=urlsplit(value)
+            if u.scheme!='https' or u.hostname!='pbs.twimg.com' or u.username or u.password or u.port not in {None,443} or not u.path.startswith('/media/'): continue
+        except ValueError: continue
+        if value not in out: out.append(value)
+        if len(out)==4: break
+    return out
+
+
 async def insert_signal(
     signal: TickerSignal,
     *,
     ticker_view: TickerPostView | None = None,
     source_url: str | None = None,
     parsed_summary: str | None = None,
+    image_urls: list[str] | None = None,
+    source_posted_at: float | None = None,
 ):
     """Insert a ticker signal into the database."""
     db = await get_db()
@@ -2618,8 +2656,8 @@ async def insert_signal(
                    (source_post_key, source_url, analyst, ticker, detected_at, raw_text,
                     raw_text_sha256, parsed_summary, display_direction, reason_text,
                     reason_start, reason_end, reason_kind, decision_code, parser_version, created_at,
-                    image_evidence_json)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    image_evidence_json, image_urls_json, source_posted_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     post_key, source_url, signal.source_detail, signal.ticker,
                     signal.detected_at, signal.raw_text,
@@ -2628,6 +2666,8 @@ async def insert_signal(
                     safe_view.reason_start, safe_view.reason_end, safe_view.reason_kind,
                     safe_view.decision_code, safe_view.parser_version, time.time(),
                     json.dumps(safe_view.image_evidence) if safe_view.image_evidence else None,
+                    json.dumps(_public_chart_urls(image_urls)),
+                    source_posted_at if isinstance(source_posted_at,(int,float)) and not isinstance(source_posted_at,bool) and math.isfinite(source_posted_at) and 0<source_posted_at<=time.time()+60 else None,
                 ),
             ))
             view_lookup_sql = (
@@ -3617,16 +3657,16 @@ async def check_alert_cooldown(
 
 async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_type: str,
                        consensus_json: str, technical_json: str, analysts_json: str,
-                       price: float):
+                       price: float, direction: str = 'unclear'):
     """Record an alert in history. Returns the alert_history row ID."""
     db = await get_db()
     cursor = await db.execute(
         """INSERT INTO alert_history
            (ticker, confidence_score, catalyst, catalyst_type, consensus_breakdown,
-            technical_data, analyst_mentions, alerted_at, price_at_alert)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            technical_data, analyst_mentions, alerted_at, price_at_alert, direction)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (ticker, confidence, catalyst, catalyst_type, consensus_json,
-         technical_json, analysts_json, time.time(), price),
+         technical_json, analysts_json, time.time(), price, direction if direction in {'long','short'} else 'unclear'),
     )
     await db.commit()
     log.info("Alert recorded: %s (confidence=%.1f)", ticker, confidence)
@@ -3990,8 +4030,8 @@ async def get_alerts_needing_price_update(
     daily bars instead, which stay available for years.
 
     `ignore_max_age` (#62) drops the upper age bound, for the one-off backfills:
-    1h (and the live 24h path) read a LIVE spot price so an ancient row is
-    unfillable, but the 5d and 24h-catchup fills index historical daily bars,
+    1h uses bounded historical minutes; the live 24h path uses a spot quote.
+    The 5d and 24h-catchup fills index historical daily bars,
     which are still there years later. Without this the 268 analyst-bearing
     alerts older than 30 days could never be graded.
     """
@@ -4000,7 +4040,7 @@ async def get_alerts_needing_price_update(
     column = field
     if field == "price_1h_later":
         min_age = 3600       # at least 1 hour old
-        max_age = 7200       # no older than 2 hours (don't backfill ancient alerts)
+        max_age = 30 * 86400 # Historical minute coverage repairs missed observations.
     elif field == "price_24h_later":
         min_age = 86400      # at least 24 hours old
         max_age = 172800     # no older than 48 hours
@@ -4017,12 +4057,14 @@ async def get_alerts_needing_price_update(
     else:
         return []
 
+    query_limit = max(int(limit), 1000) if field == 'price_1h_later' else int(limit)
+
     if ignore_max_age:
         cursor = await conn.execute(
             f"""SELECT id, ticker, price_at_alert, alerted_at FROM alert_history
                 WHERE {column} IS NULL AND alerted_at <= ?
                 ORDER BY alerted_at DESC LIMIT ?""",
-            (now - min_age, int(limit)),
+            (now - min_age, query_limit),
         )
     else:
         cursor = await conn.execute(
@@ -4030,10 +4072,13 @@ async def get_alerts_needing_price_update(
                 WHERE {column} IS NULL
                 AND alerted_at <= ? AND alerted_at >= ?
                 ORDER BY alerted_at DESC LIMIT ?""",
-            (now - min_age, now - max_age, int(limit)),
+            (now - min_age, now - max_age, query_limit),
         )
     rows = await cursor.fetchall()
-    return [dict(r) for r in rows]
+    if field == 'price_1h_later':
+        from consensus_engine.hour_outcomes import in_session
+        rows = [r for r in rows if in_session(r['alerted_at']) and in_session(r['alerted_at'] + 3600)]
+    return [dict(r) for r in rows[:int(limit)]]
 
 
 async def update_alert_price(alert_id: int, field: str, price: float):

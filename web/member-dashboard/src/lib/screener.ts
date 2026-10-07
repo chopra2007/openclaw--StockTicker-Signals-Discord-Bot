@@ -11,7 +11,7 @@ const bound=z.string().max(24);
 export const filterSchema=z.strictObject({symbols:z.string().max(256),exclude:z.string().max(256),minPrice:bound,maxPrice:bound,minChange:bound,maxChange:bound,maxAge:bound,direction:z.enum(['all','bullish','bearish','neutral','unclear']),watched:z.boolean()});
 export type Filters=z.infer<typeof filterSchema>;
 export const emptyFilters:Filters={symbols:'',exclude:'',minPrice:'',maxPrice:'',minChange:'',maxChange:'',maxAge:'',direction:'all',watched:false};
-export const screenSchema=z.strictObject({universe:z.enum(['setups','alerts']),filters:filterSchema,sort:z.enum(['symbol',...columns]),descending:z.boolean(),columns:z.array(z.enum(columns)).max(5).refine(c=>new Set(c).size===c.length),density:z.enum(['compact','comfortable'])});
+export const screenSchema=z.strictObject({universe:z.enum(['setups','alerts','both']),filters:filterSchema,sort:z.enum(['symbol',...columns]),descending:z.boolean(),columns:z.array(z.enum(columns)).max(5).refine(c=>new Set(c).size===c.length),density:z.enum(['compact','comfortable'])});
 export type Screen=z.infer<typeof screenSchema>;
 export const defaultScreen:Screen={universe:'setups',filters:emptyFilters,sort:'age',descending:false,columns:[...columns],density:'compact'};
 export const savedSchema=z.strictObject({version:z.literal(1),current:screenSchema,saved:z.array(z.strictObject({name:z.string().trim().min(1).max(60),screen:screenSchema})).max(20)});
@@ -33,8 +33,9 @@ export function validateFilters(f:Filters):string{
  return '';
 }
 export function candidates(cards:LatestCard[],quotes:TickerQuote[],now:number):Candidate[]{
- const prices=new Map(quotes.map(q=>[q.symbol,q]));const seen=new Set<string>();
- return [...cards].sort((a,b)=>b.observed_at-a.observed_at).flatMap(card=>{if(seen.has(card.ticker))return [];seen.add(card.ticker);return [{card,quote:prices.get(card.ticker)??null,age:Math.max(0,(now-card.observed_at)/3600)}];});
+ const prices=new Map(quotes.map(q=>[q.symbol,q]));const merged=new Map<string,LatestCard>();
+ for(const card of [...cards].sort((a,b)=>b.observed_at-a.observed_at)){const newest=merged.get(card.ticker);merged.set(card.ticker,newest?{...newest,plan:newest.plan??card.plan,group:newest.group??card.group,chart:newest.chart??card.chart,chart_at:newest.chart?newest.chart_at:card.chart_at,company:newest.company??card.company}:card);}
+ return [...merged.values()].map(card=>({card,quote:prices.get(card.ticker)??null,age:Math.max(0,(now-card.observed_at)/3600)}));
 }
 export function conditions(f:Filters):{key:keyof Filters;label:string;required:string}[]{
  const out:{key:keyof Filters;label:string;required:string}[]=[];

@@ -374,7 +374,7 @@ async def run_compute(config,worker):
             except Exception: pass  # Chores; the next idle minute tries again.
         if time.time()-last_levels[0]>=180:
             last_levels[0]=time.time()
-            try: await refresh_one(store,registry.analysis_collector)
+            try: await refresh_one(store,registry.analysis_collector,retain_context=allowed)
             except Exception: pass
     await ComputeWorker(jobs,registry,runtime,assistant=assistant,idle=chores).serve()
 

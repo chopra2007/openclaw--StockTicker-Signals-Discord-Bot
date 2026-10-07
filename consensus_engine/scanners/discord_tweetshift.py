@@ -138,12 +138,15 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
         tweet_url = embed_url or f"https://twitter.com/{handle}/status/unknown"
 
         timestamp = time.time()
+        source_posted_at = None
         ts_str = embed.get("timestamp", "")
         if ts_str:
             try:
                 from datetime import datetime, timezone
                 dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 timestamp = dt.timestamp()
+                if dt.tzinfo is not None:
+                    source_posted_at = timestamp
             except (ValueError, TypeError):
                 pass
 
@@ -157,6 +160,7 @@ def _parse_tweetshift_message(message: dict) -> Optional[dict]:
             "text": text,
             "analyst": handle,
             "timestamp": timestamp,
+            "source_posted_at": source_posted_at,
             "avatar_url": author_icon or None,
             "display_name": author_name or None,
         }

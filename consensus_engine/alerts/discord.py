@@ -779,11 +779,16 @@ def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] 
             handle = f"@{detail.analyst}"
             prefix = f"{handle} — {icon} {label} — "
         reason = " ".join((detail.reason or "").split()) or "reason not stated"
+        images = getattr(detail, "image_urls", []) or []
+        if images and direction == "unclear" and reason == "reason not stated":
+            reason = "Chart attached; directional intent not stated"
         if getattr(detail, "reason_kind", "none") == "event_claim" and reason != "reason not stated":
             reason = f"Analyst says: {reason}"
         elif getattr(detail, "reason_kind", "none") == "image" and reason != "reason not stated":
             reason = f"Chart read: {reason}"
         reason = _clip(reason, max(20, 250 - len(prefix)))
+        if images and len(images[0]) <= 500:
+            reason += f" · [Chart]({images[0]})"
         lines.append(prefix + reason)
 
     chunks = []
@@ -871,7 +876,11 @@ async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
         try:  # The member dashboard shows these alerts; a failed save never blocks the post.
             from consensus_engine import db as _db
             members_rows = [{"analyst": d.analyst, "direction": direction, "reason": " ".join((d.reason or "").split()),
-                             "reason_kind": getattr(d, "reason_kind", "none"), "link": d.source_link or links.get(d.analyst)}
+                             "reason_kind": getattr(d, "reason_kind", "none"), "link": d.source_link or links.get(d.analyst),
+                             "observed_at": d.posted_at, "source_url": getattr(d, "source_url", None),
+                             "posted_at": getattr(d, "source_posted_at", None),
+                             "image_urls": getattr(d, "image_urls", []) or [],
+                             "signal_event_id": d.signal_event_id, "analyst_post_view_id": d.analyst_post_view_id}
                             for d, direction in _swarm_details(swarm, links)[:20]]
             await _db.insert_swarm_alert(swarm.ticker, swarm.count or len(members), _human_span(
                 max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0))), current_price, members_rows, msg_id)

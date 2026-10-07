@@ -33,6 +33,15 @@ class TestNormalizeHandle:
 
 
 class TestParseTweetShiftMessage:
+    @pytest.mark.parametrize("stamp, expected", [
+        ("2026-10-07T14:10:41Z", 1791382241.0),
+        ("", None), ("invalid", None), ("2026-10-07T14:10:41", None),
+    ])
+    def test_source_post_time_requires_real_aware_embed_timestamp(self, stamp, expected):
+        msg = _embed_msg(author_name="@chart_analyst", description="$MU.")
+        msg["embeds"][0]["timestamp"] = stamp
+        assert _parse_tweetshift_message(msg)["source_posted_at"] == expected
+
     def test_embed_with_author_url(self):
         msg = _embed_msg(
             author_name="Nick Timiraos",

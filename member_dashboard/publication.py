@@ -34,7 +34,7 @@ def publication_uses(payload: MarketPayload) -> tuple[str,...]:
     Classifier direction, quality score and computed trade levels additionally
     require derived-display permission. An unavailable direction is no result.
     """
-    if (payload.direction!='unclear' or any(value is not None for value in
+    if (payload.direction!='unclear' or (payload.group and any(c.view!='unclear' for c in payload.group.calls)) or any(value is not None for value in
             (payload.score,payload.entry,payload.target,payload.invalidation))):
         return ('display_raw','display_derived')
     return ('display_raw',)
@@ -443,10 +443,12 @@ class FeedService:
         Only scanned sources, observed within `window`, newest first. Feed cards need text;
         setup cards need a computed trade plan (buy zone or stop, and a target).
         """
-        from .contracts import LatestCard,LatestPage,TradePlan,group_alert
+        from .contracts import LatestCard,LatestPage,TradePlan,Chart,group_alert
+        from .market_board import schwab_allowed
         if feature not in {'feed','setups'} or type(limit) is not int or not 1<=limit<=50:
             raise FeedError('invalid_request',422)
         now=self.clock()
+        chart_allowed=schwab_allowed(self.policy,'display_raw',now) and schwab_allowed(self.policy,'retain',now)
         # Group alerts (#alerts posts) have their own panel: the analyst-calls list leaves them out.
         names=(source.value,) if source else tuple(s.value for s in self.sources if s is not SourceName.SWARM)
         # Writers (copier, worker) hold the lock for milliseconds every second: wait for them.
@@ -455,7 +457,7 @@ class FeedService:
             feature_row=conn.execute('SELECT enabled FROM features WHERE name=?',(feature,)).fetchone()
             if not feature_row or not feature_row[0]: raise FeedError('forbidden',403)
             sources=self._freshness(conn,now)
-            rows=conn.execute('SELECT h.card_id,p.* FROM publication_heads h JOIN publications p ON p.id=h.publication_id '
+            rows=conn.execute('SELECT h.card_id,h.source_id,p.* FROM publication_heads h JOIN publications p ON p.id=h.publication_id '
                 'WHERE h.feature=? AND h.active=1 AND h.authority_blocked=0 AND p.observed_at>? AND h.source_id IN '
                 '('+','.join('?'*len(names))+') ORDER BY p.observed_at DESC LIMIT 400',(feature,now-window,*names)).fetchall()
             cards,seen=[],set()
@@ -463,7 +465,7 @@ class FeedService:
                 if len(cards)>=limit: break
                 record=self._record(conn,row['card_id'],row,now,sources)
                 if not isinstance(record,FeedUpsert): continue
-                p=record.payload; plan=None
+                p=record.payload; plan=None; chart=None; chart_at=None; company=None
                 if feature=='setups':
                     if p.ticker in seen: continue  # One setup per ticker: the newest alert.
                     level=conn.execute('SELECT * FROM setup_levels WHERE ticker=?',(p.ticker,)).fetchone()
@@ -472,15 +474,23 @@ class FeedService:
                     plan=TradePlan(direction=level['direction'],entry_low=level['entry_low'],entry_high=level['entry_high'],
                                    stop=level['stop'],targets=targets,computed_at=level['computed_at'])
                     price=level['price'] if level['price'] is not None else p.price
+                    if chart_allowed and level['context_json']:
+                        try:
+                            context=strict_json(level['context_json'])
+                            chart=Chart.model_validate(context.get('chart')) if context.get('chart') else None
+                            fetched=context.get('fetched_at')
+                            chart_at=(fetched if isinstance(fetched,(int,float)) and not isinstance(fetched,bool) and math.isfinite(fetched) and 0<fetched<=now else level['computed_at']) if chart else None
+                            company=context.get('company') if isinstance(context.get('company'),str) and len(context['company'])<=256 else None
+                        except (ValueError,TypeError): pass
                 else:
                     if not p.excerpt.strip(): continue
                     price=p.price
-                group=group_alert(html.unescape(p.excerpt)) if source is SourceName.SWARM else None
+                group=(p.group or group_alert(html.unescape(p.excerpt))) if source is SourceName.SWARM else None
                 if source is SourceName.SWARM and (group is None or p.ticker in seen): continue  # Newest alert per ticker.
                 seen.add(p.ticker)
                 url=next((e.url for e in p.evidence if e.url),None)
                 cards.append(LatestCard(id=record.id,ticker=p.ticker,direction=p.direction,text=html.unescape(p.excerpt),
-                                        url=url,score=p.score,price=price,observed_at=record.observed_at,plan=plan,group=group))
+                                        url=url,score=p.score,price=price,observed_at=record.observed_at,plan=plan,group=group,source=row['source_id'],chart=chart,chart_at=chart_at,company=company))
             return LatestPage(cards=cards)
 
     def _cleanup(self,conn,now,deadline):

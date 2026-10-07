@@ -366,7 +366,7 @@ class AnalysisCollector:
                                        evidence=tuple(result.evidence), deadline_seconds=60.0)
             note = await write_note(write, request, facts)
         if facts is not None and not note: note = plain_note(facts)
-        return Study(result, facts, note, tuple(result.evidence), self.display(market, facts, result.structured.earnings_date) if chart else None)
+        return Study(result, facts, note, tuple(result.evidence), self.display(market, facts, result.structured.earnings_date))
 
 
 _SECTIONS = ('**TL;DR:**', '## Catalysts', '## Outlook', '## Risk Considerations')

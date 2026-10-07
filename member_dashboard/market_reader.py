@@ -19,7 +19,7 @@ from typing import Annotated, Callable, Literal
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 from pydantic import Field
-from .contracts import ContentLineage, Evidence, PublicModel
+from .contracts import ContentLineage, Evidence, PublicModel, GroupAlert, GroupCall
 
 
 class SourceName(str, Enum):
@@ -54,6 +54,7 @@ class MarketPayload(PublicModel):
     invalidation: float | None = None
     attributions: list[Annotated[str,Field(max_length=1536)]]=Field(default_factory=list,max_length=200)
     evidence: list[Evidence]=Field(default_factory=list,max_length=200)
+    group: GroupAlert | None = None
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ _SPECS = {
     SourceName.SIGNAL: _spec('signal_events', 'id source_type ticker direction quality_score recorded_at '
         'source_link analyst_post_view_id', 'recorded_at'),
     SourceName.ALERT: _spec('alert_history', 'id ticker confidence_score catalyst catalyst_type consensus_breakdown '
-        'technical_data alerted_at price_at_alert', 'alerted_at'),
+        'technical_data alerted_at price_at_alert direction', 'alerted_at'),
     SourceName.SNAPSHOT: _spec('decision_snapshots', 'id ticker decision final_score contradiction_index '
         'sources_json recorded_at outcome_price_at_alert alert_id', 'recorded_at'),
     SourceName.OPTIONS: _spec('options_flow', 'id ticker side strike expiry volume open_interest '
@@ -170,6 +171,16 @@ def strict_json(value: object) -> dict:
     return result
 
 
+def safe_image_url(value):
+    if not isinstance(value,str) or not value or len(value)>2048 or any(ord(c)<33 for c in value) or '\\' in value: return None
+    try:
+        u=urlsplit(value)
+        if u.scheme!='https' or u.hostname!='pbs.twimg.com' or u.username or u.password or u.port not in {None,443} or not u.path.startswith('/media/'): return None
+        if any(ord(c)<32 for c in unquote(u.path)): return None
+        return value
+    except ValueError: return None
+
+
 def _number(value, *, positive=False):
     if value is None: return None
     if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value):
@@ -220,7 +231,8 @@ class MarketReader:
         try:
             with self.connection() as conn:
                 columns={r['name'] for r in conn.execute(f'PRAGMA table_info({spec.table})')}
-                if not set(spec.columns)<=columns:
+                required=set(spec.columns)-({'direction','source_url','source_excerpt'} if source==SourceName.ALERT else set())
+                if not required<=columns:
                     return SourceBatch((),checkpoint,False,'schema_unavailable')
                 rows,next_checkpoint=self._page(conn,source,spec,checkpoint,limit)
                 records=[]; blocked=[]
@@ -296,7 +308,9 @@ class MarketReader:
         return json.dumps([row[k] for k in spec.key_columns],separators=(',',':'))
 
     def _page(self,conn,source,spec,checkpoint,limit):
-        select=', '.join('a.'+c for c in spec.columns)
+        present={r[1] for r in conn.execute(f'PRAGMA table_info({spec.table})')}
+        optional={'direction':"'unclear'",'source_url':'NULL','source_excerpt':'NULL'} if source==SourceName.ALERT else {}
+        select=', '.join((optional[c]+' AS '+c) if c in optional and c not in present else 'a.'+c for c in spec.columns)
         authority=''
         if source==SourceName.ANALYST:
             authority=' AND NOT EXISTS (SELECT 1 FROM analyst_post_views newer WHERE '
@@ -354,7 +368,7 @@ class MarketReader:
         ticker=row['ticker']
         if not isinstance(ticker,str) or not _TICKER.fullmatch(ticker): raise ValueError('invalid ticker')
         key=source.value+':'+self._key(_SPECS[source],row); excerpt=''; url=None; score=None; price=None; direction='unclear'
-        computed=None; stale=False
+        computed=None; stale=False; group=None
         observed=_timestamp(row[_SPECS[source].time_column],now)
         classification={'source':source.value,'product':'unverified'}
         if source==SourceName.ANALYST:
@@ -415,6 +429,7 @@ class MarketReader:
                 if name!='precision_classification': _number(value)
             classification['scores']={name:value for name,value in values.items() if name!='precision_classification'}
             if source==SourceName.ALERT:
+                direction=_DIRECTIONS.get(row['direction'],'unclear')
                 # The reason a member reads: the news headline, else the catalyst type ("Analyst Upgrade").
                 headline=row['catalyst'] if isinstance(row['catalyst'],str) and row['catalyst'].strip() else None
                 kind=row['catalyst_type'] if isinstance(row['catalyst_type'],str) and row['catalyst_type'].strip() else None
@@ -434,14 +449,23 @@ class MarketReader:
             if not isinstance(members,list) or not 1<=len(members)<=20: raise ValueError('invalid group members')
             lines=[f"{int(row['analyst_count'])} analysts in {_text(row['span_text'],32)}"]
             calls={'long':'bullish','short':'bearish','unclear':'unclear'}
+            group_calls=[]
             for member in members:
                 if not isinstance(member,dict) or member.get('direction') not in calls: raise ValueError('invalid group member')
                 handle=member.get('analyst')
                 if not isinstance(handle,str) or not re.fullmatch(r'[A-Za-z0-9_]{1,40}',handle): raise ValueError('invalid analyst')
                 reason=' '.join(str(member.get('reason') or '').split())[:300] or 'reason not stated'
+                images=[u for u in (safe_image_url(v) for v in member.get('image_urls',[])[:4]) if u] if isinstance(member.get('image_urls'),list) else []
+                if images and reason=='reason not stated': reason='Chart attached; directional intent not stated.'
                 if member.get('reason_kind')=='event_claim' and reason!='reason not stated': reason='Analyst says: '+reason
                 elif member.get('reason_kind')=='image' and reason!='reason not stated': reason='Chart read: '+reason
                 lines.append(f"@{handle} ({calls[member['direction']]}): {reason}")
+                stamp=member.get('observed_at')
+                group_calls.append(GroupCall(analyst=handle,view=calls[member['direction']],reason=reason,
+                    observed_at=_timestamp(stamp,now,optional=True) if stamp is not None else None,
+                    url=safe_url(member.get('source_url') or member.get('link')),image_urls=images,
+                    posted_at=_timestamp(member.get('posted_at'),now,optional=True)))
+            group=GroupAlert(analysts=int(row['analyst_count']),span=_text(row['span_text'],32),calls=group_calls)
             excerpt=_text('\n'.join(lines))
             views={line.split('(')[1].split(')')[0] for line in lines[1:]}
             direction=views.pop() if len(views)==1 and views<={'bullish','bearish'} else 'unclear'
@@ -464,7 +488,7 @@ class MarketReader:
             stale=row['status']!='ok'
             if stale: computed=_timestamp(row['last_good_at'],now,optional=True)
             # Stored prose has unknown contributors/model rights: do not project.
-        payload=MarketPayload(ticker=ticker,direction=direction,excerpt=excerpt,score=score,price=price)
+        payload=MarketPayload(ticker=ticker,direction=direction,excerpt=excerpt,score=score,price=price,group=group)
         normalized={'key':key,'ticker':ticker,'observed_at':observed,'computed_at':computed,
             'url':url,'payload':payload.model_dump(),'classification':classification,'stale':stale}
         version=hashlib.sha256(json.dumps(normalized,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()

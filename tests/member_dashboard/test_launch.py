@@ -165,6 +165,7 @@ def test_accounts_backup_drops_feed_cards_and_keeps_members(tmp_path):
     with sqlite3.connect(staging) as con:
         con.execute("INSERT INTO members(id,username,password_hash,role,created_at) VALUES (?,?,?,?,?)",(str(uuid.uuid4()),'owner','x','admin',1.0))
         con.execute("INSERT INTO source_checkpoints(source_id,last_id,updated_at) VALUES ('alert_history',9,1.0)")
+    con.close()  # A SQLite context commits, but does not close the Windows file handle.
     key=root/'key';key.write_bytes(os.urandom(32));key.chmod(0o600)
     archive=accounts_backup(staging,root,key_path=key,node=Path(node),now=time.time())
     assert not staging.exists() and archive.suffix=='.mdb' and archive.parent==root

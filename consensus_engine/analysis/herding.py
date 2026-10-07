@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -50,6 +50,9 @@ class SwarmMemberDetail:
     decision_code: str = "missing"
     signal_event_id: Optional[int] = None
     analyst_post_view_id: Optional[int] = None
+    source_url: Optional[str] = None
+    image_urls: list[str] = field(default_factory=list)
+    source_posted_at: Optional[float] = None
 
 
 @dataclass
@@ -78,7 +81,8 @@ async def _swarm_members(
         """SELECT se.id AS signal_event_id, se.source_detail AS analyst,
                   se.recorded_at AS first_at, se.source_link,
                   se.analyst_post_view_id, apv.display_direction,
-                  apv.reason_text, apv.reason_kind, apv.decision_code, apv.image_evidence_json
+                  apv.reason_text, apv.reason_kind, apv.decision_code, apv.image_evidence_json,
+                  apv.source_url, apv.image_urls_json, apv.source_posted_at
              FROM signal_events se
              LEFT JOIN analyst_post_views apv
                ON apv.id=se.analyst_post_view_id AND apv.ticker=se.ticker
@@ -112,6 +116,11 @@ async def _swarm_members(
             except (ValueError, TypeError, AttributeError):
                 direction = "unclear"
         reason = " ".join(stored_reason.split()) or "reason not stated"
+        try:
+            images = json.loads(row["image_urls_json"] or "[]") if row else []
+        except (ValueError, TypeError):
+            images = []
+        images = [url for url in images if isinstance(url, str) and url.startswith("https://") and len(url) <= 2048][:4] if isinstance(images, list) else []
         details.append(SwarmMemberDetail(
             analyst=analyst,
             direction=direction,
@@ -122,6 +131,9 @@ async def _swarm_members(
             decision_code=(row["decision_code"] if row else None) or "missing",
             signal_event_id=row["signal_event_id"] if row else None,
             analyst_post_view_id=row["analyst_post_view_id"] if row else None,
+            source_url=row["source_url"] if row else None,
+            image_urls=images,
+            source_posted_at=row["source_posted_at"] if row else None,
         ))
     return members, times, details
 

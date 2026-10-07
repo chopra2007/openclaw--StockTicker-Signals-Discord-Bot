@@ -195,6 +195,18 @@ class SourcePolicy:
         cursors=cursors or {}; next_cursors={}; deleted=0; more=False
         with self.store.transaction() as conn:
             conn.row_factory=sqlite3.Row
+            # Setup charts are a bounded Schwab-only cache, separate from member
+            # reports. Revocation must remove these raw observations too.
+            from .market_board import schwab_sources
+            if 'context_json' in {r[1] for r in conn.execute('PRAGMA table_info(setup_levels)')}:
+                if not self._authorize(conn,schwab_sources(),'retain',now).allowed:
+                    cursor=cursors.get('setup_context',0)
+                    if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')
+                    charts=conn.execute('SELECT rowid FROM setup_levels WHERE rowid>? AND context_json IS NOT NULL ORDER BY rowid LIMIT ?',(cursor,limit)).fetchall()
+                    next_cursors['setup_context']=charts[-1][0] if charts else cursor
+                    more=more or len(charts)==limit
+                    conn.executemany('UPDATE setup_levels SET context_json=NULL WHERE rowid=?',[(r[0],) for r in charts])
+                    deleted+=len(charts)
             for table in _CONTENT_TABLES:
                 cursor=cursors.get(table,0)
                 if type(cursor) is not int or cursor<0: raise ValueError('invalid purge cursor')

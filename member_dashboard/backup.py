@@ -127,7 +127,7 @@ def maintain_archives(root,*,key_path,node,now=None):
 # Feed cards are copies of bot data and the feed re-imports them once its checkpoints are gone.
 FEED_TABLES=('publication_intervals','publication_heads','publication_evidence_refs','publication_retractions',
              'publication_changes','publications','source_checkpoints','feed_source_status',
-             'market_quotes','index_daily','track_alerts')  # Schwab quotes and bot alerts re-copied by the worker and supervisor.
+             'market_quotes','index_daily','track_alerts','setup_levels')  # Source caches are re-copied by the worker and supervisor.
 
 
 def accounts_backup(staging,root,*,key_path,node,now=None,retention_seconds=14*86400):
@@ -139,6 +139,8 @@ def accounts_backup(staging,root,*,key_path,node,now=None,retention_seconds=14*8
     try:
         with closing(sqlite3.connect(staging)) as con:
             for table in FEED_TABLES: con.execute(f'DELETE FROM {table}')
+            if con.execute("SELECT 1 FROM sqlite_master WHERE name='track_sync_state'").fetchone():
+                con.execute('UPDATE track_sync_state SET last_id=0,new_id=0')
             con.commit();con.execute('VACUUM')
         name=time.strftime('%Y%m%d-%H%M%S',time.gmtime(time.time() if now is None else now))+'.mdb'
         return encrypted_backup(staging,Path(root)/name,root,quota_path=Path(root)/'no-quota.sqlite3',

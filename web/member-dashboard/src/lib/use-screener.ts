@@ -4,12 +4,14 @@ import {api,ApiError} from './api';
 import type {LatestCard,TickerQuote} from './contracts';
 type Snapshot={key:string;cards:LatestCard[]|null;quotes:TickerQuote[];checked:number|null;failed:boolean;busy:boolean};
 /** Atomic cached reads, no work creation. Never overlap refreshes or retain a denied source. */
-export function useScreener(universe:'setups'|'alerts',accessKey:string,enabled=true){
+export function useScreener(universe:'setups'|'alerts'|'both',accessKey:string,enabled=true){
  const key=universe+accessKey;const [state,setState]=useState<Snapshot>({key:'',cards:null,quotes:[],checked:null,failed:false,busy:false});
  const read=useRef<()=>Promise<void>>(async()=>{});
  useEffect(()=>{if(!enabled)return;let closed=false,busy=false,timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();
   const poll=async()=>{if(closed||busy||document.hidden)return;busy=true;setState(s=>s.key===key?{...s,busy:true}:{key,cards:null,quotes:[],checked:null,failed:false,busy:true});
-   try{const page=await api<{cards:LatestCard[]}>('/'+universe+'/latest',{signal:controller.signal});
+   try{const results=await Promise.allSettled((universe==='both'?['setups','alerts']:[universe]).map(source=>api<{cards:LatestCard[]}>('/'+source+'/latest',{signal:controller.signal})));
+    const failures=results.filter(r=>r.status==='rejected');const denied=failures.find(r=>r.reason instanceof ApiError&&(r.reason.status===401||r.reason.status===403));if(denied)throw denied.reason;if(failures.length)throw failures[0].reason;
+    const page={cards:results.flatMap(r=>r.status==='fulfilled'?r.value.cards:[])};
     // Apply authorized source changes immediately: a quote outage cannot restore withdrawn cards.
     if(!closed)setState(s=>({...s,key,cards:page.cards,busy:true}));
     const symbols=[...new Set(page.cards.map(c=>c.ticker))].sort().join(',');

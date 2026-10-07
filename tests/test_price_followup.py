@@ -1,6 +1,8 @@
 """Tests for price follow-up tracking."""
 
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -10,7 +12,10 @@ from consensus_engine import db
 
 
 @pytest.fixture(autouse=True)
-async def setup_db(tmp_path):
+async def setup_db(tmp_path,monkeypatch):
+    # Session-sensitive selection must not depend on when the test is run.
+    now=datetime(2026,10,7,12,tzinfo=ZoneInfo('America/Los_Angeles')).timestamp()
+    monkeypatch.setattr(time,'time',lambda:now)
     cfg.load_config()
     cfg._config["database"] = {"path": str(tmp_path / "test.db")}
     await db.init_db()
@@ -34,16 +39,20 @@ async def _insert_alert(ticker: str, price: float, age_seconds: float):
 
 @pytest.mark.asyncio
 async def test_get_alerts_needing_1h_update():
-    """Alerts 1-2 hours old with NULL price_1h_later should be returned."""
+    """Unfilled regular-session hours remain repairable within minute coverage."""
     await _insert_alert("AAPL", 150.0, 4000)   # ~1.1 hours old — should match
     await _insert_alert("TSLA", 200.0, 300)     # 5 min old — too young
-    await _insert_alert("NVDA", 500.0, 10000)   # ~2.8 hours old — too old
+    await _insert_alert("NVDA", 500.0, 10000)   # Missed original spot window; historical minute is available.
+    await _insert_alert("CLOSED", 10.0, 22*3600) # Yesterday after hours.
+    await _insert_alert("OLD", 10.0, 31*86400+4000) # Outside bounded minute coverage.
 
     alerts = await db.get_alerts_needing_price_update("price_1h_later")
     tickers = [a["ticker"] for a in alerts]
     assert "AAPL" in tickers
     assert "TSLA" not in tickers
-    assert "NVDA" not in tickers
+    assert "NVDA" in tickers
+    assert "CLOSED" not in tickers
+    assert "OLD" not in tickers
 
 
 @pytest.mark.asyncio

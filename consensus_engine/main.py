@@ -1829,6 +1829,8 @@ async def process_tweet(raw_tweet: dict):
                 ticker_view=tweet.view_for_ticker(ticker),
                 source_url=tweet.tweet_url,
                 parsed_summary=tweet.summary,
+                image_urls=tweet.image_urls,
+                source_posted_at=raw_tweet.get("source_posted_at"),
             )
         return
 
@@ -1891,6 +1893,8 @@ async def process_tweet(raw_tweet: dict):
             ticker_view=tweet.view_for_ticker(ticker),
             source_url=tweet.tweet_url,
             parsed_summary=tweet.summary,
+            image_urls=tweet.image_urls,
+            source_posted_at=raw_tweet.get("source_posted_at"),
         )
 
         # A2: analyst swarm detection. >=2 distinct analysts on a ticker within the window
@@ -1976,6 +1980,7 @@ async def process_tweet(raw_tweet: dict):
                 technical_json=json.dumps({}),
                 analysts_json=json.dumps([]),
                 price=price,
+                direction=alert_tweet.view_for_ticker(ticker).direction if alert_tweet.view_for_ticker(ticker) else 'unclear',
             )
         instant_msg_id = await send_instant_ping(alert_tweet, price, degraded=DEGRADED_MODE)
         if instant_msg_id is None:
@@ -2799,13 +2804,14 @@ async def price_outcome_loop(stop_event: asyncio.Event):
                 for field in ("price_1h_later", "price_24h_later"):
                     horizon = "1h" if field == "price_1h_later" else "24h"
                     alerts = await db.get_alerts_needing_price_update(field)
-                    # Submit every yfinance fetch concurrently to the
+                    # Submit historical-hour or day-spot fetches concurrently to the
                     # ThreadPoolExecutor; awaiting in zip-order keeps the
                     # downstream DB writes serial against a known alert row.
-                    price_futures = [
-                        loop.run_in_executor(executor, _fetch_yfinance_price, a["ticker"])
-                        for a in alerts
-                    ]
+                    if horizon == '1h':
+                        from consensus_engine.hour_outcomes import fetch_hour_price
+                        price_futures = [loop.run_in_executor(executor, fetch_hour_price, a['ticker'], a['alerted_at']) for a in alerts]
+                    else:
+                        price_futures = [loop.run_in_executor(executor, _fetch_yfinance_price, a['ticker']) for a in alerts]
                     fetched = await asyncio.gather(*price_futures, return_exceptions=True)
                     for alert, price in zip(alerts, fetched):
                         if isinstance(price, Exception):
