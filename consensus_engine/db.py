@@ -1792,6 +1792,19 @@ CREATE TABLE IF NOT EXISTS swarm_state (
     updated_at REAL
 );
 
+-- Every analyst-group alert posted to #alerts (owner 2026-10-06: shown on the member dashboard).
+CREATE TABLE IF NOT EXISTS swarm_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    posted_at REAL NOT NULL,
+    analyst_count INTEGER NOT NULL,
+    span_text TEXT NOT NULL,          -- "52 min", as in the Discord title
+    price REAL,
+    members_json TEXT NOT NULL,       -- [{analyst, direction long|short|unclear, reason, reason_kind, link}]
+    message_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_swarm_alerts_posted ON swarm_alerts(posted_at);
+
 CREATE TABLE IF NOT EXISTS analyst_pair_correlations (
     analyst_a TEXT NOT NULL,
     analyst_b TEXT NOT NULL,
@@ -3623,6 +3636,20 @@ async def insert_alert(ticker: str, confidence: float, catalyst: str, catalyst_t
             await enqueue_atlas_job(ticker, "alert")
     except Exception as exc:
         log.warning("Atlas alert-enqueue failed: %s", exc)
+    return cursor.lastrowid
+
+
+async def insert_swarm_alert(ticker: str, analyst_count: int, span_text: str, price: float,
+                             members: list, message_id: str | None, posted_at: float | None = None) -> int:
+    """Record one #alerts analyst-group post. Returns the row ID."""
+    db = await get_db()
+    cursor = await db.execute(
+        """INSERT INTO swarm_alerts (ticker, posted_at, analyst_count, span_text, price, members_json, message_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (ticker, posted_at or time.time(), analyst_count, span_text, price if price and price > 0 else None,
+         json.dumps(members), message_id),
+    )
+    await db.commit()
     return cursor.lastrowid
 
 

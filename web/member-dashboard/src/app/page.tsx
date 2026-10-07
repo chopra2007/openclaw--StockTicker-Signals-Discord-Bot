@@ -3,8 +3,14 @@ import {useState} from 'react';
 import {AppShell} from '@/components/app-shell';
 import {useSession} from '@/components/session';
 import {FeedPanel} from '@/components/feed-panel';
-export default function Page(){const {member}=useSession();const [tab,setTab]=useState<'feed'|'setups'>('setups');
+type Tab='alerts'|'setups'|'feed';
+const LABEL:Record<Tab,string>={alerts:'Alerts',setups:'Setups',feed:'Analyst calls'};
+export default function Page(){const {member}=useSession();const [tab,setTab]=useState<Tab>('alerts');
  const feed=member?.features.feed.enabled,setups=member?.features.setups.enabled;
- return <AppShell><main id="main" className="workspace"><div className="page-head"><h1 tabIndex={-1}>Overview</h1><p>Trade setups and analyst calls, updated live. Search a ticker for a full report.</p></div>
- {feed&&setups&&<div className="segmented" role="group" aria-label="Show">{(['setups','feed'] as const).map(t=><button key={t} type="button" aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==='setups'?'Trade setups':'Analyst calls'}</button>)}</div>}
- <div className="home-grid" data-tab={tab}>{member&&setups&&<FeedPanel key={'setups'+member.features.setups.version} feature="setups" accessKey={member.id+member.features.setups.version}/>}{member&&feed&&<FeedPanel key={'feed'+member.features.feed.version} feature="feed" accessKey={member.id+member.features.feed.version}/>}</div></main></AppShell>}
+ const tabs=([feed&&'alerts',setups&&'setups',feed&&'feed'] as const).filter(Boolean) as Tab[];
+ return <AppShell><main id="main" className="workspace"><div className="page-head"><h1 tabIndex={-1}>Overview</h1><p>Live alerts, trade setups and analyst calls. Search any ticker for a full report.</p></div>
+ {tabs.length>1&&<div className="segmented" role="group" aria-label="Show">{tabs.map(t=><button key={t} type="button" aria-pressed={tab===t} onClick={()=>setTab(t)}>{LABEL[t]}</button>)}</div>}
+ {member&&<div className="home" data-tab={tab}>
+  {feed&&<FeedPanel key={'alerts'+member.features.feed.version} feature="alerts" accessKey={member.id+member.features.feed.version}/>}
+  <div className="home-grid">{setups&&<FeedPanel key={'setups'+member.features.setups.version} feature="setups" accessKey={member.id+member.features.setups.version}/>}{feed&&<FeedPanel key={'feed'+member.features.feed.version} feature="feed" accessKey={member.id+member.features.feed.version}/>}</div>
+ </div>}</main></AppShell>}

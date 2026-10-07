@@ -478,6 +478,11 @@ async def test_send_swarm_alert_pings_user():
     assert p["content"] == "<@615525529537216513>"
     assert p["allowed_mentions"]["users"] == ["615525529537216513"]
     assert "[@a1](https://example.test/a1)" in str(p["embeds"])
+    # Owner 2026-10-06: the member dashboard shows #alerts posts, so each sent one is saved.
+    import consensus_engine.db as dbm
+    row = await (await (await dbm.get_db()).execute("SELECT * FROM swarm_alerts")).fetchone()
+    assert (row["ticker"], row["analyst_count"], row["span_text"], row["price"], row["message_id"]) == ("NVDA", 2, "2 min", 100.0, "999")
+    assert [(m["analyst"], m["direction"], m["reason"]) for m in json.loads(row["members_json"])] == [("a1", "long", "Breakout"), ("a2", "long", "Earnings")]
 
 
 async def test_send_swarm_alert_dry_run():

@@ -104,7 +104,7 @@ def member_feed_sources():
     bot alerts. Other bot tables carry no readable text (or duplicate alerts) and the raw-mention
     table is 1.5M rows whose scanning locked the database."""
     from .market_reader import SourceName
-    return (SourceName.ANALYST,SourceName.ALERT)
+    return (SourceName.ANALYST,SourceName.ALERT,SourceName.SWARM)
 
 
 def bot_feed_lineage(row):
@@ -113,7 +113,7 @@ def bot_feed_lineage(row):
     from .market_reader import SourceName
     # Raw mentions (~55k rows/day) are not member cards: 90-day feed retention would need ~12 GB.
     if row.source is SourceName.TICKER: return None
-    feature='feed' if row.source in {SourceName.ANALYST,SourceName.SIGNAL,SourceName.TICKER} else 'setups'
+    feature='feed' if row.source in {SourceName.ANALYST,SourceName.SIGNAL,SourceName.TICKER,SourceName.SWARM} else 'setups'
     # source_version must equal the evidence version (row.version) or tools treat it as untracked.
     return ContentLineage(sources=[SourceContribution(source_id='bot-'+row.source.value.replace('_','-'),product_id=BOT_PRODUCT,
         source_version=row.version,policy_version=OWNER_POLICY_VERSION)],required_features=[feature],field_dependencies=[],retention_deadline=None)

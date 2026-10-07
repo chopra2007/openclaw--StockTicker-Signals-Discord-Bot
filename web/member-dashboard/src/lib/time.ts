@@ -8,3 +8,7 @@ const dateOnly=new Intl.DateTimeFormat('en-US',{timeZone:'UTC',month:'short',day
 export function formatShort(epoch:number|null|undefined){if(epoch==null||!Number.isFinite(epoch))return '';return short.format(new Date(epoch*1000));}
 /** "Oct 9" for an option expiry date. */
 export function formatDay(value:string|null){return value&&/^\d{4}-\d{2}-\d{2}$/.test(value)?dateOnly.format(new Date(value+'T00:00:00Z')):'';}
+const clock=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',minute:'2-digit'});
+const day=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',year:'numeric',month:'numeric',day:'numeric'});
+/** "12:37 PM" today, "Oct 5, 3:23 PM" before today (Pacific). */
+export function formatWhen(epoch:number,now=Date.now()){const d=new Date(epoch*1000);return day.format(d)===day.format(new Date(now))?clock.format(d):short.format(d);}

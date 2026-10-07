@@ -714,14 +714,8 @@ def _human_span(seconds: float) -> str:
     return f"{h} hour" + ("" if h == 1 else "s")
 
 
-def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
-    """Build the analyst-group embed without making a send-time AI call."""
-    links = links or {}
-    ticker = swarm.ticker
-    members = list(swarm.analysts or [])
-    n = swarm.count or len(members)
-    span_txt = _human_span(max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0)))
-
+def _swarm_details(swarm, links: dict) -> list:
+    """Each analyst's stored post as (detail, long|short|unclear), first tweet first."""
     details = list(getattr(swarm, "member_details", None) or [])
     if not details:
         from consensus_engine.analysis.herding import SwarmMemberDetail
@@ -734,13 +728,20 @@ def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] 
                 source_link=links.get(analyst),
                 posted_at=times.get(analyst, swarm.opened_at),
             )
-            for analyst in members[:20]
+            for analyst in list(swarm.analysts or [])[:20]
         ]
+    return [(d, d.direction if d.direction in {"long", "short"} else "unclear") for d in details]
 
-    normalized = []
-    for detail in details:
-        direction = detail.direction if detail.direction in {"long", "short"} else "unclear"
-        normalized.append((detail, direction))
+
+def format_swarm_alert(swarm, current_price: float = 0.0, links: Optional[dict] = None) -> dict:
+    """Build the analyst-group embed without making a send-time AI call."""
+    links = links or {}
+    ticker = swarm.ticker
+    members = list(swarm.analysts or [])
+    n = swarm.count or len(members)
+    span_txt = _human_span(max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0)))
+
+    normalized = _swarm_details(swarm, links)
 
     bullish = sum(direction == "long" for _, direction in normalized)
     bearish = sum(direction == "short" for _, direction in normalized)
@@ -867,6 +868,15 @@ async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
     data = await _safe_send(url, headers, body)
     if data:
         msg_id = data.get("id")
+        try:  # The member dashboard shows these alerts; a failed save never blocks the post.
+            from consensus_engine import db as _db
+            members_rows = [{"analyst": d.analyst, "direction": direction, "reason": " ".join((d.reason or "").split()),
+                             "reason_kind": getattr(d, "reason_kind", "none"), "link": d.source_link or links.get(d.analyst)}
+                            for d, direction in _swarm_details(swarm, links)[:20]]
+            await _db.insert_swarm_alert(swarm.ticker, swarm.count or len(members), _human_span(
+                max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0))), current_price, members_rows, msg_id)
+        except Exception as e:
+            log.warning("[A2] swarm alert save failed for $%s: %s", swarm.ticker, e)
         log.info("[A2] SWARM alert sent for $%s (%d analysts, %s, msg_id=%s)",
                  swarm.ticker, swarm.count, swarm.reason, msg_id)
         return msg_id

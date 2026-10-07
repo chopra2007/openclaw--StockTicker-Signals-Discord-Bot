@@ -67,3 +67,39 @@ def test_setup_levels_picks_due_ticker_and_waits_for_members(feed):
     # A member researched in the last 2 minutes: the chore waits.
     assert asyncio.run(setup_levels.refresh_one(store, Collector(), clock=lambda: now + 601)) is None
     assert computed == ['TEST']
+
+
+def swarm_rows(path, now, rows):
+    import json, sqlite3
+    con = sqlite3.connect(path)
+    con.execute('CREATE TABLE swarm_alerts (id INTEGER PRIMARY KEY, ticker TEXT, posted_at REAL, analyst_count INTEGER, '
+                'span_text TEXT, price REAL, members_json TEXT, message_id TEXT)')
+    for ticker, age, members in rows:
+        con.execute('INSERT INTO swarm_alerts(ticker,posted_at,analyst_count,span_text,price,members_json) VALUES (?,?,?,?,?,?)',
+                    (ticker, now - age, len(members), '52 min', 242.44, json.dumps(members)))
+    con.commit(); con.close()
+
+
+def test_group_alerts_from_the_alerts_channel(feed, tmp_path):
+    """Owner 2026-10-06: the #alerts posts (several analysts on one ticker) belong on the home page."""
+    from dataclasses import replace
+    from member_dashboard.market_reader import MarketReader, SourceCheckpoint, SourceName
+    from member_dashboard.publication import publishable
+    from test_source_policy import lineage
+    now = feed.dashboard.clock()
+    a = {'analyst': 'MarketRebels', 'direction': 'long', 'reason': 'Clears $6 trillion', 'reason_kind': 'event_claim'}
+    b = {'analyst': 'ThetaWarrior', 'direction': 'unclear', 'reason': '', 'reason_kind': 'none'}
+    swarm_rows(tmp_path / 'bot.db', now, [('NVDA', 300, [a, b]), ('NVDA', 60, [a, b, dict(b, analyst='kpak82')]),
+                                          ('AVGO', 120, [a, dict(a, analyst='preetkailon')]),
+                                          ('BAD', 30, [{'analyst': 'x y', 'direction': 'long'}])])
+    batch = MarketReader(tmp_path / 'bot.db', clock=feed.dashboard.clock).read_batch(SourceName.SWARM, SourceCheckpoint())
+    assert [r.ticker for r in batch.records] == ['NVDA', 'NVDA', 'AVGO'] and [t for _, t in batch.blocked_keys] == ['BAD']
+    sources = lineage(); sources.required_features = ['feed']
+    for row in batch.records:
+        assert feed.publisher.save(publishable(replace(row, lineage=sources)), now)
+    cards = latest(feed, 'alerts')
+    assert [(c['ticker'], c['direction'], c['group']['analysts']) for c in cards] == [('NVDA', 'unclear', 3), ('AVGO', 'bullish', 2)]
+    calls = cards[0]['group']['calls']
+    assert calls[0] == {'analyst': 'MarketRebels', 'view': 'bullish', 'reason': 'Analyst says: Clears $6 trillion'}
+    assert calls[1]['reason'] == 'reason not stated' and cards[0]['group']['span'] == '52 min' and cards[0]['price'] == 242.44
+    assert latest(feed, 'feed') == []  # Analyst calls leave group alerts to their own panel.

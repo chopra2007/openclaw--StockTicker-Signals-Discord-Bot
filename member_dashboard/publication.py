@@ -65,7 +65,7 @@ def publishable(row: SourceRecord) -> Publication | None:
     # A delivery event never proves the current enriched row's rendered content.
     # Existing bot storage has no delivered-payload hash: every setup here is
     # explicitly research-only, with absent published/entry/target/invalidation.
-    feature='feed' if row.source in {SourceName.ANALYST,SourceName.SIGNAL,SourceName.TICKER} else 'setups'
+    feature='feed' if row.source in {SourceName.ANALYST,SourceName.SIGNAL,SourceName.TICKER,SourceName.SWARM} else 'setups'
     if feature not in row.lineage.required_features: return None
     version=hashlib.sha256(json.dumps([row.version,row.lineage.model_dump()],sort_keys=True,
         separators=(',',':')).encode()).hexdigest()
@@ -437,17 +437,18 @@ class FeedService:
                 value['expires']=now+_CURSOR_TTL
             return FeedPage(records=records,cursor=self._sign(value),snapshot=snapshot,has_more=more,sources=sources)
 
-    def latest(self,principal,feature,limit=30,window=7*86400):
+    def latest(self,principal,feature,limit=30,window=7*86400,source=None):
         """Newest readable cards for the website (owner request 2026-10-06).
 
         Only scanned sources, observed within `window`, newest first. Feed cards need text;
         setup cards need a computed trade plan (buy zone or stop, and a target).
         """
-        from .contracts import LatestCard,LatestPage,TradePlan
+        from .contracts import LatestCard,LatestPage,TradePlan,group_alert
         if feature not in {'feed','setups'} or type(limit) is not int or not 1<=limit<=50:
             raise FeedError('invalid_request',422)
         now=self.clock()
-        names=tuple(source.value for source in self.sources)
+        # Group alerts (#alerts posts) have their own panel: the analyst-calls list leaves them out.
+        names=(source.value,) if source else tuple(s.value for s in self.sources if s is not SourceName.SWARM)
         # Writers (copier, worker) hold the lock for milliseconds every second: wait for them.
         with self._transaction(time.monotonic()+5,busy_ms=3000) as conn:
             self.auth.revalidate(principal,now,con=conn)
@@ -474,10 +475,12 @@ class FeedService:
                 else:
                     if not p.excerpt.strip(): continue
                     price=p.price
+                group=group_alert(html.unescape(p.excerpt)) if source is SourceName.SWARM else None
+                if source is SourceName.SWARM and (group is None or p.ticker in seen): continue  # Newest alert per ticker.
                 seen.add(p.ticker)
                 url=next((e.url for e in p.evidence if e.url),None)
                 cards.append(LatestCard(id=record.id,ticker=p.ticker,direction=p.direction,text=html.unescape(p.excerpt),
-                                        url=url,score=p.score,price=price,observed_at=record.observed_at,plan=plan))
+                                        url=url,score=p.score,price=price,observed_at=record.observed_at,plan=plan,group=group))
             return LatestPage(cards=cards)
 
     def _cleanup(self,conn,now,deadline):

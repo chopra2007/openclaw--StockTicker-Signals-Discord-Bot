@@ -218,7 +218,7 @@ store = web_store(config)
 policy = SourcePolicy(store); policy.denial_journal = store.authority
 from member_dashboard.operations import SEC_SOURCE, SEC_PRODUCT, SCHWAB_SOURCE, SCHWAB_PRODUCT
 bot = ['bot-' + s for s in ('analyst-views', 'signal-events', 'alert-history', 'decision-snapshots',
-                            'ticker-signals', 'research-sections')]
+                            'ticker-signals', 'research-sections', 'swarm-alerts')]
 with store.transaction() as con:
     have = {(r[0], r[1]) for r in con.execute('SELECT source_id,product_id FROM source_permissions')}
 now = time.time()

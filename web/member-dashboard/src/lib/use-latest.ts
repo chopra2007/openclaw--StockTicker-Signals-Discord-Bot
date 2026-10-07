@@ -4,7 +4,7 @@ import {api} from './api';
 import type {LatestCard} from './contracts';
 
 /** Newest cards for one panel. Refreshes every 30 s; a failed refresh keeps the last good list. */
-export function useLatest(feature:'feed'|'setups',accessKey:string){
+export function useLatest(feature:'feed'|'setups'|'alerts',accessKey:string){
  const [state,setState]=useState<{key:string;cards:LatestCard[]|null;failed:boolean}>({key:'',cards:null,failed:false});
  const key=feature+accessKey;
  useEffect(()=>{let closed=false,timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();

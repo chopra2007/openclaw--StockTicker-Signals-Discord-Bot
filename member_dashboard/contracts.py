@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Section = Literal["analysis", "sec", "options", "em_daily", "em_weekly"]
 Status = Literal["queued", "running", "completed", "unavailable", "failed"]
 Feature = Literal["feed", "setups", "analysis", "sec", "options", "em_daily", "em_weekly", "assistant"]
-FeedSource = Literal['analyst_views','signal_events','alert_history','decision_snapshots','ticker_signals','research_sections']
+FeedSource = Literal['analyst_views','signal_events','alert_history','decision_snapshots','ticker_signals','research_sections','swarm_alerts']
 ShortText = Annotated[str, Field(max_length=256)]
 Text = Annotated[str, Field(max_length=4000)]
 Identifier = Annotated[str, Field(min_length=1, max_length=128)]
@@ -355,6 +355,29 @@ class TradePlan(PublicModel):
     computed_at: float
 
 
+class GroupCall(PublicModel):
+    analyst: str = Field(max_length=40)
+    view: Literal['bullish','bearish','unclear']
+    reason: Text
+
+
+class GroupAlert(PublicModel):
+    """A #alerts post: several analysts on one ticker in a short time (owner request 2026-10-06)."""
+    analysts: int = Field(ge=2, le=1000)
+    span: str = Field(max_length=32)
+    calls: list[GroupCall] = Field(max_length=20)
+
+
+def group_alert(text):
+    """Read back market_reader's "N analysts in SPAN" + "@handle (view): reason" lines."""
+    import re
+    lines = text.split('\n')
+    head = re.fullmatch(r'(\d+) analysts in (.{1,32})', lines[0])
+    calls = [re.fullmatch(r'@([A-Za-z0-9_]{1,40}) \((bullish|bearish|unclear)\): (.+)', line) for line in lines[1:]]
+    if not head or not calls or not all(calls): return None
+    return GroupAlert(analysts=int(head[1]), span=head[2], calls=[GroupCall(analyst=m[1], view=m[2], reason=m[3]) for m in calls])
+
+
 class LatestCard(PublicModel):
     """One readable card: newest first, recent, always with content (owner request 2026-10-06)."""
     id: Identifier
@@ -366,6 +389,7 @@ class LatestCard(PublicModel):
     price: float | None = None
     observed_at: float
     plan: TradePlan | None = None
+    group: GroupAlert | None = None
 
 
 class LatestPage(PublicModel):

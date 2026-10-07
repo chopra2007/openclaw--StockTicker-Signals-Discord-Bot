@@ -32,6 +32,7 @@ class SourceName(str, Enum):
     RESEARCH = 'research_sections'
     SOURCE_HEALTH = 'source_health'
     ROUTINE_HEALTH = 'routine_health'
+    SWARM = 'swarm_alerts'
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ _SPECS = {
         'freshness_seconds updated_at', 'updated_at', ('source_id',)),
     SourceName.ROUTINE_HEALTH: _spec('routine_health', 'routine_id last_cycle_started last_success_at '
         'errors_in_cycle paused_until', None, ('routine_id',)),
+    SourceName.SWARM: _spec('swarm_alerts', 'id ticker posted_at analyst_count span_text price members_json', 'posted_at'),
 }
 _PUBLIC_HOSTS = frozenset({'x.com','twitter.com','www.twitter.com','www.youtube.com','youtube.com',
     'youtu.be','www.reddit.com','reddit.com','www.sec.gov','sec.gov','www.finnhub.io','finnhub.io',
@@ -425,6 +427,25 @@ class MarketReader:
                     for name in ['price','volume','price_change_pct','atr14']}
             else:
                 price=_number(row['outcome_price_at_alert'],positive=True)
+        elif source==SourceName.SWARM:
+            # The #alerts post: several analysts on one ticker. Text is "N analysts in SPAN", then one
+            # "@handle (bullish|bearish|unclear): reason" line each; contracts.group_alert reads it back.
+            members=json.loads(row['members_json']) if isinstance(row['members_json'],str) and len(row['members_json'])<=32768 else None
+            if not isinstance(members,list) or not 1<=len(members)<=20: raise ValueError('invalid group members')
+            lines=[f"{int(row['analyst_count'])} analysts in {_text(row['span_text'],32)}"]
+            calls={'long':'bullish','short':'bearish','unclear':'unclear'}
+            for member in members:
+                if not isinstance(member,dict) or member.get('direction') not in calls: raise ValueError('invalid group member')
+                handle=member.get('analyst')
+                if not isinstance(handle,str) or not re.fullmatch(r'[A-Za-z0-9_]{1,40}',handle): raise ValueError('invalid analyst')
+                reason=' '.join(str(member.get('reason') or '').split())[:300] or 'reason not stated'
+                if member.get('reason_kind')=='event_claim' and reason!='reason not stated': reason='Analyst says: '+reason
+                elif member.get('reason_kind')=='image' and reason!='reason not stated': reason='Chart read: '+reason
+                lines.append(f"@{handle} ({calls[member['direction']]}): {reason}")
+            excerpt=_text('\n'.join(lines))
+            views={line.split('(')[1].split(')')[0] for line in lines[1:]}
+            direction=views.pop() if len(views)==1 and views<={'bullish','bearish'} else 'unclear'
+            price=_number(row['price'],positive=True)
         elif source==SourceName.OPTIONS:
             # Product fallback and send-success are not persisted. Do not expose
             # these metrics or upgrade alerted=1 to proof of publication.

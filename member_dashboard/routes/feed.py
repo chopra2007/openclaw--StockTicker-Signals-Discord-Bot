@@ -29,10 +29,10 @@ def setups(request:Request,cursor:str | None=None,limit:int=Query(default=50,ge=
     return read(request,principal,'setups',cursor,limit)
 
 
-def latest(request,principal,feature):
+def latest(request,principal,feature,source=None):
     service=request.app.state.feed
     if service is None: raise HTTPException(503)
-    try: return service.latest(principal,feature)
+    try: return service.latest(principal,feature,source=source)
     except AuthError: raise HTTPException(401) from None
     except FeedError as error:
         return JSONResponse(status_code=error.status,content={'error':error.code,'message':'Request unavailable.'})
@@ -46,3 +46,10 @@ def feed_latest(request:Request,principal=Depends(require_member)):
 @router.get('/setups/latest',response_model=LatestPage)
 def setups_latest(request:Request,principal=Depends(require_member)):
     return latest(request,principal,'setups')
+
+
+@router.get('/alerts/latest',response_model=LatestPage)
+def alerts_latest(request:Request,principal=Depends(require_member)):
+    """The bot's #alerts posts: several analysts on one ticker (shown with analyst calls' access)."""
+    from ..market_reader import SourceName
+    return latest(request,principal,'feed',SourceName.SWARM)
