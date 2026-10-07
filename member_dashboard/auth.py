@@ -74,7 +74,7 @@ class AuthService:
                 _DUMMY_HASH = self.hash_password(secrets.token_urlsafe(32))
 
     def hash_password(self, password):
-        if not isinstance(password, str) or not 15 <= len(password) <= 128:
+        if not isinstance(password, str) or not 5 <= len(password) <= 128:
             raise AuthError()
         if not _HASH_SLOTS.acquire(timeout=2):
             raise AuthError()

@@ -65,6 +65,36 @@ def post(dashboard, path, body, csrf=None, origin=None):
         headers={'X-CSRF-Token': csrf, 'Origin': origin or dashboard.settings.origin})
 
 
+def test_five_lowercase_password_signup_login_and_reset(auth, dashboard):
+    actor = admin(auth, dashboard)
+    invite = auth.issue_invite_trusted(actor, dashboard.clock())
+    response = post(dashboard, '/auth/redeem', {'token': invite.token,
+        'username': 'short_password_member', 'password': 'abcde'})
+    assert response.status_code == 201
+    assert post(dashboard, '/auth/login', {'username': 'short_password_member',
+        'password': 'abcde'}).status_code == 200
+    with dashboard.store.transaction() as con:
+        identity = con.execute("SELECT id FROM members WHERE username='short_password_member'").fetchone()[0]
+    reset = auth.issue_reset_trusted(actor, identity, dashboard.clock())
+    assert post(dashboard, '/auth/reset', {'token': reset.token,
+        'password': 'fghij'}).status_code == 204
+    assert post(dashboard, '/auth/login', {'username': 'short_password_member',
+        'password': 'abcde'}).status_code == 401
+    dashboard.clock.advance(10)  # Respect the existing failed-login cooldown.
+    assert post(dashboard, '/auth/login', {'username': 'short_password_member',
+        'password': 'fghij'}).status_code == 200
+
+
+@pytest.mark.parametrize('password', ['', 'abcd', 'a' * 129])
+def test_outside_password_length_rejected_without_consuming_invite(auth, dashboard, password):
+    from member_dashboard.auth import AuthError
+    actor = admin(auth, dashboard)
+    invite = auth.issue_invite_trusted(actor, dashboard.clock())
+    with pytest.raises(AuthError):
+        auth.redeem_invite(invite.token, 'short_password_member', password, dashboard.clock())
+    assert auth.redeem_invite(invite.token, 'short_password_member', 'abcde', dashboard.clock()).role == 'member'
+
+
 def test_http_auth_exists(dashboard):
     assert dashboard.client.get('/api/v1/auth/csrf').status_code == 200
 
@@ -119,7 +149,7 @@ def test_username_collision_keeps_invite_unused(auth, dashboard):
     assert result.role == 'member'
 
 
-@pytest.mark.parametrize('password', ['short', 'a'*129, 'a'*14])
+@pytest.mark.parametrize('password', ['tiny', 'a'*129, 'a'*4])
 def test_invalid_password_leaves_invite(auth, dashboard, password):
     from member_dashboard.auth import AuthError
     actor = admin(auth, dashboard)

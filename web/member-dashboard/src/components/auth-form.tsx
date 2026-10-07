@@ -18,8 +18,8 @@ export function AuthForm({mode}:{mode:'login'|'join'|'reset'}){
  }
  return <main className="auth-wrap"><Link href="/" className="brand"><span className="brand-mark" aria-hidden="true"/>Market Edge</Link><section className="auth-card"><h1 tabIndex={-1}>{title}</h1><p className="muted">{mode==='join'?'An invitation opens your private workspace.':mode==='reset'?'Use the reset link you were sent.':'Trade setups, analyst calls and research on any stock.'}</p><form method="post" onSubmit={submit}><fieldset disabled={!hydrated||busy}>
  {mode!=='reset'&&<label>Username<input name="username" autoComplete="username" required minLength={3} maxLength={32} pattern="[A-Za-z0-9_]{3,32}" autoCapitalize="none" spellCheck={false}/></label>}
- <label>Password<input name="password" type="password" autoComplete={mode==='login'?'current-password':'new-password'} required minLength={mode==='login'?1:15} maxLength={128} aria-describedby={mode!=='login'?'password-note':undefined}/></label>
- {mode!=='login'&&<p id="password-note" className="muted small">Use 15–128 characters. Password managers are supported.</p>}
+ <label>Password<input name="password" type="password" autoComplete={mode==='login'?'current-password':'new-password'} required minLength={mode==='login'?1:5} maxLength={128} aria-describedby={mode!=='login'?'password-note':undefined}/></label>
+ {mode!=='login'&&<p id="password-note" className="muted small">Use 5–128 characters. Uppercase letters and numbers are optional. Password managers are supported.</p>}
  {error&&<p role="alert" tabIndex={-1} ref={alert}>{error}</p>}<Button disabled={busy} type="submit">{busy?'Please wait…':mode==='login'?'Sign in':mode==='join'?'Create account':'Reset password'}</Button>
  </fieldset></form><p className="small muted">{mode==='login'?'Need an invite or a password reset? Ask the person who invited you.':<Link href="/login">Already have an account? Sign in</Link>}</p></section></main>;
 }

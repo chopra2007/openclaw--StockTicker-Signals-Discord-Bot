@@ -1,0 +1,33 @@
+import {expect} from '@playwright/test';
+import {test,control} from './helpers';
+
+test('five lowercase characters work for signup, login and reset; four cannot submit',async({page,request})=>{
+ const {token}=await control(request,{action:'invite'});
+ const username='short_'+Math.random().toString(36).slice(2,10);
+ await page.goto('/join#'+token);
+ await page.getByLabel('Username',{exact:true}).fill(username);
+ const input=page.getByLabel('Password',{exact:true});
+ await input.fill('abcd');
+ await page.getByRole('button',{name:'Create account'}).click();
+ await expect(page.getByRole('heading',{name:'Create your account'})).toBeVisible();
+ expect(await input.evaluate((el:HTMLInputElement)=>el.validity.tooShort)).toBe(true);
+ await input.fill('abcde');
+ await page.getByRole('button',{name:'Create account'}).click();
+ await expect(page.getByRole('heading',{name:'Sign in'})).toBeVisible();
+ await page.getByLabel('Username',{exact:true}).fill(username);
+ await page.getByLabel('Password',{exact:true}).fill('abcde');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Overview',exact:true})).toBeVisible();
+ const reset=await control(request,{action:'reset',username});
+ await page.goto('/reset#'+reset.token);
+ await page.getByLabel('Password',{exact:true}).fill('abcd');
+ await page.getByRole('button',{name:'Reset password'}).click();
+ await expect(page.getByRole('heading',{name:'Reset your password'})).toBeVisible();
+ await page.getByLabel('Password',{exact:true}).fill('fghij');
+ await page.getByRole('button',{name:'Reset password'}).click();
+ await expect(page.getByRole('heading',{name:'Sign in'})).toBeVisible();
+ await page.getByLabel('Username',{exact:true}).fill(username);
+ await page.getByLabel('Password',{exact:true}).fill('fghij');
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Overview',exact:true})).toBeVisible();
+});

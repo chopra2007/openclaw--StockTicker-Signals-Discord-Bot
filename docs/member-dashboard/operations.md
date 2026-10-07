@@ -30,7 +30,7 @@ After initializing the web schema in the dedicated deployment process, run:
 python -m member_dashboard.manage create-admin --username synthetic_admin
 ```
 
-Enter a password twice at hidden prompts. Passwords must contain 15 to 128 characters; never place a password in a command line, environment variable or pipe. Creation aborts if any administrator already exists. Invitations always create ordinary members.
+Enter a password twice at hidden prompts. Passwords must contain 5 to 128 characters; uppercase letters and numbers are optional. Never place a password in a command line, environment variable or pipe. Creation aborts if any administrator already exists. Invitations always create ordinary members.
 
 ## Recovering an existing administrator
 
