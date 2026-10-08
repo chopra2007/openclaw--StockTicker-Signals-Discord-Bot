@@ -38,10 +38,10 @@ export function Chat({conversationId,onConversation,ticker=null,suggestions,head
  }
  // Opening a saved chat: show it, and pick up an answer that is still being written.
  useEffect(()=>{const previous=current.current;current.current=conversationId;
-  if(!conversationId){work.current?.abort();setLines([]);setWaiting(false);setFailed(null);return;}
-  if(conversationId===created.current&&conversationId===previous)return;  // Just created by send(): already shown.
-  work.current?.abort();const controller=new AbortController();work.current=controller;setFailed(null);setLoadError('');setWaiting(false);setLines([]);
-  void(async()=>{try{await load(conversationId,controller.signal);
+  if(conversationId&&conversationId===created.current&&conversationId===previous)return;  // Just created by send(): already shown.
+  work.current?.abort();const controller=new AbortController();work.current=controller;
+  void(async()=>{setFailed(null);setLoadError('');setWaiting(false);setLines([]);if(!conversationId)return;
+   try{await load(conversationId,controller.signal);
     const run=await api<AssistantRun>(`/conversations/${conversationId}/runs/latest`,{signal:controller.signal}).catch(()=>null);
     if(run&&(run.status==='queued'||run.status==='running')){setWaiting(true);const done=await waitFor(conversationId,run,controller.signal);await load(conversationId,controller.signal);if(done.status!=='completed')setFailed('');}
    }catch(e){if(!controller.signal.aborted)setLoadError(e instanceof ApiError?e.message:'This chat couldn’t be opened.');}
@@ -61,7 +61,7 @@ export function Chat({conversationId,onConversation,ticker=null,suggestions,head
    const run=await waitFor(id,await api<AssistantRun>(`/conversations/${id}/messages`,{method:'POST',body:JSON.stringify({message:text,ticker_context:ticker}),signal}),signal);
    await load(id,signal);
    if(run.status!=='completed')setFailed(text);
-  }catch(e){if(!signal.aborted)setFailed(text);}
+  }catch{if(!signal.aborted)setFailed(text);}
   finally{if(!signal.aborted){setWaiting(false);input.current?.focus();}}
  }
  function onKey(e:React.KeyboardEvent<HTMLTextAreaElement>){if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send(draft);}}
