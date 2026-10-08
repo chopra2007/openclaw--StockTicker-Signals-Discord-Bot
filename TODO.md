@@ -1243,14 +1243,31 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline, and the existing lint error remains. Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline. Lint is clean as of 10-08 (see redesign entry below). Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
 
-**Done 2026-10-07 (owner-approved redesign, LIVE):** dark "Gekko meets iOS" look for sign in (split layout, "By Akash",
-Show password), Overview (index tiles, one list at a time, alert sentiment bars, setup stop-to-target bar, track-record
-gauge + watchlist column), new 404 / couldn't-load / crashed-page / loading screens. Dark only by owner choice. Branch
-`dashboard-dark-redesign` (not merged to master). Deployed web only (Python code untouched); rollback copy
-`/opt/member-dashboard/rollback-redesign-20261007`. Browser suite on this host (ports 3643-3645, synthetic origin patched in
-scratch only): 36 passed, 19 failed = the 17 known failures + 2 tests updated for new wording/tab (both pass after update).
+**Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
+- Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
+  buttons, monospaced numbers. Design canvas: https://claude.ai/artifact/PKPsSspXAqfFTugV817KUu (private).
+- Sign in: headline + card centred together on desktop, "Market Edge / By Akash", Show password. Opening /login while
+  still signed in now goes straight to Overview (was the "logged out after closing the tab" report; sessions were fine).
+- New screens: 404, couldn't-load (auto-retries every 15 s), crashed page, loading skeleton.
+- Overview: index tiles; Alerts/Setups/Analyst calls one at a time; side column = track-record gauge + watchlist.
+- Alerts: each alert its own card; tap anywhere on the card (or the arrow button, for keyboard) to show the analysts'
+  posts as numbered chat bubbles coloured by view; charts shown inline; "Original post" pill; "Research NVDA" hover
+  label; ticker hit-box only as wide as its text.
+- Setups: "Confidence 52%" (coloured by level); Entry + Stop on row 1, all targets on row 2; stop-to-target price bar.
+- Track record: counts only alerts since 2026-10-04 00:00 PT; label shows the real span (4 days on 10-07, +1/day, max 90).
+  1-hour result now filled outside regular hours by the dashboard worker every 15 min (last extended-hours trade by
+  alert+1h; overnight/weekend = alert price). Bot code NOT changed (its in-session-only rule feeds its own learning).
+  Alerts 10-04..10-07 15:26 that already had an after-hours 1-hour price keep the older bot value (spot quote).
+- Lint: the old chat.tsx error is fixed; `eslint src` is clean.
+- Checks at close (10-08): browser suite on this host 39 passed / 17 failed = exactly the 17 known failures (no new ones;
+  run on ports 3643-3645 with the synthetic origin patched in a scratch copy only, since live uses 3443-3445).
+  Track-record Python tests 22 passed (run with umask 077; the backup test needs private file permissions).
+- Deploy notes: web deploys were done by hand (rsync web/member-dashboard, `npm run build`, restart frontend) and the
+  Python change by rsync of member_dashboard + restart of api/worker. `release.sh` was NOT used because it also copies
+  consensus_engine into the dashboard's copy. Rollback of the web part: `/opt/member-dashboard/rollback-redesign-20261007`.
+- Possible next: longer sign-in (now 2 h idle / 12 h max; many sites use 7-30 days); light theme if wanted.
 
 **Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
 Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebuild; 14-day retention; restore
@@ -1286,7 +1303,7 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    "Show all"; History rebuilt (Reports/Chats switch, tap-a-row, chat bubbles, phone back button).
    Open: first NEW alert through the live path checks itself 2026-10-07 13:10 PDT (task -> notifications.log);
    e2e (Playwright) suite not re-run, wording in e2e/history.spec.ts + member.spec.ts updated by hand;
-   pre-existing lint error in chat.tsx (setState inside an effect).
+   pre-existing lint error in chat.tsx (setState inside an effect) — FIXED 2026-10-08.
 6. Insider selling (90-day Form 4 totals) is not in the analysis write-up yet; Gemini's note had it.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
