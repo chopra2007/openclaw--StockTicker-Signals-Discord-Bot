@@ -80,5 +80,5 @@ def record(request: Request, rows: int = Query(50, ge=0, le=50), principal=Depen
     visible = schwab_visible(request)
     def read(con, now):
         if not require_features(con, ['setups']): raise HTTPException(403)
-        return track_record.summary(con, now, rows, with_spy=visible)
+        return track_record.summary(con, now, rows, with_spy=visible, start=track_record.START)
     return member_read(request, principal, read)

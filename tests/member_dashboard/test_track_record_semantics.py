@@ -70,3 +70,19 @@ def test_accounts_backup_resets_track_cursors_when_alert_copies_are_removed(feed
         return tmp_path / 'result.mdb'
     monkeypatch.setattr(backup, 'encrypted_backup', encrypted)
     backup.accounts_backup(staging, tmp_path, key_path=tmp_path/'key', node=tmp_path/'node', now=1)
+
+
+def test_live_record_counts_from_start_and_reports_real_span():
+    from member_dashboard import track_record
+    import sqlite3
+    con = sqlite3.connect(':memory:')
+    con.execute('CREATE TABLE track_alerts(alert_id,ticker,alerted_at,price,price_1h,price_24h,price_5d,direction)')
+    con.execute('CREATE TABLE index_daily(symbol,day,close)')
+    start = 1_000_000_000
+    con.executemany('INSERT INTO track_alerts VALUES (?,?,?,?,?,?,?,?)',
+                    [(1, 'OLD', start - 3600, 10, None, None, None, 'bullish'), (2, 'NEW', start + 3600, 10, None, None, None, 'bullish')])
+    page = track_record.summary(con, start + 2 * 86400, with_spy=False, start=start)
+    assert (page['total'], page['days']) == (1, track_record.MIN_DAYS)   # Older alert left out; never under 4 days.
+    page = track_record.summary(con, start + 9.5 * 86400, with_spy=False, start=start)
+    assert page['days'] == 10                                             # Grows a day at a time.
+    assert track_record.summary(con, start + 200 * 86400, with_spy=False, start=start)['days'] == 90

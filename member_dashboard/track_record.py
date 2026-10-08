@@ -15,6 +15,9 @@ import time
 from .market_board import PACIFIC, TICKER, market_hours
 
 WINDOW = 90 * 86400     # Alerts older than this are not counted.
+# Owner decision 2026-10-07: the live record starts fresh on 2026-10-04 00:00 Pacific and grows a day at a time up to WINDOW.
+START = 1791097200
+MIN_DAYS = 4
 CHUNK = 1000
 MIN_RATE = 20           # No win rate on fewer alerts than this.
 FLAT = 0.0001           # A move smaller than 0.01% is "flat".
@@ -132,9 +135,12 @@ def _horizon(rows, key, label, steps, closes, days, now):
                 spy_count=len(spy), spy_up=sum(m > 0 for m in spy), spy_median_pct=pct(spy))
 
 
-def summary(con, now, rows=50, with_spy=True):
+def summary(con, now, rows=50, with_spy=True, start=None):
+    """`start`: count only alerts after it (the live API passes START); `days` is then the real span, MIN_DAYS to 90."""
     con.row_factory = sqlite3.Row
-    alerts = con.execute('SELECT * FROM track_alerts WHERE alerted_at>? ORDER BY alerted_at DESC', (now - WINDOW,)).fetchall()
+    since = now - WINDOW if start is None else max(now - WINDOW, start)
+    span = WINDOW // 86400 if start is None else min(WINDOW // 86400, max(MIN_DAYS, math.ceil((now - since) / 86400)))
+    alerts = con.execute('SELECT * FROM track_alerts WHERE alerted_at>? ORDER BY alerted_at DESC', (since,)).fetchall()
     closes = {r[0]: r[1] for r in con.execute("SELECT day,close FROM index_daily WHERE symbol='SPY' ORDER BY day")} if with_spy else {}
     days = sorted(closes)
     horizons = [_horizon(alerts, key, label, steps, closes, days, now)
@@ -144,4 +150,4 @@ def summary(con, now, rows=50, with_spy=True):
                    direction=r['direction'], **{'status_'+h:_status(r,key,now) for h,key in [('1h','price_1h'),('1d','price_24h'),('5d','price_5d')]},
                    **{'favorable_'+h:_favorable(r,key) if _status(r,key,now)=='recorded' else None for h,key in [('1h','price_1h'),('1d','price_24h'),('5d','price_5d')]},
                    move_1h=move(r, 'price_1h') if open_for_1h(r['alerted_at']) else None, move_1d=move(r, 'price_24h'), move_5d=move(r, 'price_5d')) for r in alerts[:rows]]
-    return dict(total=len(alerts), days=WINDOW // 86400, horizons=horizons, recent=recent)
+    return dict(total=len(alerts), days=span, horizons=horizons, recent=recent)
