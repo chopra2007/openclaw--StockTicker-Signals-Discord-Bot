@@ -228,8 +228,8 @@ def test_summary_counts_medians_and_spy_comparison(feed):
     alerts = [  # After-hours alerts (3:00 PM Pacific): the S&P base is that day's close.
         (1, 'AAA', at(2026, 9, 28, 15, 0), 100.0, 101.0, 102.0, 110.0), (2, 'BBB', at(2026, 9, 29, 15, 0), 50.0, 50.0, 49.0, None),
         (3, 'CCC', at(2026, 9, 30, 15, 0), 10.0, 9.0, None, None),
-        (4, 'DDD', at(2026, 9, 30, 8, 0), 20.0, 21.0, None, None),  # Posted in the session, 1-hour price in the session: counted.
-        (5, 'EEE', at(2026, 9, 30, 12, 30), 20.0, 19.0, None, None)]  # 1-hour price lands after 1:00 PM: not counted.
+        (4, 'DDD', at(2026, 9, 30, 8, 0), 20.0, 21.0, None, None),  # Posted in the session, 1-hour price in the session.
+        (5, 'EEE', at(2026, 9, 30, 12, 30), 20.0, 19.0, None, None)]  # 1-hour price lands after 1:00 PM (filled by fill_hours).
     with store.transaction() as con:
         con.executemany('INSERT INTO track_alerts(alert_id,ticker,alerted_at,price,price_1h,price_24h,price_5d) VALUES (?,?,?,?,?,?,?)', alerts)
         con.executemany("INSERT INTO index_daily(symbol,day,close,fetched_at) VALUES ('SPY',?,?,0)",
@@ -237,8 +237,8 @@ def test_summary_counts_medians_and_spy_comparison(feed):
         page = track_record.summary(con, now)
     by = {h['key']: h for h in page['horizons']}
     assert page['total'] == 5
-    # 1 hour counts only alerts posted while the market was open (AAA, BBB, CCC were posted after the close).
-    assert (by['1h']['count'], by['1h']['up'], by['1h']['flat'], by['1h']['median_pct']) == (1, 1, 0, 5.0)
+    # 1 hour counts every alert with a 1-hour price, in or out of the session: +1, 0, -10, +5, -5.
+    assert (by['1h']['count'], by['1h']['up'], by['1h']['flat'], by['1h']['median_pct']) == (5, 2, 1, 0.0)
     assert (by['1d']['count'], by['1d']['up'], by['1d']['median_pct']) == (2, 1, 0.0)
     assert (by['5d']['count'], by['5d']['median_pct']) == (1, 10.0)
     assert by['1h']['spy_count'] == 0  # Daily closes cannot say what happened in one hour.
@@ -248,7 +248,8 @@ def test_summary_counts_medians_and_spy_comparison(feed):
     recent = {r['ticker']: r for r in page['recent']}
     assert [r['ticker'] for r in page['recent']] == ['CCC', 'EEE', 'DDD', 'BBB', 'AAA'] and recent['AAA']['move_5d'] == 10.0
     assert recent['DDD']['move_1h'] == 5.0 and not recent['DDD']['closed_1h']
-    assert recent['CCC']['move_1h'] is None and recent['CCC']['closed_1h'] and recent['EEE']['closed_1h']
+    assert recent['CCC']['move_1h'] == -10.0 and recent['CCC']['closed_1h'] and recent['EEE']['closed_1h']
+    assert recent['CCC']['status_1h'] == 'recorded'
 
 
 def test_spy_base_is_the_day_before_for_alerts_made_during_the_session():
@@ -270,3 +271,28 @@ def test_record_route_needs_setups_feature_and_hides_spy_without_permission(feed
     assert body['total'] == 1 and body['recent'] == [] and body['horizons'][0]['up'] == 1 and body['horizons'][1]['spy_count'] == 0
     with store.transaction() as con: con.execute("UPDATE features SET enabled=0 WHERE name='setups'")
     assert client.get('/api/v1/record').status_code == 403
+
+
+def test_fill_hours_uses_extended_trades_or_alert_price(feed):
+    import pandas as pd
+    store, now = feed.dashboard.store, feed.dashboard.clock()
+    at = lambda *args: datetime(*args, tzinfo=PACIFIC).timestamp()
+    pre = at(2026, 10, 6, 5, 0)        # Pre-market alert: a real extended-hours trade 40 minutes later.
+    sat = at(2026, 10, 3, 10, 0)       # Saturday: nothing trades, so the price did not move.
+    regular = at(2026, 10, 6, 8, 0)    # Regular session: left to the bot.
+    with store.transaction() as con:
+        con.executemany('INSERT INTO track_alerts(alert_id,ticker,alerted_at,price) VALUES (?,?,?,?)',
+                        [(1, 'AAA', pre, 10.0), (2, 'BBB', sat, 20.0), (3, 'CCC', regular, 30.0)])
+    frames = {'AAA': pd.DataFrame({'Close': [10.5, 11.0, 12.0]}, index=pd.to_datetime([pre + 600, pre + 2400, pre + 3600], unit='s', utc=True)),
+              'BBB': pd.DataFrame({'Close': [19.0]}, index=pd.to_datetime([sat - 86400], unit='s', utc=True))}
+    calls = []
+    class Client:
+        def get_price_history(self, symbol, **kwargs): calls.append((symbol, kwargs)); return frames[symbol]
+    track_record._hours_last[0] = 0.0
+    clock = lambda: at(2026, 10, 7, 12, 0)
+    assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 2
+    with store.transaction() as con:
+        got = dict(con.execute('SELECT ticker,price_1h FROM track_alerts').fetchall())
+    assert got == {'AAA': 11.0, 'BBB': 20.0, 'CCC': None}   # The 12.0 minute ends after alert+1h, so it is not used.
+    assert {c[0] for c in calls} == {'AAA', 'BBB'} and all(c[1]['extended_hours'] and c[1]['interval'] == '1m' for c in calls)
+    assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 0 and len(calls) == 2  # Every 15 minutes only.

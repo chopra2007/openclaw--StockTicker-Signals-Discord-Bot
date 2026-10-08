@@ -52,7 +52,7 @@ def sync(store, reader, now, limit=CHUNK):
     with store.transaction() as con:
         for row in keep:
             con.execute('INSERT INTO track_alerts(alert_id,ticker,alerted_at,price,price_1h,price_24h,price_5d,direction) VALUES (?,?,?,?,?,?,?,?) '
-                        'ON CONFLICT(alert_id) DO UPDATE SET price_1h=excluded.price_1h,price_24h=excluded.price_24h,price_5d=excluded.price_5d,direction=excluded.direction', row)
+                        'ON CONFLICT(alert_id) DO UPDATE SET price_1h=coalesce(excluded.price_1h,track_alerts.price_1h),price_24h=excluded.price_24h,price_5d=excluded.price_5d,direction=excluded.direction', row)
         con.execute('UPDATE track_sync_state SET last_id=? WHERE id=1', (refresh[-1][0] if len(refresh) == limit else 0,))
         if rows: con.execute('UPDATE track_sync_state SET new_id=? WHERE id=1', (rows[-1][0],))
         con.execute('DELETE FROM track_alerts WHERE alerted_at<?', (now - WINDOW - 7 * 86400,))
@@ -68,6 +68,51 @@ def _closes(history, now):
         day = stamp.date().isoformat()  # Candles are stamped in New York time; their date is the trading day.
         if close and not (day >= today and market_hours(now)): out[day] = close
     return out
+
+
+HOURS_EVERY = 15 * 60    # Owner 2026-10-07: 1-hour prices outside regular hours are filled every 15 minutes...
+HOURS_GRACE = 30 * 60    # ...so a missing 1-hour price stays "pending" this long before it reads "unavailable".
+HOURS_TICKERS = 10       # Schwab calls per run (the dashboard shares the bot's Schwab login).
+_hours_last = [0.0]
+
+
+def _price_at(frame, start, end):
+    """Close of the last minute that ended by `end` and started at or after `start`; None when nothing traded."""
+    last = None
+    for stamp, close in zip(frame.index, frame['Close']) if frame is not None else ():
+        t = stamp.timestamp()
+        if start <= t and t + 60 <= end and close and close > 0: last = float(close)
+    return last
+
+
+async def fill_hours(store, client, allowed, clock=time.time):
+    """1-hour price for alerts the bot leaves blank (posted or ending outside 6:30 AM-1 PM Pacific).
+
+    The bot fills regular-session hours itself. Here: the last trade at or before alert+1h, pre-market and after-hours
+    included; when nothing traded in that hour (overnight, weekend) the price did not move, so it is the alert price.
+    """
+    now = clock()
+    if now - _hours_last[0] < HOURS_EVERY or not allowed(): return 0
+    _hours_last[0] = now
+    with store.transaction() as con:
+        rows = con.execute('SELECT alert_id,ticker,alerted_at,price FROM track_alerts WHERE price_1h IS NULL AND alerted_at>? AND alerted_at<? '
+                           'ORDER BY alerted_at DESC', (now - 9 * 86400, now - 3660)).fetchall()
+    todo = {}
+    for alert_id, ticker, alerted_at, price in rows:
+        if not open_for_1h(alerted_at) and (ticker in todo or len(todo) < HOURS_TICKERS):
+            todo.setdefault(ticker, []).append((alert_id, alerted_at, price))
+    filled = 0
+    for ticker, alerts in todo.items():
+        span = math.ceil((now - min(a[1] for a in alerts)) / 86400) + 1
+        period = '1d' if span <= 1 else '2d' if span <= 2 else '5d' if span <= 5 else '10d'
+        try: frame = await asyncio.to_thread(client.get_price_history, ticker, period=period, interval='1m', extended_hours=True)
+        except Exception: continue  # Tried again next run.
+        if frame is None or not len(frame): continue  # No minute data at all: not a quiet hour; tried again next run.
+        with store.transaction() as con:
+            for alert_id, alerted_at, price in alerts:
+                value = _price_at(frame, alerted_at, alerted_at + 3600) or price
+                filled += con.execute('UPDATE track_alerts SET price_1h=? WHERE alert_id=? AND price_1h IS NULL', (value, alert_id)).rowcount
+    return filled
 
 
 async def refresh_spy(store, client, allowed, clock=time.time):
@@ -104,14 +149,13 @@ def in_session(stamp):
 
 
 def open_for_1h(alerted_at):
-    """A 1-hour move only means something when the alert and its 1-hour price both fall inside the session."""
+    """Alert and its 1-hour price both inside the regular session: the bot fills these; `fill_hours` does the rest."""
     return in_session(alerted_at) and in_session(alerted_at + 3600)
 
 
 def _status(row, key, now):
-    if key == 'price_1h' and not open_for_1h(row['alerted_at']): return 'closed'
     if row[key]: return 'recorded'
-    due = {'price_1h': 3600, 'price_24h': 86400, 'price_5d': 7 * 86400}[key]
+    due = {'price_1h': 3600 + HOURS_GRACE, 'price_24h': 86400, 'price_5d': 7 * 86400}[key]
     return 'pending' if now < row['alerted_at'] + due else 'unavailable'
 
 
@@ -122,7 +166,7 @@ def _favorable(row, key):
 
 
 def _horizon(rows, key, label, steps, closes, days, now):
-    moves = [(r['alerted_at'], r[key] / r['price'] - 1) for r in rows if r[key] and (key != 'price_1h' or open_for_1h(r['alerted_at']))]
+    moves = [(r['alerted_at'], r[key] / r['price'] - 1) for r in rows if r[key]]
     spy = [m for m in (_spy_move(days, closes, t, steps) for t, _ in moves) if m is not None] if steps and closes else []
     pct = lambda values: (round(median(values) * 100, 1) or 0.0) if values else None  # `or 0.0`: never "-0.0"
     return dict(key={'price_1h': '1h', 'price_24h': '1d', 'price_5d': '5d'}[key], label=label, count=len(moves),
@@ -149,5 +193,5 @@ def summary(con, now, rows=50, with_spy=True, start=None):
     recent = [dict(ticker=r['ticker'], alerted_at=r['alerted_at'], price=r['price'], closed_1h=not open_for_1h(r['alerted_at']),
                    direction=r['direction'], **{'status_'+h:_status(r,key,now) for h,key in [('1h','price_1h'),('1d','price_24h'),('5d','price_5d')]},
                    **{'favorable_'+h:_favorable(r,key) if _status(r,key,now)=='recorded' else None for h,key in [('1h','price_1h'),('1d','price_24h'),('5d','price_5d')]},
-                   move_1h=move(r, 'price_1h') if open_for_1h(r['alerted_at']) else None, move_1d=move(r, 'price_24h'), move_5d=move(r, 'price_5d')) for r in alerts[:rows]]
+                   move_1h=move(r, 'price_1h'), move_1d=move(r, 'price_24h'), move_5d=move(r, 'price_5d')) for r in alerts[:rows]]
     return dict(total=len(alerts), days=span, horizons=horizons, recent=recent)

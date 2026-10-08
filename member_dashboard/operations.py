@@ -369,7 +369,8 @@ async def run_compute(config,worker):
     async def chores():
         # The worker calls this every minute while idle. Quotes are due every minute, levels every 3 minutes.
         for chore in (lambda:market_board.refresh(store,registry.schwab_client,allowed),
-                      lambda:track_record.refresh_spy(store,registry.schwab_client,allowed)):
+                      lambda:track_record.refresh_spy(store,registry.schwab_client,allowed),
+                      lambda:track_record.fill_hours(store,registry.schwab_client,allowed)):
             try: await chore()
             except Exception: pass  # Chores; the next idle minute tries again.
         if time.time()-last_levels[0]>=180:
