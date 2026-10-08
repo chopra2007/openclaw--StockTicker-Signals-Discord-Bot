@@ -1245,6 +1245,13 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 
 **CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline, and the existing lint error remains. Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
 
+**Done 2026-10-07 (owner-approved redesign, LIVE):** dark "Gekko meets iOS" look for sign in (split layout, "By Akash",
+Show password), Overview (index tiles, one list at a time, alert sentiment bars, setup stop-to-target bar, track-record
+gauge + watchlist column), new 404 / couldn't-load / crashed-page / loading screens. Dark only by owner choice. Branch
+`dashboard-dark-redesign` (not merged to master). Deployed web only (Python code untouched); rollback copy
+`/opt/member-dashboard/rollback-redesign-20261007`. Browser suite on this host (ports 3643-3645, synthetic origin patched in
+scratch only): 36 passed, 19 failed = the 17 known failures + 2 tests updated for new wording/tab (both pass after update).
+
 **Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
 Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebuild; 14-day retention; restore
 proven). Certificate auto-renew timer on (dry run passed). Dashboard Schwab share lowered 40 → 15/min (the bot
