@@ -744,3 +744,18 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 .plan-grid .pg-entry{grid-column:span 2}
 .plan-grid .pg-entry dd{white-space:nowrap}
 .plan-grid .pg-first{grid-column-start:1}
+
+/* Fewer grays (owner request 2026-10-07): black page, one card colour, nothing grey nested inside a card. */
+.panel-setups{background:none;border:0;padding:0}
+.panel-setups .card-list{margin-top:14px}
+.panel-setups .item{background:var(--surface)}
+.alert-calls ul{gap:0}
+.alert-calls li{background:none;border-radius:0;padding:12px 0;border-top:1px solid var(--separator)}
+.alert-calls li:first-child{border-top:0}
+.calls-count{background:none;padding:0;color:var(--secondary)}
+.post-link a{background:transparent}
+.confidence{font-size:13px;color:var(--secondary);white-space:nowrap}
+.confidence b{font-family:var(--mono);font-weight:600;margin-left:2px}
+.confidence[data-level="high"] b{color:var(--up)}
+.confidence[data-level="mid"] b{color:#ffd60a}
+.confidence[data-level="low"] b{color:#ff9f0a}
