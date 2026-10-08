@@ -10,6 +10,8 @@ export function AuthForm({mode}:{mode:'login'|'join'|'reset'}){
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[show,setShow]=useState(false);const token=useRef(''),alert=useRef<HTMLParagraphElement>(null);const router=useRouter();
  const hydrated=useSyncExternalStore(subscribe,()=>true,()=>false);
  useEffect(()=>{const w=window as TokenWindow;if(w.__memberLinkToken){token.current=w.__memberLinkToken;delete w.__memberLinkToken;}document.querySelector<HTMLElement>('h1')?.focus();},[]);
+ // Still signed in (tab closed and reopened on /login): go straight to the dashboard.
+ useEffect(()=>{if(mode!=='login')return;const c=new AbortController();fetch('/api/v1/me',{credentials:'same-origin',cache:'no-store',signal:c.signal}).then(r=>{if(r.ok)router.replace('/');}).catch(()=>{});return()=>c.abort();},[mode,router]);
  const title=mode==='login'?'Sign in':mode==='join'?'Create your account':'Reset your password';
  async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(busy)return;setBusy(true);setError('');const form=new FormData(e.currentTarget);const password=String(form.get('password')||'');const username=String(form.get('username')||'');
   try{if(mode!=='login'&&!token.current)throw new Error('missing link');await api('/auth/'+(mode==='join'?'redeem':mode),{method:'POST',body:JSON.stringify(mode==='login'?{username,password}:mode==='join'?{username,password,token:token.current}:{password,token:token.current})});

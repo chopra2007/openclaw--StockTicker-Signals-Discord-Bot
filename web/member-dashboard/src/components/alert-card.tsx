@@ -24,7 +24,7 @@ export function AlertCard({card,now,quote}:{card:LatestCard;now:number;quote?:Ti
   </div>
   <div className="alert-sum"><p className="alert-line"><strong>{g.analysts} analysts</strong> posted within {g.span}{split&&<span className="alert-split"> · {split}</span>}</p>
    {up+down>0&&<span className="sentiment" aria-hidden="true"><span style={{width:Math.round(up/(up+down)*100)+'%'}}/></span>}</div>
-  <details className="alert-calls"><summary>What they said</summary>
+  <details className="alert-calls"><summary><span>What they said</span><span className="calls-count">{g.calls.length}</span><svg className="calls-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
    <ul>{g.calls.map(c=><li key={c.analyst}><SourceCall call={c}/></li>)}</ul>
   </details>
  </article>}

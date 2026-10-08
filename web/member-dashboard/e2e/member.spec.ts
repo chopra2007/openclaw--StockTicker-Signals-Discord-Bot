@@ -146,3 +146,6 @@ test('ticker page: Ask opens a chat in place about that ticker',async({page,requ
  expect((await sent).postDataJSON().ticker_context).toBe(ticker);
  await expect(page.locator('#ask-sheet').getByText(ANSWER)).toBeVisible();expect(page.url()).toContain('/ticker/');
 });
+test('signed-in member reopening /login goes straight to Overview',async({page,request})=>{
+ await join(page,request);await page.goto('/login');await expect(page.getByRole('heading',{name:'Overview',exact:true})).toBeVisible();
+});

@@ -510,9 +510,6 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 .plan-lines dt{font-size:13px;color:var(--secondary)}
 .plan-lines dd{font-size:15px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 .plan-lines small{font-size:13px;color:var(--secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
-.plan-more summary{cursor:pointer;font-size:14px;font-weight:500;color:var(--accent);list-style:none;padding:2px 0}
-.plan-more summary::-webkit-details-marker{display:none}
-.plan-more[open] summary{margin-bottom:2px}
 .watch-list>li{display:flex;align-items:center;gap:10px;padding:12px 0}
 .watch-list>li+li{border-top:.5px solid var(--separator)}
 .watch-price{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums}
@@ -551,7 +548,7 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
  .tab-bar{background:color-mix(in srgb,var(--surface) 95%,transparent)}
 }
 
-.source-chart{margin-top:8px}.source-chart summary{cursor:pointer;min-height:36px}.source-chart img{display:block;width:100%;height:auto;max-height:65vh;object-fit:contain}.candidate-calls li,.alert-calls li{overflow-wrap:anywhere}
+.candidate-calls li,.alert-calls li{overflow-wrap:anywhere}
 
 .record-table-wrap{max-width:100%;overflow:auto}.record-status{display:block;font-size:11px}.record-table td{vertical-align:top}
 
@@ -728,3 +725,22 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
  .auth-side{flex:none;width:100%;padding:16px 16px 40px;align-items:flex-start}
  .auth-split .auth-card{padding:24px 20px;background:var(--surface);box-shadow:none}
 }
+
+/* Alerts: "What they said" pill, charts shown inline, quiet "Original post" button (owner request 2026-10-07). */
+.alert-calls summary{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:999px;background:var(--fill);color:var(--label);font-size:13px;font-weight:600;transition:background .15s}
+.alert-calls summary::after{display:none}
+.alert-calls summary:hover{background:#2c2c2e}
+.calls-count{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--secondary);background:rgba(255,255,255,.08);border-radius:999px;padding:0 7px;line-height:18px}
+.calls-chev{color:var(--secondary);transition:transform .2s}
+.alert-calls[open] .calls-chev{transform:rotate(180deg)}
+.alert-calls[open] summary{margin-bottom:4px}
+.call-charts{grid-column:1/-1;display:grid;gap:8px;margin-top:8px}
+.call-charts a{display:block}
+.call-charts img{display:block;width:100%;height:auto;max-height:440px;object-fit:contain;border-radius:10px;background:#000;border:1px solid var(--separator)}
+.post-link{grid-column:1/-1;margin-top:8px}
+.post-link a{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--separator);color:var(--secondary);font-size:13px;font-weight:500;transition:background .15s,color .15s}
+.post-link a:hover{background:rgba(255,255,255,.1);color:var(--label);text-decoration:none}
+/* Setups: entry + stop on the first row, all targets on the second. */
+.plan-grid .pg-entry{grid-column:span 2}
+.plan-grid .pg-entry dd{white-space:nowrap}
+.plan-grid .pg-first{grid-column-start:1}
