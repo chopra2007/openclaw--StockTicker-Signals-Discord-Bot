@@ -292,3 +292,24 @@ close/day-change coverage, then regression portability/selectors, then reliable
 free broader-universe feasibility. No paid service/dependency/model call added.
 All work is committed; session-close gate/publish uses the authoritative VPS
 master checkout, which already contains this session's implementation commits.
+
+### Follow-up - 2026-10-07 Pacific (owner-reported defects)
+
+Account dismissal, original analyst timestamps/media, combined screening,
+inspection charts, recovered source directions and direction-aware outcomes are
+live. Navigation was unchanged after the owner withdrew that complaint.
+Commits: 7e80fa3 and fe03a1f. The final small-move rounding repair was finished
+and live-verified after usage resumed. Source reads restored 34 stored view
+timestamps, media for 16 views, and 12 group snapshots / 44 source calls.
+The MU chart loads and a subsequent real Discord MU alert contains its URL.
+
+Focused checks pass. The broad run has 4,483 passed, 130 skipped and 12 known
+research-baseline failures; full lint retains its existing chat.tsx error.
+Claude plugin collaboration was unavailable; independent Codex reviews were used.
+No paid service, dependency or model call was introduced.
+
+See [repair report](member-dashboard-oct7-fixes.md) for scope, files, QA and limits.
+Next: follow a new chart through bot/dashboard, verify next-day outcomes, improve
+generic source context where evidence exists, then address the existing test/lint
+backlog and reliable free broader-market coverage. Missing historical prices and
+ambiguous directions remain explicit; neither is fabricated.

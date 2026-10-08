@@ -1230,21 +1230,20 @@ Make research evidence checks reproducible without private ignored files or serv
 alerts/setups with explained matches, inspection, watchlists and locally saved workflows.
 This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
 
-**Next session — highest-value screener improvements (in order):**
-1. Verify accurate daily price changes across market sessions, refreshes and missing data. The latest
-   check found previous close in all 56 fresh stock quotes; recheck before choosing a fix.
-2. Repair the existing test/lint backlog: 17 browser failures, 8 Python failures and one lint error.
-   Update stale UI expectations and Windows/Linux portability without weakening access/data checks.
-3. Assess a reliable, genuinely free broader-universe snapshot before adding volume, liquidity,
-   market-cap or relative-volume filters. Verify coverage, freshness, licensing and quotas first;
-   retain the bounded signal screener if reliable free coverage is unavailable.
-Acceptance checks and starting points: [next-session checklist](todo/member-dashboard-screener.md#next-session-checklist--highest-value-work).
+**Next session — highest-value improvements (in order):**
+1. Follow a new chart post through bot/dashboard, verify next-day outcomes, and
+   improve generic source explanations where actual evidence exists.
+2. Check consistent outcome periods, market holidays and missing-price handling,
+   then repair the existing test/lint backlog without weakening access/data checks.
+3. Assess reliable, genuinely free broader-market data before adding volume,
+   liquidity or market-cap filters. Keep the bounded screener if coverage is inadequate.
+[Latest repairs and next-session evidence](todo/member-dashboard-oct7-fixes.md).
 
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-07 Pacific):** Dashboard and approved cached-data screener are live. Screening, match explanations, inspection, watchlists and local saved workflows are verified; all 20 new tests pass. Existing browser/Python/lint failures remain documented. Next: verify missing previous-close/day-change coverage, repair regression checks, then assess reliable free broader-universe data. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline, and the existing lint error remains. Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
 
 **Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
 Nightly accounts-only encrypted backup 02:30 PDT (feed cards excluded, they rebuild; 14-day retention; restore
