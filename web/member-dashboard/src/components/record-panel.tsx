@@ -7,6 +7,7 @@ import {formatShort} from '@/lib/time';
 import {money} from '@/lib/format';
 import {pctText,tone} from '@/lib/market-format';
 const MIN=20;  // No rate on fewer alerts than this.
+const moveText=(move:number|null|undefined)=>pctText(move,move!=null&&Math.abs(move)>0&&Math.abs(move)<0.05?2:1);
 const rate=(up:number,count:number)=>count>=MIN?Math.round(up/count*100)+'% ('+up.toLocaleString('en-US')+' of '+count.toLocaleString('en-US')+')':count.toLocaleString('en-US')+' alerts, too few for a rate';
 export function RecordPanel(){const {data,failed}=usePoll<RecordPage>('/record',300000);
  return <AppShell><main id="main" className="workspace"><div className="page-head"><h1 tabIndex={-1}>Track record</h1><p>How the bot’s own alerts did after they were posted. Alerts that never reached Discord are not counted.</p></div>
@@ -21,6 +22,6 @@ export function RecordPanel(){const {data,failed}=usePoll<RecordPage>('/record',
   </div>)}</div></section>
   <section className="panel record-recent"><header className="panel-head"><div><h2>Latest alerts</h2><p>The last {data.recent.length} alerts with actual price changes. Green follows the alert’s direction; red goes against it.</p></div></header>
    {data.recent.length===0?<p className="panel-empty">No alerts yet.</p>:<div className="record-table-wrap" role="region" aria-label="Alert outcomes, scroll for more columns" tabIndex={0}><table className="table record-table"><thead><tr><th>Alert</th><th>1 hour</th><th>1 day</th><th>5 days</th></tr></thead><tbody>{data.recent.map((r,i)=><tr key={i}><td><TickerLink ticker={r.ticker} className="ticker"/><span className="small record-when" title={formatShort(r.alerted_at)}>{r.direction} · {money(r.price)} · {formatShort(r.alerted_at)}</span></td>
-    {[r.move_1h,r.move_1d,r.move_5d].map((m,j)=>{const status=[r.status_1h,r.status_1d,r.status_5d][j];return <td key={j} className={r.direction==='unclear'?'':tone(m==null?null:m*(r.direction==='bearish'?-1:1),1)}>{status==='recorded'?<>{pctText(m,1)}<small className="record-status">{r.direction==='unclear'?'Direction not recorded':[r.favorable_1h,r.favorable_1d,r.favorable_5d][j]===true?'Favorable':[r.favorable_1h,r.favorable_1d,r.favorable_5d][j]===false?'Adverse':'Unchanged'}</small></>:status==='closed'?'Market closed':status==='pending'?'Pending':'Unavailable'}</td>})}</tr>)}</tbody></table></div>}
+    {[r.move_1h,r.move_1d,r.move_5d].map((m,j)=>{const status=[r.status_1h,r.status_1d,r.status_5d][j];return <td key={j} className={r.direction==='unclear'?'':tone(m==null?null:m*(r.direction==='bearish'?-1:1),2)}>{status==='recorded'?<>{moveText(m)}<small className="record-status">{r.direction==='unclear'?'Direction not recorded':[r.favorable_1h,r.favorable_1d,r.favorable_5d][j]===true?'Favorable':[r.favorable_1h,r.favorable_1d,r.favorable_5d][j]===false?'Adverse':'Unchanged'}</small></>:status==='closed'?'Market closed':status==='pending'?'Pending':'Unavailable'}</td>})}</tr>)}</tbody></table></div>}
   </section></>}
  </main></AppShell>}

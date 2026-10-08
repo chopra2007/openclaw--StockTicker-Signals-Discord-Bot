@@ -10,3 +10,10 @@ test('bearish rise is adverse and missing horizons explain their state on mobile
  await expect(page.getByRole('row').filter({hasText:'MU'})).toContainText('Pending');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
+
+test('small nonzero moves keep their sign instead of rounding to zero',async({page,request})=>{
+ await join(page,request);
+ await page.route('**/api/v1/record',route=>route.fulfill({json:{total:1,days:90,horizons:[],recent:[{ticker:'MU',alerted_at:Date.now()/1000-7200,price:100,closed_1h:false,direction:'bearish',move_1h:0.03,move_1d:null,move_5d:null,status_1h:'recorded',status_1d:'pending',status_5d:'pending',favorable_1h:false,favorable_1d:null,favorable_5d:null}]}}));
+ await page.goto('/record');await expect(page.getByRole('row').filter({hasText:'MU'})).toContainText('+0.03%');
+ await expect(page.getByRole('row').filter({hasText:'MU'})).toContainText('Adverse');
+});
