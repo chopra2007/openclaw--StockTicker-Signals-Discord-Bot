@@ -22,7 +22,8 @@ export function AlertCard({card,now,quote}:{card:LatestCard;now:number;quote?:Ti
    <WatchButton ticker={card.ticker}/>
    <time className="alert-time" dateTime={new Date(card.observed_at*1000).toISOString()} title={formatShort(card.observed_at)}>{fresh&&<span className="new-dot" aria-label="New"/>}{timeAgo(card.observed_at,now)}</time>
   </div>
-  <p className="alert-line"><strong>{g.analysts} analysts</strong> posted within {g.span}{split&&<span className="alert-split"> · {split}</span>}</p>
+  <div className="alert-sum"><p className="alert-line"><strong>{g.analysts} analysts</strong> posted within {g.span}{split&&<span className="alert-split"> · {split}</span>}</p>
+   {up+down>0&&<span className="sentiment" aria-hidden="true"><span style={{width:Math.round(up/(up+down)*100)+'%'}}/></span>}</div>
   <details className="alert-calls"><summary>What they said</summary>
    <ul>{g.calls.map(c=><li key={c.analyst}><SourceCall call={c}/></li>)}</ul>
   </details>

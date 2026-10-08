@@ -19,7 +19,7 @@ test('review: abandoned delayed refresh cannot navigate back and retains server 
 });
 test('review: session transport failure offers retry and recovers',async({page,request})=>{
  await join(page,request);let fail=true;await page.route('**/api/v1/me',async route=>{if(fail)await route.abort('connectionfailed');else await route.continue();});
- await page.goto('/');await expect(page.locator('p[role=alert]')).toContainText('Unable to check your session');
+ await page.goto('/');await expect(page.locator('p[role=alert]')).toContainText('Your connection dropped');
  await expect(page.getByRole('button',{name:'Try again'})).toBeVisible();await expect(page.getByText('Checking your session…')).toHaveCount(0);
  fail=false;await page.getByRole('button',{name:'Try again'}).click();await expect(page.getByRole('heading',{name:'Overview',exact:true})).toBeVisible();
 });
@@ -73,7 +73,7 @@ test('cached POST result appears immediately while access GET is in flight',asyn
  try{await research(page);await expect(page.getByTestId('analysis-status')).toHaveText('Completed',{timeout:1000});}finally{release();}
 });
 test('feed shows newest cards and keeps them when a refresh fails',async({page,request})=>{
- await control(request,{action:'freshness',fresh:true});await join(page,request);await expect(page.locator('#feed article').first()).toBeVisible();
+ await control(request,{action:'freshness',fresh:true});await join(page,request);await page.getByRole('button',{name:'Analyst calls'}).click();await expect(page.locator('#feed article').first()).toBeVisible();
  const shown=await page.locator('#feed article').count();
  await page.route('**/api/v1/feed/latest',route=>route.fulfill({status:503,body:'{}'}));
  await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
