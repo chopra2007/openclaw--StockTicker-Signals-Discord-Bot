@@ -22,7 +22,7 @@ export function AlertCard({card,now,quote}:{card:LatestCard;now:number;quote?:Ti
  const split=[up&&`${up} bullish`,down&&`${down} bearish`].filter(Boolean).join(', ');
  return <article className="alert" data-fresh={fresh||undefined} data-open={open||undefined} onClick={toggle}>
   <div className="alert-head">
-   <TickerLink ticker={card.ticker} className="alert-ticker"/>
+   <TickerLink ticker={card.ticker} className="alert-ticker" tip={'Research '+card.ticker}/>
    <PriceTag price={card.price} quote={quote} className="alert-price"/>
    <WatchButton ticker={card.ticker}/>
    <time className="alert-time" dateTime={new Date(card.observed_at*1000).toISOString()} title={formatShort(card.observed_at)}>{fresh&&<span className="new-dot" aria-label="New"/>}{timeAgo(card.observed_at,now)}</time>

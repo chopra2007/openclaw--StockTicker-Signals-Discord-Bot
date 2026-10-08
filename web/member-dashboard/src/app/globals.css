@@ -768,3 +768,7 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 .alert-toggle{width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--secondary);display:inline-grid;place-items:center;cursor:pointer;flex:none;margin-left:2px}
 .alert-toggle:hover{background:rgba(255,255,255,.08)}
 @media(min-width:901px){.alert-toggle{grid-area:chev}}
+
+/* Alert ticker: only as wide as its text, with an instant "Research NVDA" label on hover or keyboard focus. */
+.alert-ticker{justify-self:start;align-self:center;position:relative}
+.alert-ticker[data-tip]:hover::after,.alert-ticker[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;padding:5px 10px;border-radius:8px;background:#2c2c2e;border:1px solid var(--separator);color:var(--label);font:600 12px/1.2 var(--font);letter-spacing:0;pointer-events:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5)}
