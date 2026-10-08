@@ -759,3 +759,15 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 .confidence[data-level="high"] b{color:var(--up)}
 .confidence[data-level="mid"] b{color:#ffd60a}
 .confidence[data-level="low"] b{color:#ff9f0a}
+
+/* Alerts (owner pick 2026-10-08): each alert its own card; each analyst post a numbered chat bubble. */
+.panel-alerts{background:none;border:0;padding:0}
+.panel-alerts .alert-list{gap:12px;margin-top:14px}
+.alert,.alert-list>li:first-child .alert{background:var(--surface);border:1px solid var(--separator);border-radius:var(--r-lg);padding:16px 18px}
+.alert-calls ul{gap:10px;margin-top:10px}
+.alert-calls li.call{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;padding:0;border-top:0;background:none}
+.call-num{width:30px;height:30px;margin-top:6px;border-radius:50%;display:grid;place-items:center;font:600 13px/1 var(--mono);color:var(--secondary);background:var(--flat-tint)}
+.call-num[data-view="bullish"]{color:var(--up);background:var(--up-tint)}
+.call-num[data-view="bearish"]{color:var(--down);background:var(--down-tint)}
+.call-bubble{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 8px;align-items:center;background:#26262a;border-radius:16px 16px 16px 6px;padding:10px 14px;min-width:0}
+@media(max-width:640px){.alert,.alert-list>li:first-child .alert{padding:14px}}
