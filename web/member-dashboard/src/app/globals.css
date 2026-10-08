@@ -693,7 +693,7 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 @media(max-width:640px){.sk-nav,.sk-search,.sk-rail{display:none}.loading-main{padding:20px 16px}.status-bar{padding:0 16px}.status-plain h1{font-size:30px}}
 
 /* Sign in: pitch on the left over a faint candle chart, frosted card on the right. */
-.auth-split{min-height:100dvh;display:flex;justify-content:center;align-items:stretch;gap:56px;padding:0 48px;background:#000;position:relative;overflow:hidden}
+.auth-split{min-height:100dvh;display:flex;justify-content:center;align-items:stretch;gap:128px;padding:0 48px;background:#000;position:relative;overflow:hidden}
 .auth-hero{position:static;flex:0 1 540px;padding:72px 0;display:flex;flex-direction:column;gap:48px;min-width:0}
 .auth-hero>.brand{position:relative;font-size:19px}
 .auth-pitch{position:relative;margin:auto 0;max-width:560px;display:grid;gap:20px;padding-bottom:12vh}
