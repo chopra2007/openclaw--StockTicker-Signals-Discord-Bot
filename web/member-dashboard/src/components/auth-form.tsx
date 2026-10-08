@@ -31,5 +31,5 @@ export function AuthForm({mode}:{mode:'login'|'join'|'reset'}){
 }
 /** Decorative candlestick backdrop for the sign-in page (fixed shape, not market data). */
 const CLOSES=[42,44,43,47,49,48,52,51,55,54,50,46,47,45,41,43,46,50,53,52,56,59,58,62,60,57,61,65,64,68,71,69,73,72,76,79,77,81,84,86];
-function Candles(){return <svg className="auth-candles" viewBox="0 0 800 460" preserveAspectRatio="xMidYMax slice" aria-hidden="true">{CLOSES.map((c,i)=>{const o=i?CLOSES[i-1]:c-2,up=c>=o,y=(v:number)=>460-v*5,x=i*20+10;
+function Candles(){return <svg className="auth-candles" viewBox="0 0 800 270" preserveAspectRatio="none" aria-hidden="true">{CLOSES.map((c,i)=>{const o=i?CLOSES[i-1]:c-2,up=c>=o,y=(v:number)=>270-(v-36)*5,x=i*20+10;
  return <g key={i} fill={up?'#30d158':'#ff453a'} stroke={up?'#30d158':'#ff453a'}><line x1={x} x2={x} y1={y(Math.max(o,c)+2.5)} y2={y(Math.min(o,c)-2)} strokeWidth="2"/><rect x={x-6} width="12" y={y(Math.max(o,c))} height={Math.max(Math.abs(c-o)*5,3)} rx="2" stroke="none"/></g>;})}</svg>}
