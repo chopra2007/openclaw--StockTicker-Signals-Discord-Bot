@@ -47,7 +47,7 @@ test('cached setup chart and dated original source image need no research reques
  await page.route('https://pbs.twimg.com/media/chart.png',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>'}));
  await page.getByRole('button',{name:'Refresh data',exact:true}).click();await expect(page.getByText('1 of 1 symbols matched',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Inspect ALPHA',exact:true}).click();const panel=page.getByRole('dialog');
- await expect(panel).toContainText('Cached setup daily closes');await expect(panel).toContainText('Posted');
+ await expect(panel).toContainText('Cached setup daily closes');await expect(panel).toContainText(/ ago|Just now/);
  await expect(panel.getByRole('img',{name:'Original chart attached by @chart_author'})).toBeVisible();
  await expect(panel.getByRole('link',{name:'Original post'})).toHaveAttribute('href','https://x.com/chart_author/status/123');
  expect(writes).toEqual([]);
