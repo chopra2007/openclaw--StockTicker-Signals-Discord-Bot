@@ -1332,6 +1332,9 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    and Agents and Infra / Devices and Consumer. Cache up to 128 successful event summaries;
    unreadable documents are omitted with incomplete-coverage warning. No additional AI call.
    SEC outcome checks: 72 passed; event-reader checks: 5 passed; bot SEC checks: 11 passed.
+   FOLLOW-UP 2026-10-09 Pacific: shorten company-event descriptions to the key announcement;
+   reporting-segment changes show the start year and both segment names in bold. Remove website
+   and exhibit boilerplate. Five event-reader and five focused browser checks, lint and build pass.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other

@@ -6,12 +6,13 @@ def test_segment_change_reports_actual_event_not_form_definition():
     <p>Item 7.01. Regulation FD Disclosure</p>
     <p>On September 2, 2026, Microsoft Corporation (the “Company”) posted presentation materials titled
     “FY27 Segments and Investor Metrics” announcing a change in reportable segments and investor metrics.
-    Beginning in fiscal year 2027, the Company will report two segments: Agents and Infra and Devices and Consumer.</p>
+    Beginning in fiscal year 2027, the Company will report two segments: (1) Agents and Infra and (2) Devices and Consumer.</p>
     <p>A copy is furnished as Exhibit 99.1.</p><p>Item 9.01. Financial Statements and Exhibits</p></html>'''
     title,summary=event_summary(html)
     assert title=='Reporting segment changes'
     assert 'Agents and Infra' in summary and 'Devices and Consumer' in summary
-    assert 'fiscal year 2027' in summary and 'hidden taxonomy' not in summary
+    assert '**FY2027**' in summary and 'hidden taxonomy' not in summary
+    assert len(summary)<180 and 'Exhibit' not in summary
     assert 'Filed for news such as' not in summary
 
 

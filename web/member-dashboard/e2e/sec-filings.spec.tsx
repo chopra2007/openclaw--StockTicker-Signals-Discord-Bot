@@ -4,6 +4,12 @@ import {readFileSync} from 'node:fs';
 import type {SectionResult} from '../src/lib/contracts';
 
 type SecPayload=Extract<NonNullable<SectionResult['payload']>,{kind:'sec'}>;
+test('company event highlights the short factual takeaway',async({page})=>{
+ const p:SecPayload={kind:'sec',coverage:'complete',insiders:[],warning:null,filings:[{accession:'event',form:'8-K',filed_at:1700000000,title:'Reporting segment changes',summary:'From **FY2027**, financial results will be reported in two segments: **Agents and Infra** and **Devices and Consumer**.',url:'https://www.sec.gov/Archives/event',detail_status:'ok'}]};
+ await page.setContent(execFileSync(process.execPath,['e2e/render-sec.cjs'],{input:JSON.stringify(p),encoding:'utf8'}));
+ await expect(page.locator('.filings strong')).toHaveText(['FY2027','Agents and Infra','Devices and Consumer']);
+ await expect(page.locator('.filings p')).not.toContainText('**');
+});
 test('routine filings are hidden and distinct buyer/seller totals and trade numbers are clear',async({page})=>{
  const filings=Array.from({length:10},(_,i)=>({accession:`filing-${i}`,form:'4',filed_at:1700000000+i*86400,title:'Insider trade',
   summary:i===8?'Buyer (Director) bought 100 shares for $2M on the open market.':i===7?'Seller (Director) sold 41,674 shares for $20.8M on the open market.':i===9?'Example (Director): routine gift, not an open-market trade.':'Example (Director): routine award/grant, not an open-market trade.',

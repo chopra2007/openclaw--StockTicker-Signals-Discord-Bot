@@ -34,6 +34,18 @@ _TITLES={'1.01':'Material agreement','1.02':'Agreement terminated','1.03':'Bankr
          '7.01':'Company disclosure','8.01':'Company update'}
 
 
+def _brief(paragraph):
+    segments=re.search(r'(?:Beginning in|Starting in) fiscal year (\d{4}).*?(?:reportable )?segments:\s*\(1\)\s*(.+?)\s+and\s*\(2\)\s*(.+?)(?:\.(?:\s|$)|$)',paragraph,re.I)
+    if segments:
+        year,first,second=segments.groups()
+        return f'From **FY{year}**, financial results will be reported in two segments: **{first}** and **{second}**.'
+    # Keep the announcement sentence; omit exhibit and website boilerplate.
+    sentences=re.split(r'(?<=[.!?])\s+(?=[A-Z])',paragraph)
+    useful=[s for s in sentences if not re.search(r'^(?:A copy|The foregoing|This information|Pursuant to)',s,re.I)]
+    brief=useful[0] if useful else paragraph
+    return brief if len(brief)<=360 else brief[:357].rsplit(' ',1)[0]+'…'
+
+
 def event_summary(document):
     parser=_Text();parser.feed(document)
     text='\n'.join(' '.join(line.split()) for line in ''.join(parser.parts).split('\x00') if line.strip())
@@ -59,7 +71,7 @@ def event_summary(document):
         # The first substantive paragraph, not the cover page or exhibit boilerplate.
         paragraph=lines[0].strip()
         if len(paragraph)<25: continue
-        excerpts.append(paragraph[:1100]+('…' if len(paragraph)>1100 else ''))
+        excerpts.append(_brief(paragraph))
         titles.append('Reporting segment changes' if re.search(r'reportable segments|reporting structure',paragraph,re.I) else _TITLES.get(code,'Company disclosure'))
         if len(excerpts)==3: break
     return (' / '.join(dict.fromkeys(titles))[:256], ' '.join(excerpts)) if excerpts else None

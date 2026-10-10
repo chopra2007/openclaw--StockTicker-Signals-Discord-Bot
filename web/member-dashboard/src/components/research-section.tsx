@@ -106,6 +106,7 @@ function insiderLine(p:SecPayload){const by=new Map(p.insiders.map(i=>[i.accessi
  const line=parts.length?parts.join('; ')+' in the last 90 days.':'No open-market insider trades in the last 90 days.';
  return p.coverage==='partial'?'Available filings: '+line+' Some filings could not be checked.':line;}
 function tradeSummary(text:string){return text.split(/(\$[\d,.]+[KMBT]?|[\d,]+(?:\.\d+)?(?= shares\b))/g).map((part,i)=>/^(?:\$[\d,.]+[KMBT]?|[\d,]+(?:\.\d+)?)$/.test(part)?<strong key={i}>{part}</strong>:part);}
+function eventSummary(text:string){return text.split(/(\*\*[^*]+\*\*)/g).map((part,i)=>part.startsWith('**')&&part.endsWith('**')?<strong key={i}>{part.slice(2,-2)}</strong>:tradeSummary(part));}
 const formNames:Record<string,string>={'144':'Planned sale'};
 export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,setAll]=useState(false);
  if(p.filings.length===0)return <p className="quiet">{message||'No filings in the last 90 days.'}</p>;
@@ -114,7 +115,7 @@ export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,s
  const side=(f:SecPayload['filings'][number])=>f.form==='4'&&f.detail_status==='ok'?
   /\) bought\b/.test(f.summary)?'buy':/\) sold\b/.test(f.summary)?'sell':null:null;
  return <><p className="rp-insider-line">{insiderLine(p)}</p>
- <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{tradeSummary(f.summary)}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
+ <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{f.form==='8-K'?eventSummary(f.summary):tradeSummary(f.summary)}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
  {hidden>0&&<button type="button" className="show-more" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Show fewer':`Show all ${sorted.length}`}</button>}</>}
 
 /** History's saved reports: the sections still show as panels, with the analysis split into the same groups. */
