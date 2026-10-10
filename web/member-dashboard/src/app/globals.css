@@ -194,6 +194,9 @@ a.ticker:hover{color:var(--accent);text-decoration:none}
 .filings a:hover{color:var(--accent);text-decoration:none}
 .filings p{grid-column:1;color:var(--secondary);font-size:15px}
 .filings small{grid-column:2;grid-row:1;color:var(--secondary);font-size:13px;white-space:nowrap}
+.filing-side{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:6px;font-size:12px;font-weight:600;vertical-align:middle}
+.filing-side.buy{color:var(--up);background:var(--up-tint)}
+.filing-side.sell{color:var(--down);background:var(--down-tint)}
 .form-code{color:var(--tertiary);font-weight:500;font-size:13px;margin-left:6px}
 
 /* Chat: iMessage-style bubbles, pill composer. Used on the Assistant page and under "Ask". */

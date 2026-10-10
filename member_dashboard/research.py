@@ -101,7 +101,7 @@ class MemberResearchProvider:
             # Owner report 2026-10-06: 72 hours left NVDA/MU empty. Show the newest filings of the last 90 days.
             self._authorize('sec','retain')
             outcome=await fetch_filings_outcome(ticker,SEC_LOOKBACK_HOURS,context)
-            return replace(outcome,data=outcome.data[:SEC_MAX_FILINGS]) if outcome.data else outcome
+            return replace(outcome,data=tuple(sorted(outcome.data,key=lambda row:row.filed_at,reverse=True)[:SEC_MAX_FILINGS])) if outcome.data else outcome
         async def detail(cik,accession,document):
             self._authorize('sec','retain')
             return await fetch_form4_outcome(cik,accession,document,context)

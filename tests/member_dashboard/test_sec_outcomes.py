@@ -380,12 +380,12 @@ async def test_real_form4_parse(sec_wire, body, status):
 
 
 @pytest.mark.asyncio
-async def test_mixed_details_and_eight_cap_keep_filings(sec_wire):
+async def test_mixed_details_fetch_every_displayed_form4(sec_wire):
     from consensus_engine.scanners.sec_edgar import fetch_filings_outcome, fetch_form4_outcome
     from consensus_engine.analysis.sec_research import collect_sec
     sec_wire.replies['/map'] = (200, {'0': {'ticker': 'SPY', 'cik_str': 1}}, {})
     sec_wire.replies['/CIK0000000001.json'] = (200, recent(*(['4'] * 10)), {})
-    for i in range(8):
+    for i in range(10):
         sec_wire.replies[f'/1/000000000126{i:06}/form4.xml'] = (200, form4('A') if i != 2 else b'<bad>', {})
     ctx, session, _, _ = await context(sec_wire)
     try:
@@ -394,8 +394,8 @@ async def test_mixed_details_and_eight_cap_keep_filings(sec_wire):
         assert result.coverage == 'partial'
         assert len(result.filings.data) == 10
         assert len(result.details) == 10
-        assert sum(d.outcome is None for d in result.details) == 2
-        assert sum(d.outcome is not None and d.outcome.status == 'ok' for d in result.details) == 7
+        assert sum(d.outcome is None for d in result.details) == 0
+        assert sum(d.outcome is not None and d.outcome.status == 'ok' for d in result.details) == 9
         assert result.filings.data[0].url == 'https://www.sec.gov/Archives/edgar/data/1/000000000126000000/form4.xml'
     finally: await session.close()
 

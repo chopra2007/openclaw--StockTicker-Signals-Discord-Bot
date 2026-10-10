@@ -1305,7 +1305,17 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    e2e (Playwright) suite not re-run, wording in e2e/history.spec.ts + member.spec.ts updated by hand;
    pre-existing lint error in chat.tsx (setState inside an effect) — FIXED 2026-10-08.
 6. Insider selling (90-day Form 4 totals) is not in the analysis write-up yet; Gemini's note had it.
+   DONE 2026-10-09 Pacific (filing display only): fetch details for every displayed Form 4,
+   show the newest eight filings including routine transactions, keep expanded filings newest first,
+   and add green Buy / red Sell labels for verified open-market trades. Live MSFT refresh:
+   all 14 Form 4 details available, including six September 11 filings previously skipped.
+   SEC tests: 64 passed; bot SEC checks: 11 passed. Focused browser display/color check and private-route check passed;
+   frontend types, focused lint and production build passed. This does not add insider totals to the analysis write-up.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other
-   test_operations tests run).
+   test_operations tests run). Also reproduced on unchanged live code 2026-10-09:
+   `tests/member_dashboard/test_analysis_collector.py::test_report_header_gets_quote_stats_and_chart_from_one_richer_quote_and_one_extra_history_call`
+   expects no display without a chart request, but the collector returns quote/daily-chart display.
+   The broader dashboard run was stopped after 140 passes and this existing failure;
+   no full-suite pass is claimed for the insider-display repair.

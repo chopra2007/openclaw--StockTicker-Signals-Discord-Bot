@@ -97,12 +97,12 @@ function insiderLine(p:SecPayload){const by=new Map(p.insiders.map(i=>[i.accessi
 const formNames:Record<string,string>={'144':'Planned sale'};
 export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,setAll]=useState(false);
  if(p.filings.length===0)return <p className="quiet">{message||'No filings in the last 90 days.'}</p>;
- const by=new Map(p.insiders.map(i=>[i.accession,i]));
- const routine=(f:SecPayload['filings'][number])=>f.form==='4'&&by.get(f.accession)?.conviction==='routine';
- const main=p.filings.filter(f=>!routine(f)),hidden=p.filings.length-Math.min(main.length,8);
- const rows=all?p.filings:main.slice(0,8);
+ const sorted=[...p.filings].sort((a,b)=>(b.filed_at??0)-(a.filed_at??0)),hidden=Math.max(0,sorted.length-8);
+ const rows=all?sorted:sorted.slice(0,8);
+ const side=(f:SecPayload['filings'][number])=>f.form==='4'&&f.detail_status==='ok'?
+  /\) bought\b/.test(f.summary)?'buy':/\) sold\b/.test(f.summary)?'sell':null:null;
  return <><p className="rp-insider-line">{insiderLine(p)}</p>
- <ul className="filings">{rows.map(f=><li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink></span>{f.summary&&<p>{f.summary}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>)}</ul>
+ <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{f.summary}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
  {hidden>0&&<button type="button" className="show-more" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Show fewer':`Show all ${p.filings.length}`}</button>}</>}
 
 /** History's saved reports: the sections still show as panels, with the analysis split into the same groups. */
