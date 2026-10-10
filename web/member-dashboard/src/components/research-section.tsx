@@ -6,7 +6,7 @@ import {compact,money,parseNote,signedPct,sourceLabel,timeAgo,type NotePoint} fr
 import {SafeLink} from './research-details';
 import {ExpectedMove} from './expected-move';
 type Payload=NonNullable<SectionResult['payload']>;
-const titles:Record<SectionResult['section'],string>={analysis:'Analysis',em_daily:'Expected move',em_weekly:'Expected move',options:'Options activity',sec:'Insider and SEC filings'};
+const titles:Record<SectionResult['section'],string>={analysis:'Analysis',em_daily:'Expected move',em_weekly:'Expected move',options:'Options activity',sec:'SEC filings'};
 export type AnalysisPayload=Extract<Payload,{kind:'analysis'}>;
 type OptionsPayload=Extract<Payload,{kind:'options'}>;
 type SecPayload=Extract<Payload,{kind:'sec'}>;
@@ -54,7 +54,8 @@ function TradePlan({p,price}:{p:AnalysisPayload;price:number|null}){
   {price&&r.ref!=null&&<span className="rp-dist">{signedPct((r.ref/price-1)*100,1)}</span>}</div>{r.why&&<p className="rp-why">{r.why}</p>}</li>)}</ul>
  {ratio!=null&&<p className="rp-read">If it works, target 1 gains about ${ratio.toFixed(2)} for every $1 risked at the stop.</p>}</>}
 
-const feedRows=(evidence:Evidence[])=>{const news=evidence.filter(e=>e.id.startsWith('news-')).sort((a,b)=>(b.observed_at??0)-(a.observed_at??0)).slice(0,6);return news};
+const optionsHeadline=/\b\d+(?:\.\d+)?\s+(?:call|put)\b|\b[A-Z]{1,6}\d{6}[CP]\d{8}\b|\b(?:call|put)s?\s+options?\b|\boptions?\s+(?:activity|trading|trades?|volume|flow|chain|contracts?|expiration|expiry|strategy|strategies|market|prices?|moves?)\b|\bunusual\s+options?\b|\b(?:calls?|puts?)\s+(?:trading|trades?|volume|contracts?|expiration|expiry)\b/i;
+const feedRows=(evidence:Evidence[])=>evidence.filter(e=>e.id.startsWith('news-')&&e.observed_at!=null&&e.observed_at>=Date.now()/1000-30*86400&&e.observed_at<=Date.now()/1000+3600&&!optionsHeadline.test(e.excerpt.split('\n')[0])).sort((a,b)=>(b.observed_at??0)-(a.observed_at??0)).slice(0,6);
 function News({evidence}:{evidence:Evidence[]}){return <ul className="links">{feedRows(evidence).map(n=>{const [first,summary]=n.excerpt.split('\n');const m=/^(.*) \(([^()]+)\)$/.exec(first);
   const body=<><span>{m?m[1]:first}</span>{summary&&<span className="news-summary">{summary}</span>}<small>{m?m[2]+', ':''}{timeAgo(n.observed_at)}</small></>;
   return <li key={n.id}>{n.url?.startsWith('https://')?<a className="row-link" href={n.url} target="_blank" rel="noreferrer noopener" aria-label={(m?m[1]:first)+' (opens the article)'}>{body}<span className="chevron" aria-hidden="true">↗</span></a>:<div>{body}</div>}</li>;})}</ul>}
@@ -90,20 +91,30 @@ export function Options({p}:{p:OptionsPayload}){const top=[...p.contracts].sort(
   <p className="rp-why">Volume {compact(c.volume?.value)} · Open interest {compact(c.open_interest?.value)}</p></li>)}</ul></>}</>}
 
 /** "Insiders sold $314.5M on the open market in 90 days", worked out from the Form 4 rows. */
-function insiderLine(p:SecPayload){const by=new Map(p.insiders.map(i=>[i.accession,i]));let sold=0,bought=0;
- for(const f of p.filings){if(f.form!=='4')continue;const v=by.get(f.accession);const amount=v?.conviction==='conviction'?v.transaction_value?.value:null;if(!amount)continue;if(/\bsold\b/.test(f.summary))sold+=amount;else if(/\bbought\b/.test(f.summary))bought+=amount;}
- const parts=[sold>0&&'sold $'+compact(sold),bought>0&&'bought $'+compact(bought)].filter(Boolean);
- return parts.length?'Insiders '+parts.join(' and ')+' on the open market in the last 90 days.':'No open-market insider trades in the last 90 days.'}
+function insiderLine(p:SecPayload){const by=new Map(p.insiders.map(i=>[i.accession,i]));const buyers=new Set<string>(),sellers=new Set<string>();let sold=0,bought=0;
+ const filings=new Map(p.filings.map(f=>[f.accession,f]));
+ for(const v of by.values()){if(v.conviction!=='conviction')continue;const f=filings.get(v.accession);
+  const name=(v.reporter_name||f?.summary.split(' (')[0]||v.accession).trim().toLowerCase();
+  const old=v.transaction_value?.value??0;
+  const summary=f?.summary??'';
+  const buy=v.bought_value?.value??(/\bbought\b/.test(summary)&&!/\bsold\b/.test(summary)?old:0);
+  const sell=v.sold_value?.value??(/\bsold\b/.test(summary)&&!/\bbought\b/.test(summary)?old:0);
+  if(buy>0){buyers.add(name);bought+=buy;}if(sell>0){sellers.add(name);sold+=sell;}}
+ const part=(people:Set<string>,verb:string,amount:number)=>`${people.size} insider${people.size===1?'':'s'} ${verb} $${compact(amount)}`;
+ const parts=[bought>0&&part(buyers,'bought',bought),sold>0&&part(sellers,'sold',sold)].filter(Boolean);
+ const line=parts.length?parts.join('; ')+' in the last 90 days.':'No open-market insider trades in the last 90 days.';
+ return p.coverage==='partial'?'Available filings: '+line+' Some filings could not be checked.':line;}
+function tradeSummary(text:string){return text.split(/(\$[\d,.]+[KMBT]?|[\d,]+(?:\.\d+)?(?= shares\b))/g).map((part,i)=>/^(?:\$[\d,.]+[KMBT]?|[\d,]+(?:\.\d+)?)$/.test(part)?<strong key={i}>{part}</strong>:part);}
 const formNames:Record<string,string>={'144':'Planned sale'};
 export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,setAll]=useState(false);
  if(p.filings.length===0)return <p className="quiet">{message||'No filings in the last 90 days.'}</p>;
- const sorted=[...p.filings].sort((a,b)=>(b.filed_at??0)-(a.filed_at??0)),hidden=Math.max(0,sorted.length-8);
+ const sorted=p.filings.filter(f=>!/: routine (?:award\/grant|tax withholding)(?:, (?:award\/grant|tax withholding))*, not an open-market trade\./i.test(f.summary)).sort((a,b)=>(b.filed_at??0)-(a.filed_at??0)),hidden=Math.max(0,sorted.length-8);
  const rows=all?sorted:sorted.slice(0,8);
  const side=(f:SecPayload['filings'][number])=>f.form==='4'&&f.detail_status==='ok'?
   /\) bought\b/.test(f.summary)?'buy':/\) sold\b/.test(f.summary)?'sell':null:null;
  return <><p className="rp-insider-line">{insiderLine(p)}</p>
- <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{f.summary}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
- {hidden>0&&<button type="button" className="show-more" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Show fewer':`Show all ${p.filings.length}`}</button>}</>}
+ <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{tradeSummary(f.summary)}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
+ {hidden>0&&<button type="button" className="show-more" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Show fewer':`Show all ${sorted.length}`}</button>}</>}
 
 /** History's saved reports: the sections still show as panels, with the analysis split into the same groups. */
 export function ResearchSection({result}:{result:SectionResult}){const p=result.payload;const busy=['queued','running'].includes(result.status);

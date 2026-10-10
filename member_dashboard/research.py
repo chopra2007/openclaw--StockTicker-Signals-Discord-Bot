@@ -14,7 +14,7 @@ def metric(value, unit, method):
 
 
 
-SEC_LOOKBACK_HOURS,SEC_MAX_FILINGS=90*24,15
+SEC_LOOKBACK_HOURS,SEC_MAX_FILINGS,SEC_MAX_CANDIDATES=90*24,15,100
 FORM_TITLES={'8-K':'Major company event','10-K':'Annual report','10-Q':'Quarterly report','4':'Insider trade',
              '144':'Planned insider sale','SC 13D':'Large stake (activist)','SC 13G':'Large stake (passive)'}
 FORM_NOTES={'8-K':'Filed for news such as earnings, deals or leadership changes.','10-K':'Full-year results and risks.',
@@ -30,10 +30,14 @@ def _insider_line(detail):
     name=first.reporter_name.title() if first.reporter_name.isupper() else first.reporter_name
     trades=[r for r in rows if r.transaction_type in ('Open Market Purchase','Open Market Sale')]
     if trades:
-        verb='bought' if trades[0].transaction_type=='Open Market Purchase' else 'sold'
-        shares=sum(r.shares or 0 for r in trades); value=sum((r.shares or 0)*(r.price or 0) for r in trades)
-        amount=f' for ${value/1e6:,.1f}M' if value>=1e6 else f' for ${value:,.0f}' if value else ''
-        return f'{name} ({first.title}) {verb} {shares:,.0f} shares{amount} on the open market.'
+        parts=[]
+        for kind,verb in [('Open Market Purchase','bought'),('Open Market Sale','sold')]:
+            selected=[r for r in trades if r.transaction_type==kind]
+            if not selected: continue
+            shares=sum(r.shares or 0 for r in selected); value=sum((r.shares or 0)*(r.price or 0) for r in selected)
+            amount=f' for ${value/1e6:,.1f}M' if value>=1e6 else f' for ${value:,.0f}' if value else ''
+            parts.append(f'{verb} {shares:,.0f} shares{amount}')
+        return f'{name} ({first.title}) {" and ".join(parts)} on the open market.'
     kinds=sorted({r.transaction_type.lower() for r in rows if r.transaction_type!='Unknown'})
     return f'{name} ({first.title}): routine {", ".join(kinds) or "transaction"}, not an open-market trade.'
 
@@ -41,6 +45,7 @@ class MemberResearchProvider:
     def __init__(self, context):
         if not isinstance(context,ProviderContext): raise ValueError('Explicit provider context required')
         self.context=context
+        self._form4_details={}
 
     def register(self, registry):
         for section,lineage in self.context.lineage.items():
@@ -101,10 +106,20 @@ class MemberResearchProvider:
             # Owner report 2026-10-06: 72 hours left NVDA/MU empty. Show the newest filings of the last 90 days.
             self._authorize('sec','retain')
             outcome=await fetch_filings_outcome(ticker,SEC_LOOKBACK_HOURS,context)
-            return replace(outcome,data=tuple(sorted(outcome.data,key=lambda row:row.filed_at,reverse=True)[:SEC_MAX_FILINGS])) if outcome.data else outcome
+            if not outcome.data: return outcome
+            candidates=tuple(sorted(outcome.data,key=lambda row:row.filed_at,reverse=True))
+            return replace(outcome,data=candidates[:SEC_MAX_CANDIDATES],
+                           status='partial' if len(candidates)>SEC_MAX_CANDIDATES else outcome.status,
+                           reason_code='filing_scan_limit' if len(candidates)>SEC_MAX_CANDIDATES else outcome.reason_code)
         async def detail(cik,accession,document):
             self._authorize('sec','retain')
-            return await fetch_form4_outcome(cik,accession,document,context)
+            key=(cik,accession,document)
+            if key in self._form4_details: return self._form4_details[key]
+            result=await fetch_form4_outcome(cik,accession,document,context)
+            if result.status=='ok':
+                if len(self._form4_details)>=256: self._form4_details.pop(next(iter(self._form4_details)))
+                self._form4_details[key]=result
+            return result
         research=await collect_sec(ticker,filings,detail)
         outcome=research.filings
         if outcome.status not in ('ok','partial'):
@@ -127,10 +142,17 @@ class MemberResearchProvider:
                 label='conviction' if conviction else 'routine' if routine else 'unknown'
                 amount=sum(tx.shares*tx.price for tx in transactions if tx.transaction_type in ('Open Market Purchase','Open Market Sale') and tx.shares is not None and tx.price is not None)
                 value=metric(amount,'USD','verified open-market shares times price') if complete and conviction else None
-                insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value))
+                def side_value(kind):
+                    selected=[tx for tx in transactions if tx.transaction_type==kind]
+                    return metric(sum(tx.shares*tx.price for tx in selected),'USD','verified open-market shares times price') if complete and selected else None
+                insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value,
+                    reporter_name=transactions[0].reporter_name if transactions else None,
+                    bought_value=side_value('Open Market Purchase'),sold_value=side_value('Open Market Sale')))
+                if transactions and not conviction and all(tx.transaction_type in ('Award/Grant','Tax Withholding') for tx in transactions):
+                    filings.pop()
         warning='Filing or insider detail coverage is incomplete.' if research.coverage == 'partial' else None
-        message='No filings in the last 90 days.' if not filings and research.coverage == 'complete' else None
-        return self._result('sec',SecPayload(coverage=research.coverage,filings=filings,insiders=insiders,warning=warning),
+        message='No non-routine filings in the last 90 days.' if not filings and research.coverage == 'complete' else warning if not filings else None
+        return self._result('sec',SecPayload(coverage=research.coverage,filings=filings[:SEC_MAX_FILINGS],insiders=insiders,warning=warning),
                             message,observed_at=outcome.observed_at)
 
     def _chain(self,ticker,section,source,nearest):

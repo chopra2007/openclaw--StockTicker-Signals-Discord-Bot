@@ -50,7 +50,7 @@ SYSTEM = (
     '2. `## Catalysts`: 3-5 bullets `- **Label (Mon D):** what happened, then why it matters for the stock.` '
     'Most important first. Use company-specific news, analyst target changes and the next earnings date; skip '
     'market-wrap stories and opinion pieces with no new fact. If FACTS.news is empty, say no company news in the '
-    'last 7 days in one bullet.\n'
+    'last 30 days in one bullet.\n'
     '3. `## Outlook`: exactly three bullets: `- **Next week:**` (use options.next_week_range, the nearest '
     'key_levels and the largest option positions), `- **Next month:**` (use options.next_month_range, the trend '
     'against the 50-day average, and next_earnings if it falls inside the month), `- **Next year:**` (use '
@@ -189,7 +189,7 @@ class AnalysisCollector:
                                           f'{row.title} ({row.source})' + (f'\n{row.summary}' if row.summary else ''))
                          for index, row in enumerate(rows))
         status = SourceStatus(self.source_id if rows else 'news', 'v1', 'completed' if rows else 'unavailable',
-                              self.clock() if rows else None, None if rows else 'No headlines in the last 7 days.')
+                              self.clock() if rows else None, None if rows else 'No headlines in the last 30 days.')
         return GapFillResult(catalyst_research_snippets=snippets, evidence=evidence, source_statuses=(status,))
 
     async def gap_fill(self, request):
@@ -435,7 +435,7 @@ def plain_note(facts):
     signal = facts['signal']
     lines = [f'**TL;DR:** {facts["ticker"]} has a {signal["direction"]} signal'
              + (f' with {signal["confidence"]} confidence.' if signal.get('confidence') else '.'), '', '## Catalysts']
-    lines += [f'- **{row["date"]}:** {row["title"]} ({row["source"]})' for row in facts['news'][:4]] or ['- No company news in the last 7 days.']
+    lines += [f'- **{row["date"]}:** {row["title"]} ({row["source"]})' for row in facts['news'][:4]] or ['- No company news in the last 30 days.']
     lines += ['', '## Outlook']
     for label, key in (('Next week', 'next_week_range'), ('Next month', 'next_month_range')):
         r = facts['options'].get(key)

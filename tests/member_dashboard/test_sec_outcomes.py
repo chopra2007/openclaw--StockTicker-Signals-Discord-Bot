@@ -534,6 +534,42 @@ async def test_review_unknown_form4_classification_not_routine(dashboard,sec_wir
     finally: await session.close()
 
 
+@pytest.mark.asyncio
+async def test_routine_form4_hidden_and_successful_details_reused(dashboard,sec_wire):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('4','4'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(200,form4('A'),{})
+    sec_wire.replies['/1/000000000126000001/form4.xml']=(200,form4('S'),{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        assert [f.accession for f in result.payload.filings]==['0000000001-26-000001']
+        insider=next(i for i in result.payload.insiders if i.conviction=='conviction')
+        assert insider.reporter_name and insider.sold_value.value>0
+        await provider.compute('SPY','sec',{})
+        assert sum('/form4.xml' in path for path in sec_wire.requests)==2
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+async def test_routine_filings_cannot_hide_older_company_event(dashboard,sec_wire):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['4']*15+['8-K'])),{})
+    for i in range(15):
+        sec_wire.replies[f'/1/000000000126{i:06}/form4.xml']=(200,form4('A'),{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        result=await MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock)).compute('SPY','sec',{})
+        assert [f.form for f in result.payload.filings]==['8-K']
+        assert result.message is None
+    finally: await session.close()
+
+
 @pytest.mark.parametrize('history_time',['fresh','missing','partial','future','permitted'])
 def test_review_history_observations_gate_chart_inputs(dashboard,history_time):
     import pandas as pd

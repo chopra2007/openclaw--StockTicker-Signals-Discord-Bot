@@ -220,6 +220,9 @@ class InsiderSummary(PublicModel):
     summary: Text
     conviction: Literal["routine", "conviction", "unknown"]
     transaction_value: Metric | None
+    reporter_name: ShortText | None = None
+    bought_value: Metric | None = None
+    sold_value: Metric | None = None
 
 
 class SecPayload(PublicModel):
