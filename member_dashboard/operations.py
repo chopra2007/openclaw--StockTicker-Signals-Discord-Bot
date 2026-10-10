@@ -205,7 +205,7 @@ class _NoAnalysisSettings:
     """Exported bot settings missing: analysis completes as 'unavailable'."""
     async def __call__(self,ticker): raise ValueError('analysis_settings_missing')
     def services(self): raise ValueError('analysis_settings_missing')
-    async def study(self,ticker,write=None): raise ValueError('analysis_settings_missing')
+    async def study(self,ticker,write=None,**_): raise ValueError('analysis_settings_missing')
 
 
 def analyst_notes(store,window=7*86400):

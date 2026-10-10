@@ -1,4 +1,5 @@
 """Approved collection and explicit public projections; no bot wrapper calls."""
+import asyncio
 from dataclasses import replace
 import math
 from .contracts import (SectionResult, SecPayload, Filing, InsiderSummary, Metric,
@@ -41,6 +42,29 @@ def _insider_line(detail):
         return f'{name} ({first.title}) {" and ".join(parts)} on the open market.'
     kinds=sorted({r.transaction_type.lower() for r in rows if r.transaction_type!='Unknown'})
     return f'{name} ({first.title}): routine {", ".join(kinds) or "transaction"}, not an open-market trade.'
+
+def _usd(value):
+    for size,unit in ((1e9,'B'),(1e6,'M'),(1e3,'K')):
+        if value>=size: return f'${value/size:.1f}{unit}'
+    return f'${value:,.0f}'
+
+
+def insider_totals(payload):
+    """'4 insiders sold $71.4M on the open market in the last 90 days.' from the SEC section's Form 4 rows
+    (same counting as the SEC card). None when the details are incomplete and nothing was found."""
+    buyers,sellers,bought,sold=set(),set(),0.0,0.0
+    for row in payload.insiders:
+        if row.conviction!='conviction': continue
+        name=(row.reporter_name or row.accession).strip().lower()
+        if row.bought_value and row.bought_value.value: buyers.add(name); bought+=row.bought_value.value
+        if row.sold_value and row.sold_value.value: sellers.add(name); sold+=row.sold_value.value
+    part=lambda people,verb,amount:f'{len(people)} insider{"" if len(people)==1 else "s"} {verb} {_usd(amount)}'
+    parts=[part(buyers,'bought',bought) if bought else None,part(sellers,'sold',sold) if sold else None]
+    parts=[p for p in parts if p]
+    partial=payload.coverage!='complete'
+    if not parts: return None if partial else 'No open-market insider trades in the last 90 days.'
+    return '; '.join(parts)+' on the open market in the last 90 days'+(' (some filings could not be read).' if partial else '.')
+
 
 class MemberResearchProvider:
     def __init__(self, context):
@@ -417,7 +441,15 @@ class MemberResearchProvider:
             response=await collector.synthesis(request)
             self._authorize('analysis','model_input',observed_at=min((row.observed_at for row in request.evidence if row.observed_at is not None),default=None))
             return response
-        study=await collector.study(ticker,write=write,chart=True)
+        async def insiders():
+            """Owner 2026-10-06 (TODO #121 item 6): the write-up names insider buying/selling; it runs beside the market reads."""
+            try:
+                section=await asyncio.wait_for(self._sec(ticker),30)
+                if not isinstance(section.payload,SecPayload): return None
+                self._authorize('sec','model_input')
+                return insider_totals(section.payload)
+            except Exception: return None  # The write-up goes ahead without it.
+        study=await collector.study(ticker,write=write,chart=True,insiders=asyncio.ensure_future(insiders()))
         approved(study.evidence,'retain')
         result,facts=study.result,study.facts
         observed=min((item.observed_at for item in result.evidence if item.observed_at is not None),default=None)
