@@ -1243,7 +1243,7 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-09 late, Pacific):** Dashboard and cached-data screener are live, with the SEC filing improvements deployed earlier today. Committed on branch `todo121-outcomes-oct9` but NOT yet deployed (the deploy step was blocked by a permission check): pre-open 1-hour results no longer saved flat, off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up, two test fixes. Next: deploy, reset the flat rows, then the feed concurrency slowdown. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Deployed 2026-10-09 night (PR #37): pre-open 1-hour results no longer saved flat (32 refilled), off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up. Next: sync the live workspace, find the feed concurrency slowdown, worker egress allowlist, 17 browser-test failures, own Google Drive client id. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
@@ -1358,7 +1358,7 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    (`private_permissions_required`, also reproduced in the live checkout; test fixture lacks private permissions).
    No full-suite pass is claimed.
 
-8. Session 2026-10-09 late (Claude), branch `todo121-outcomes-oct9`, commits 23dfb66, e20398d, b84692b — NOT DEPLOYED:
+8. Session 2026-10-09 late (Claude), branch `todo121-outcomes-oct9`, commits 23dfb66, e20398d, b84692b — DEPLOYED 2026-10-09 ~22:05 PDT, merged as PR #37:
    - Bug found from live data: alerts before 6:30 AM got a "1-hour result" equal to the alert price (e.g. TSLA 6:01 AM
      $375.00 -> $375.00 while it traded near $388). Cause: `fill_hours` wrote the alert price whenever its minute data had
      no trade in the hour, without checking the data reached that far. Now it retries until the data covers the hour.
@@ -1369,9 +1369,21 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    - Tests: isolation path guard and testing-phase flag leak fixed; dashboard suite 4 failed -> 1 failed
      (`test_twenty_member_local_projection_and_poll_latency`: 20 concurrent feed reads take ~5 s each though one takes
      0.04 s; ruled out host load, writes, the progress-handler interval and GIL switch interval; cause still unknown).
-   - To finish: copy the 5 changed `member_dashboard/*.py` files into `/opt/member-dashboard/current/member_dashboard/`,
-     restart api + worker, then set `price_1h=NULL` on track rows outside the regular session whose bot `price_1h_later` is
-     NULL, so the worker refills them; check TSLA 2026-10-09 06:01 reads ~$388 -> ~$384.
+   - Live: 5 files copied into `/opt/member-dashboard/current/member_dashboard/` (old copies + the 32 reset ids in
+     `/opt/member-dashboard/rollback-todo121-oct9`), api + worker restarted. 32 flat off-hours results reset and all refilled,
+     none flat; TSLA 2026-10-09 06:01 now $381.12 -> $384.10. INTC 2026-10-08 chart card verified (image, post times, 1-day result).
    - Disk: 13 old rollback/stage/test folders (~7.4 GB) moved to Google Drive `BACKUP/member-dashboard-2026-10-09` with
      checksums verified, then deleted; disk 80% -> 73% used. The rclone Drive login uses rclone's shared client id, which
      Google retires during 2026 — create an own client id to keep Drive backups working.
+   - NEXT SESSION (in order):
+     1. Sync the live workspace (`/home/openclaw/.openclaw/workspace`): 8+ commits behind origin/master, CRLF-only noise in the
+        #121 files, and another session's uncommitted options-flow edits (`consensus_engine/scanners/options.py`,
+        `tests/test_options_flow.py`, `tests/test_display_honesty_todo98.py`) - keep those. Until synced, the 06:00 drift check
+        keeps alerting on #121.
+     2. Feed slowdown: 20 concurrent `read_feed` calls take ~5 s each (one alone 0.04 s; 2/3 of the time in per-card
+        `_authorize` lookups). Find the cause without weakening permission checks; then the last failing dashboard test passes.
+     3. Worker egress allowlist (the worker can still reach any host; now also news.google.com and sec.gov).
+     4. 17 failing browser (Playwright) tests.
+     5. Own Google Drive client id for rclone (`/root/.config/rclone/trade-alerts.conf`, remote `builddrive`).
+     6. At "ready to ship": suspend `claude_qa` and `testing`, delete `/etc/member-dashboard/testing-phase`, restart.
+     7. Add 2028 NYSE holidays to `member_dashboard/market_board.py` before 2028.
