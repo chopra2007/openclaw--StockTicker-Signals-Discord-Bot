@@ -71,7 +71,7 @@ def test_format_flow_alert_requested_asts_display(monkeypatch):
                   241.2, 2_840_000.0, time.time(), 50.97,
                   flow_side="BUY", flow_side_note="at-ask")
     assert format_flow_alert(hit) == (
-        "⚡ **UNUSUAL OPTIONS FLOW** — `$ASTS` 🟢 CALL-BUY\n"
+        "⚡ **$ASTS** 🟢 CALL-BUY\n"
         "**CALL** 2026-10-09 $50 strike | spot $50.97\n"
         "Volume **26,537** vs OI **110** (**241x**) | premium **$2.84M**"
     )
@@ -79,7 +79,17 @@ def test_format_flow_alert_requested_asts_display(monkeypatch):
 
 def test_format_flow_alert_put_keeps_red_marker(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
-    assert "— `$TSLA` 🔴 PUT-SELL\n" in format_flow_alert(_hit("PUT", "SELL", "at-bid"))
+    assert "⚡ **$TSLA** 🟢 PUT-SELL\n" in format_flow_alert(_hit("PUT", "SELL", "at-bid"))
+
+
+@pytest.mark.parametrize("side,flow_side,marker", [
+    ("CALL", "BUY", "🟢"), ("PUT", "SELL", "🟢"),
+    ("PUT", "BUY", "🔴"), ("CALL", "SELL", "🔴"),
+    ("CALL", "AMBIGUOUS", "⚪"), ("PUT", "AMBIGUOUS", "⚪"),
+])
+def test_flow_marker_matches_trade_direction(monkeypatch, side, flow_side, marker):
+    _side_flags(monkeypatch, collect=True, labels_live=True)
+    assert f"⚡ **$TSLA** {marker} " in format_flow_alert(_hit(side, flow_side))
 
 
 @pytest.fixture
@@ -192,7 +202,7 @@ def test_format_flow_alert_appends_side_tag_when_collected(monkeypatch):
 def test_format_flow_alert_ambiguous_side_tag_has_no_note(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "AMBIGUOUS"))
-    assert "🟢 CALL\n" in txt and "side:" not in txt
+    assert "⚪ CALL\n" in txt and "side:" not in txt
 
 
 def test_format_flow_alert_no_side_tag_when_collect_off(monkeypatch):
@@ -230,7 +240,7 @@ def test_format_flow_alert_direction_from_side_flags_live(monkeypatch, side, flo
 def test_format_flow_alert_ambiguous_direction_when_labels_live(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_hit("CALL", "AMBIGUOUS"))
-    assert "🟢 CALL\n" in txt
+    assert "⚪ CALL\n" in txt
     assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
@@ -304,9 +314,11 @@ def test_format_flow_alert_sweep_tier_uses_sweep_header(monkeypatch):
     txt = format_flow_alert(_flow_hit(60.0, "BUY", "AA"))
     assert "SWEEP" in txt
     assert "UNUSUAL OPTIONS FLOW" not in txt
+    assert txt.startswith("⚡ **$TSLA**")
 
 
 def test_format_flow_alert_base_tier_uses_base_header(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_flow_hit(25.0, "BUY", "at-ask"))
-    assert "UNUSUAL OPTIONS FLOW" in txt
+    assert txt.startswith("⚡ **$TSLA**")
+    assert "UNUSUAL OPTIONS FLOW" not in txt
