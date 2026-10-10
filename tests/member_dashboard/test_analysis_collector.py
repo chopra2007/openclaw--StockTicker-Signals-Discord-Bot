@@ -242,3 +242,32 @@ def test_news_links_are_plain_article_addresses():
     assert article_url('https://www.barrons.com/articles/micron-x?mod=rss')=='https://www.barrons.com/articles/micron-x'
     assert article_url('javascript:alert(1)') is None and article_url('http://a.com/x') is None
     assert article_url('https://user:pw@a.com/x') is None and article_url('https://a.com:8443/x') is None
+
+
+async def test_insider_totals_reach_the_write_up_and_the_plain_note():
+    """TODO #121 item 6: the SEC card showed insider selling; the write-up never mentioned it."""
+    import asyncio
+    sent=[]
+    async def write(request): sent.append(json.loads(request.structured_json)); return ''
+    async def insiders(): return '4 insiders sold $71.4M on the open market in the last 90 days.'
+    study=await collector(Client()).study('NVDA',write=write,insiders=asyncio.ensure_future(insiders()))
+    assert sent[0]['insider_trades_90d']=='4 insiders sold $71.4M on the open market in the last 90 days.'
+    assert '- **Insiders:** 4 insiders sold $71.4M' in study.note   # Plain note (empty drafts) keeps it too.
+    async def failed(): return None
+    sent.clear(); await collector(Client()).study('NVDA',write=write,insiders=asyncio.ensure_future(failed()))
+    assert 'insider_trades_90d' not in sent[0]
+
+
+def test_insider_totals_count_people_and_open_market_amounts_only():
+    from member_dashboard.contracts import InsiderSummary,SecPayload
+    from member_dashboard.research import insider_totals,metric
+    usd=lambda v:metric(v,'USD','test')
+    row=lambda acc,name,label,sold=None,bought=None:InsiderSummary(accession=acc,summary='s',conviction=label,transaction_value=None,
+        reporter_name=name,sold_value=usd(sold) if sold else None,bought_value=usd(bought) if bought else None)
+    rows=[row('a1','Amy Hood','conviction',sold=40e6),row('a2','Amy Hood','conviction',sold=10e6),
+          row('a3','Satya Nadella','conviction',sold=21.4e6),row('a4','Brad Smith','routine'),row('a5','Kevin Scott','conviction',bought=250e3)]
+    full=SecPayload(coverage='complete',filings=[],insiders=rows,warning=None)
+    assert insider_totals(full)=='1 insider bought $250.0K; 2 insiders sold $71.4M on the open market in the last 90 days.'
+    assert insider_totals(SecPayload(coverage='complete',filings=[],insiders=[],warning=None))=='No open-market insider trades in the last 90 days.'
+    assert insider_totals(SecPayload(coverage='partial',filings=[],insiders=[],warning='w')) is None   # Unknown is not "none".
+    assert insider_totals(SecPayload(coverage='partial',filings=[],insiders=rows[:1],warning='w')).endswith('(some filings could not be read).')

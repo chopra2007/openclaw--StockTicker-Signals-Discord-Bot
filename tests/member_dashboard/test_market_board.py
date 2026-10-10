@@ -293,6 +293,39 @@ def test_fill_hours_uses_extended_trades_or_alert_price(feed):
     assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 2
     with store.transaction() as con:
         got = dict(con.execute('SELECT ticker,price_1h FROM track_alerts').fetchall())
-    assert got == {'AAA': 11.0, 'BBB': 20.0, 'CCC': None}   # The 12.0 minute ends after alert+1h, so it is not used.
+    assert got == {'AAA': 11.0, 'BBB': 19.0, 'CCC': None}   # The 12.0 minute ends after alert+1h, so it is not used.
+    # Saturday: nothing traded, so the 1-hour price is the alert's starting price, the last trade before it (Friday's 19.0).
     assert {c[0] for c in calls} == {'AAA', 'BBB'} and all(c[1]['extended_hours'] and c[1]['interval'] == '1m' for c in calls)
     assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 0 and len(calls) == 2  # Every 15 minutes only.
+
+
+def test_fill_hours_waits_for_data_covering_the_hour_and_starts_from_the_last_trade(feed):
+    # 2026-10-09: 6:01 AM alerts were saved flat because the minute data did not yet reach 7:01 AM.
+    store = feed.dashboard.store
+    at = lambda *args: datetime(*args, tzinfo=PACIFIC).timestamp()
+    alert = at(2026, 10, 9, 6, 1)
+    with store.transaction() as con:
+        con.execute('INSERT INTO track_alerts(alert_id,ticker,alerted_at,price) VALUES (1,?,?,?)', ('TSLA', alert, 375.0))
+    stale = pd.DataFrame({'Close': [375.0, 380.0]}, index=pd.to_datetime([at(2026, 10, 8, 13, 0), at(2026, 10, 8, 16, 59)], unit='s', utc=True))
+    fresh = pd.DataFrame({'Close': [380.0, 388.0, 384.1, 390.0]}, index=pd.to_datetime(
+        [at(2026, 10, 8, 16, 59), alert - 120, alert + 3000, alert + 3660], unit='s', utc=True))
+    frames = [stale, fresh]
+    class Client:
+        def get_price_history(self, symbol, **kwargs): return frames.pop(0)
+    clock = lambda: at(2026, 10, 9, 7, 15)
+    track_record._hours_last[0] = 0.0
+    assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 0   # Not saved flat.
+    track_record._hours_last[0] = 0.0
+    assert asyncio.run(track_record.fill_hours(store, Client(), lambda: True, clock)) == 1
+    with store.transaction() as con:
+        assert con.execute('SELECT price,price_1h FROM track_alerts').fetchone() == (388.0, 384.1)  # Pre-market price, not yesterday's close.
+
+
+def test_holidays_and_early_closes_follow_the_nyse_calendar():
+    at = lambda *args: datetime(*args, tzinfo=PACIFIC).timestamp()
+    thanksgiving, early = at(2026, 11, 26, 9, 0), at(2026, 11, 27, 10, 30)
+    assert not track_record.in_session(thanksgiving) and not track_record.can_trade(thanksgiving, thanksgiving + 3600)
+    assert not market_board.market_hours(thanksgiving)
+    assert track_record.in_session(at(2026, 11, 27, 9, 30)) and not track_record.in_session(early)
+    assert track_record.can_trade(early, early + 3600) and not track_record.can_trade(at(2026, 11, 27, 14, 5), at(2026, 11, 27, 15, 5))
+    assert track_record.in_session(at(2026, 10, 9, 12, 59)) and not track_record.in_session(at(2026, 10, 9, 13, 0))

@@ -59,7 +59,8 @@ SYSTEM = (
     'news). Each bullet: two sentences, numbers from FACTS.\n'
     '4. `## Risk Considerations`: 2-3 bullets naming specific risks from FACTS (an event, a competitor, '
     'valuation against targets, crowded option positioning, an earnings date). No trade-plan prices, never '
-    'generic lines like "market volatility".\n'
+    'generic lines like "market volatility". If FACTS.insider_trades_90d reports open-market selling, one risk bullet '
+    'states it with its numbers; buying goes in Catalysts instead.\n'
     'Never write "house view" or other insider jargon; say "our read". Short paragraphs: each bullet at most two sentences.\n'
     'Nothing else: no other headings, no URLs, no @mentions, no disclaimers.'
 )
@@ -350,8 +351,9 @@ class AnalysisCollector:
                 'quote': {k: v for k, v in info.items() if v is not None},
                 'chart': {'daily': daily, 'intraday': market.intraday}}
 
-    async def study(self, ticker, write=None, chart=False):
-        """write(SynthesisRequest) -> text; None skips the note (trade setups, the assistant)."""
+    async def study(self, ticker, write=None, chart=False, insiders=None):
+        """write(SynthesisRequest) -> text; None skips the note (trade setups, the assistant).
+        insiders: awaitable -> one-line 90-day open-market insider total, or None."""
         from consensus_engine.analysis.research_compute import compute_research
         from consensus_engine.analysis.research_contracts import SynthesisRequest
         market = await self.market(ticker, chart=chart)
@@ -361,6 +363,8 @@ class AnalysisCollector:
         services = replace(self.services(), synthesis=_no_write_up, gap_fill=gap)
         result = await compute_research(ticker, inputs, services)
         facts = self.facts(ticker, market, inputs, result)
+        line = await insiders if insiders is not None else None
+        if facts is not None and line: facts['insider_trades_90d'] = line
         note = ''
         if write is not None and facts is not None:
             request = SynthesisRequest(ticker=ticker, structured_json=json.dumps(facts), score_json='{}', news=(), sec=(),
@@ -446,6 +450,7 @@ def plain_note(facts):
         lines.append(f'- **Next year:** The average Wall Street target is ${ws["target_average"]:,.2f} '
                      f'(range ${ws["target_low"]:,.2f} to ${ws["target_high"]:,.2f}).')
     lines += ['', '## Risk Considerations']
+    if facts.get('insider_trades_90d'): lines.append(f"- **Insiders:** {facts['insider_trades_90d']}")
     return '\n'.join(lines)
 
 

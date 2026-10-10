@@ -39,11 +39,12 @@ class Trap(importlib.abc.MetaPathFinder):
         if fullname in {'consensus_engine.config','consensus_engine.db','consensus_engine.alerts.ops_alert','dotenv','yfinance'}:
             forbidden('import:'+fullname)
 sys.meta_path.insert(0,Trap())
+CHECKOUT=os.getcwd().lower().replace('\\','/')+'/'  # The code under test may live under /.openclaw/.
 def audit(event,args):
     if event in {'socket.connect','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:
         forbidden(event)
     if event=='open' and isinstance(args[0],(str,bytes)):
-        value=os.fsdecode(args[0]).lower().replace('\\','/')
+        value=os.path.abspath(os.fsdecode(args[0])).lower().replace('\\','/'); value='/checkout/'+value[len(CHECKOUT):] if value.startswith(CHECKOUT) else value
         if any(marker in value for marker in ('schwab_token','schwab_reauth','consensus.yaml','/.env','/vault/','/.openclaw/')):
             forbidden('private_file')
 sys.addaudithook(audit)
@@ -266,11 +267,12 @@ class Trap(importlib.abc.MetaPathFinder):
         if fullname.startswith(('consensus_engine','dotenv','openclaw')):
             attempts.append(fullname);raise AssertionError(fullname)
 sys.meta_path.insert(0,Trap())
+CHECKOUT=os.getcwd().lower().replace('\\','/')+'/'  # The code under test may live under /.openclaw/.
 def audit(event,args):
     if event in {'socket.connect','socket.getaddrinfo','socket.sendto','subprocess.Popen','os.system'}:
         attempts.append(event);raise AssertionError(event)
     if event=='open' and isinstance(args[0],(str,bytes)):
-        value=os.fsdecode(args[0]).lower().replace('\\','/')
+        value=os.path.abspath(os.fsdecode(args[0])).lower().replace('\\','/'); value='/checkout/'+value[len(CHECKOUT):] if value.startswith(CHECKOUT) else value
         if any(marker in value for marker in ('schwab_token','consensus.yaml','/.env','/vault/','/.openclaw/')):
             attempts.append('private_file');raise AssertionError('private_file')
 sys.addaudithook(audit)
