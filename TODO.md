@@ -1327,6 +1327,11 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    Collapse all, including reset of individually expanded points. SEC tests: 70 passed; four focused
    browser checks and frontend lint/build passed. Broader actionable company-event selection is a
    recommendation pending the owner's decision, not implemented by treating every 8-K as important.
+   FOLLOW-UP DONE 2026-10-09 Pacific: 8-K rows read the actual SEC document instead of showing a
+   generic form definition. Live MSFT now shows Reporting segment changes, the fiscal-2027 start,
+   and Agents and Infra / Devices and Consumer. Cache up to 128 successful event summaries;
+   unreadable documents are omitted with incomplete-coverage warning. No additional AI call.
+   SEC outcome checks: 72 passed; event-reader checks: 5 passed; bot SEC checks: 11 passed.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other

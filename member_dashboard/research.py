@@ -46,6 +46,7 @@ class MemberResearchProvider:
         if not isinstance(context,ProviderContext): raise ValueError('Explicit provider context required')
         self.context=context
         self._form4_details={}
+        self._event_details={}
 
     def register(self, registry):
         for section,lineage in self.context.lineage.items():
@@ -97,7 +98,8 @@ class MemberResearchProvider:
 
     async def _sec(self,ticker):
         from consensus_engine.analysis.sec_research import collect_sec
-        from consensus_engine.scanners.sec_edgar import fetch_filings_outcome,fetch_form4_outcome
+        from consensus_engine.scanners.sec_edgar import fetch_filings_outcome,fetch_form4_outcome,fetch_filing_document_outcome
+        from .sec_events import event_summary
         context=self.context.sec_context
         if context is None or getattr(context,'bot_compat',False): raise ValueError('isolated_sec_context_required')
         from consensus_engine.utils.provider_budget import BudgetSession
@@ -127,11 +129,26 @@ class MemberResearchProvider:
         self._authorize('sec',observed_at=outcome.observed_at)
         details={item.accession:item.outcome for item in research.details}
         filings,insiders=[],[]
+        coverage=research.coverage
         for row in outcome.data:
+            event=None
+            if row.form=='8-K':
+                self._authorize('sec','retain')
+                key=(row.cik,row.accession_number,row.primary_document)
+                event=self._event_details.get(key)
+                if event is None:
+                    document=await fetch_filing_document_outcome(*key,context)
+                    event=event_summary(document.data) if document.status=='ok' else None
+                    if event:
+                        if len(self._event_details)>=128: self._event_details.pop(next(iter(self._event_details)))
+                        self._event_details[key]=event
+                if not event:
+                    coverage='partial'
+                    continue
             detail=details.get(row.accession_number)
             status='ok' if row.form != '4' or detail and detail.status == 'ok' else 'unavailable' if detail else 'not_requested'
             filings.append(Filing(accession=row.accession_number,form=row.form,filed_at=row.filed_at,
-                title=FORM_TITLES.get(row.form,row.form),summary=_insider_line(detail) if row.form=='4' else FORM_NOTES.get(row.form,''),
+                title=event[0] if event else FORM_TITLES.get(row.form,row.form),summary=event[1] if event else _insider_line(detail) if row.form=='4' else FORM_NOTES.get(row.form,''),
                 url=row.url,detail_status=status))
             if row.form == '4':
                 transactions=detail.data if detail and detail.status in ('ok','partial') else ()
@@ -150,9 +167,9 @@ class MemberResearchProvider:
                     bought_value=side_value('Open Market Purchase'),sold_value=side_value('Open Market Sale')))
                 if routine:
                     filings.pop()
-        warning='Filing or insider detail coverage is incomplete.' if research.coverage == 'partial' else None
-        message='No non-routine filings in the last 90 days.' if not filings and research.coverage == 'complete' else warning if not filings else None
-        return self._result('sec',SecPayload(coverage=research.coverage,filings=filings[:SEC_MAX_FILINGS],insiders=insiders,warning=warning),
+        warning='Filing or insider detail coverage is incomplete.' if coverage == 'partial' else None
+        message='No non-routine filings in the last 90 days.' if not filings and coverage == 'complete' else warning if not filings else None
+        return self._result('sec',SecPayload(coverage=coverage,filings=filings[:SEC_MAX_FILINGS],insiders=insiders,warning=warning),
                             message,observed_at=outcome.observed_at)
 
     def _chain(self,ticker,section,source,nearest):

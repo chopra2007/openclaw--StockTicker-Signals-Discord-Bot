@@ -505,6 +505,7 @@ async def test_review_sec_relevant_51st_filing_is_not_empty(dashboard,sec_wire):
     from member_dashboard.research import MemberResearchProvider
     sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
     sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['S-8']*50+['8-K'])),{})
+    sec_wire.replies['/1/000000000126000050/form4.xml']=(200,b'<p>Item 2.02 Results of Operations and Financial Condition</p><p>The company announced quarterly revenue of $5 billion.</p>',{})
     ctx,session,_,_=await context(sec_wire)
     try:
         provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
@@ -563,11 +564,36 @@ async def test_routine_filings_cannot_hide_older_company_event(dashboard,sec_wir
     sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['4']*15+['8-K'])),{})
     for i in range(15):
         sec_wire.replies[f'/1/000000000126{i:06}/form4.xml']=(200,form4('A'),{})
+    sec_wire.replies['/1/000000000126000015/form4.xml']=(200,b'<p>Item 2.02 Results of Operations and Financial Condition</p><p>The company announced quarterly revenue of $5 billion.</p>',{})
     ctx,session,_,_=await context(sec_wire)
     try:
         result=await MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock)).compute('SPY','sec',{})
         assert [f.form for f in result.payload.filings]==['8-K']
         assert result.message is None
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status',[200,403])
+async def test_company_event_reads_document_without_generic_fallback(dashboard,sec_wire,status):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('8-K'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(status,b'<p>Item 7.01 Regulation FD Disclosure</p><p>The company announced new reportable segments: Agents and Infra and Devices and Consumer.</p><p>Item 9.01 Financial Statements and Exhibits</p>',{})
+    ctx,session,meter,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        if status==200:
+            assert result.payload.filings[0].title=='Reporting segment changes'
+            assert 'Agents and Infra' in result.payload.filings[0].summary
+            await provider.compute('SPY','sec',{})
+            assert sum('/form4.xml' in path for path in sec_wire.requests)==1
+        else:
+            assert not result.payload.filings and result.payload.coverage=='partial'
+            assert 'incomplete' in result.message
+        assert len(meter.reservations)==len(sec_wire.requests)
     finally: await session.close()
 
 
