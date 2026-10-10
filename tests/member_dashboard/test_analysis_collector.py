@@ -111,9 +111,11 @@ async def test_report_header_gets_quote_stats_and_chart_from_one_richer_quote_an
     assert len(chart['daily'])==252 and len(chart['intraday'])==200 and all(len(p)==2 for p in chart['daily'])
     assert [k.get('interval') for k in client.bars]==['1d','15m']  # exactly one extra Schwab history call
     assert any(e.id=='schwab-quote-details' for e in study.result.evidence)
-    # A report without the chart flag (trade setups, the assistant) makes no extra call and builds no display.
+    # Without the chart flag, existing daily data still supplies the display; no intraday request is made.
     plain=DetailClient()
-    assert (await collector(plain).study('NVDA')).display is None and [k.get('interval') for k in plain.bars]==['1d']
+    display=(await collector(plain).study('NVDA')).display
+    assert display['quote']['price']==130.0 and len(display['chart']['daily'])==252
+    assert display['chart']['intraday']==[] and [k.get('interval') for k in plain.bars]==['1d']
 
 
 async def test_report_header_leaves_out_what_schwab_did_not_give():
@@ -155,11 +157,11 @@ def test_news_feed_keeps_recent_unique_headlines():
     from member_dashboard.news import parse
     item=lambda title,day,link='https://news.example/1':(f'<item><title>{title} - Reuters</title><link>{link}</link>'
         f'<pubDate>{day} Oct 2026 12:00:00 GMT</pubDate><source url="https://reuters.com">Reuters</source></item>')
-    xml='<rss><channel>'+item('Fresh',5)+item('Fresh',5)+item('Old',1)+item('Bad link',5,'javascript:x')+'</channel></rss>'
+    xml='<rss><channel>'+item('Fresh',5)+item('Fresh',5)+item('Older but recent',1)+item('Bad link',5,'javascript:x')+'</channel></rss>'
     from datetime import datetime,timezone
-    now=datetime(2026,10,12,tzinfo=timezone.utc).timestamp()  # Oct 5 is in the 7-day window, Oct 1 is not
+    now=datetime(2026,10,12,tzinfo=timezone.utc).timestamp()  # Both October stories are in the 30-day window
     rows=parse(xml,now=now)
-    assert [(r.title,r.source) for r in rows]==[('Fresh','Reuters')]
+    assert [(r.title,r.source) for r in rows]==[('Fresh','Reuters'),('Older but recent','Reuters')]
 
 
 async def test_collector_outage_stays_unavailable_never_fake():

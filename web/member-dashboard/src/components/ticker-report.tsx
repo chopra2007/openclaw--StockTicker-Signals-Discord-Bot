@@ -62,7 +62,7 @@ export function TickerReport({symbol,requestId}:{symbol:string;requestId:string|
  <div className="rp-rail"><KeyStats quote={quote}/>
   {(emD||emW)&&<Group title="Expected move" className="rp-em" note="How far option prices say it can move by each date."><ExpectedMoveGroup daily={emD} weekly={emW}/></Group>}
   {options&&<ReportGroup result={options} title="Options activity" className="rp-options">{p=>p.kind==='options'?<Options p={p}/>:null}</ReportGroup>}
-  {filings&&<ReportGroup result={filings} title="Insiders and SEC filings" className="rp-sec">{p=>p.kind==='sec'?<Sec p={p} message={filings.message}/>:null}</ReportGroup>}
+  {filings&&<ReportGroup result={filings} title="SEC filings" className="rp-sec">{p=>p.kind==='sec'?<Sec p={p} message={filings.message}/>:null}</ReportGroup>}
   {part('calls')}</div></div>}
  </main></AppShell>}
 /** The trade plan as lines on the chart: buy zone band, stop, targets. */

@@ -531,6 +531,16 @@ async def fetch_filings_outcome(ticker, hours_back, context):
                         'excluded_filing_rows' if exclusions else None, exclusions=tuple(exclusions))
 
 
+async def fetch_filing_document_outcome(cik, accession_number, primary_document, context):
+    """Validated, budgeted and body-bounded primary filing text for member research."""
+    epoch=_sec_now(context.clock).timestamp()
+    try:
+        filing_url(cik,accession_number,primary_document)
+        path=f'{int(cik)}/{accession_number.replace("-", "")}/{primary_document.split("/")[-1]}'
+    except (ValueError,TypeError): return FetchOutcome('unavailable',None,epoch,'invalid_filing_metadata')
+    return await _sec_request(f'{context.archives_base}/{path}',context,xml=True)
+
+
 async def fetch_form4_outcome(cik, accession_number, primary_document, context):
     epoch = _sec_now(context.clock).timestamp()
     try:

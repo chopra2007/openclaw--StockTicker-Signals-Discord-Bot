@@ -7,13 +7,12 @@ async def collect_sec(ticker, fetch_filings, fetch_form4) -> SecResearch:
     details = []
     if filings.status not in ('ok', 'partial'):
         return SecResearch(filings, (), 'partial')
-    partial, count = filings.status == 'partial', 0
+    partial = filings.status == 'partial'
     for filing in filings.data:
         if filing.form != '4': continue
-        outcome = None
-        if count < 8:
-            outcome = await fetch_form4(filing.cik, filing.accession_number, filing.primary_document)
-            count += 1
+        # The caller bounds the displayed filing list. Fetch each of its Form 4s;
+        # an independent eight-detail cap left visible filings unrequested.
+        outcome = await fetch_form4(filing.cik, filing.accession_number, filing.primary_document)
         details.append(SecDetail(filing.accession_number, outcome))
         partial |= outcome is None or outcome.status != 'ok'
     return SecResearch(filings, tuple(details), 'partial' if partial else 'complete')

@@ -16,9 +16,14 @@ import xml.etree.ElementTree as ET
 
 import aiohttp
 
-WINDOW = 7 * 86400
+WINDOW = 30 * 86400
 FEED = 'https://news.google.com/rss/search'
 BING = 'https://www.bing.com/news/search'
+
+
+def options_story(title):
+    """Trading contracts are not company news; ordinary uses of 'puts' remain valid."""
+    return bool(re.search(r'\b\d+(?:\.\d+)?\s+(?:call|put)\b|\b[A-Z]{1,6}\d{6}[CP]\d{8}\b|\b(?:call|put)s?\s+options?\b|\boptions?\s+(?:activity|trading|trades?|volume|flow|chain|contracts?|expiration|expiry|strategy|strategies|market|prices?|moves?)\b|\bunusual\s+options?\b|\b(?:calls?|puts?)\s+(?:trading|trades?|volume|contracts?|expiration|expiry)\b', title, re.I))
 
 
 @dataclass(frozen=True)
@@ -31,7 +36,7 @@ class Headline:
 
 
 def parse(xml_text, *, now, limit=8):
-    """Newest-first headlines from the last 7 days; duplicates and blanks dropped."""
+    """Newest-first company headlines from the last 30 days."""
     if '<!DOCTYPE' in xml_text.upper() or '<!ENTITY' in xml_text.upper(): return []
     rows, seen = [], set()
     for item in ET.fromstring(xml_text).iter('item'):
@@ -42,7 +47,7 @@ def parse(xml_text, *, now, limit=8):
         except (TypeError, ValueError): continue
         link = (item.findtext('link') or '').strip()
         key = title.lower()
-        if not title or key in seen or not now - WINDOW <= published <= now + 3600 or not link.startswith('https://'): continue
+        if not title or options_story(title) or key in seen or not now - WINDOW <= published <= now + 3600 or not link.startswith('https://'): continue
         seen.add(key)
         rows.append(Headline(title[:300], source[:80], published, link[:2048]))
     rows.sort(key=lambda row: row.published, reverse=True)
@@ -62,7 +67,7 @@ def parse_bing(xml_text, *, now, limit=10):
         link = parse_qs(urlsplit((item.findtext('link') or '').strip()).query).get('url', [''])[0]
         link = article_url(link)
         key = title.lower()
-        if not title or not link or key in seen or not now - WINDOW <= published <= now + 3600: continue
+        if not title or options_story(title) or not link or key in seen or not now - WINDOW <= published <= now + 3600: continue
         seen.add(key)
         rows.append(Headline(title[:300], source[:80], published, link, summary[:400]))
     rows.sort(key=lambda row: row.published, reverse=True)
@@ -119,10 +124,10 @@ async def headlines(ticker, name='', *, limit=12, clock=time.time):
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=12), trust_env=False) as session:
             async def bing(query):
-                try: return parse_bing(await _feed(session, BING, {'q': query, 'format': 'rss', 'mkt': 'en-US', 'qft': 'interval="7"'}), now=now)
+                try: return parse_bing(await _feed(session, BING, {'q': query, 'format': 'rss', 'mkt': 'en-US', 'qft': 'interval="9"'}), now=now, limit=30)
                 except Exception: return []
             async def google():
-                try: return parse(await _feed(session, FEED, {'q': f'{ticker} stock when:7d', 'hl': 'en-US', 'gl': 'US', 'ceid': 'US:en'}), now=now, limit=limit)
+                try: return parse(await _feed(session, FEED, {'q': f'{name or ticker} when:30d', 'hl': 'en-US', 'gl': 'US', 'ceid': 'US:en'}), now=now, limit=30)
                 except Exception: return []
             found = await asyncio.gather(*(bing(query) for query in queries), google())
     except Exception:

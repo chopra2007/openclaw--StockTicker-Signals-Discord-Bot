@@ -1243,7 +1243,7 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline. Lint is clean as of 10-08 (see redesign entry below). Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-09 Pacific):** Dashboard and cached-data screener are live. SEC filings now show complete insider details, specific proposed sales and short company-event descriptions with important figures highlighted and personal names first-name-first. Routine transactions are hidden; latest news excludes options quote pages and covers 30 days. Desktop analysis allows five lines; mobile has Expand all. Changes are deployed and browser-verified. Next: investigate site/ticker response times, repair the remaining regression checks and assess broader actionable filing selection. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
@@ -1305,7 +1305,55 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    e2e (Playwright) suite not re-run, wording in e2e/history.spec.ts + member.spec.ts updated by hand;
    pre-existing lint error in chat.tsx (setState inside an effect) — FIXED 2026-10-08.
 6. Insider selling (90-day Form 4 totals) is not in the analysis write-up yet; Gemini's note had it.
+   DONE 2026-10-09 Pacific (filing display only): fetch details for every displayed Form 4,
+   show the newest eight filings including routine transactions, keep expanded filings newest first,
+   and add green Buy / red Sell labels for verified open-market trades. Live MSFT refresh:
+   all 14 Form 4 details available, including six September 11 filings previously skipped.
+   SEC tests: 64 passed; bot SEC checks: 11 passed. Focused browser display/color check and private-route check passed;
+   frontend types, focused lint and production build passed. This does not add insider totals to the analysis write-up.
+   FOLLOW-UP DONE 2026-10-09 Pacific: renamed the card SEC filings; hide award/grant and tax-withholding
+   rows in fresh and saved reports; reuse up to 256 successful Form 4 details while the worker runs
+   (new filings still need one read to identify the transaction type). Filter before the 15-row display
+   limit, scan up to 100 candidates and mark incomplete coverage explicitly. Count distinct buyers
+   and sellers and show separate amounts; bold share counts and dollar amounts. Live MSFT: all 43
+   Form 4s checked, 12 relevant filings shown, 4 sellers / $71.4M across the full available 90-day list.
+   Latest news now covers 30 days, searches the company name and excludes options activity and option
+   quote pages in collection and display. Live MSFT shows AI-model, Surface and visa-program headlines.
+   Final targeted SEC checks: 66 passed; collector/news checks: 14 passed; bot SEC: 11 passed;
+   three focused browser checks, lint and production build passed; independent review clear.
+   FOLLOW-UP 2026-10-09 Pacific: all routine Form 4s (including gifts and option exercises) hidden;
+   saved-report filtering also hides routine rows. Analysis/risks allow five lines on desktop;
+   More appears only when text actually overflows. Mobile keeps two lines plus per-group Expand all /
+   Collapse all, including reset of individually expanded points. SEC tests: 70 passed; four focused
+   browser checks and frontend lint/build passed. Broader actionable company-event selection is a
+   recommendation pending the owner's decision, not implemented by treating every 8-K as important.
+   FOLLOW-UP DONE 2026-10-09 Pacific: 8-K rows read the actual SEC document instead of showing a
+   generic form definition. Live MSFT now shows Reporting segment changes, the fiscal-2027 start,
+   and Agents and Infra / Devices and Consumer. Cache up to 128 successful event summaries;
+   unreadable documents are omitted with incomplete-coverage warning. No additional AI call.
+   SEC outcome checks: 72 passed; event-reader checks: 5 passed; bot SEC checks: 11 passed.
+   FOLLOW-UP 2026-10-09 Pacific: shorten company-event descriptions to the key announcement;
+   reporting-segment changes show the start year and both segment names in bold. Remove website
+   and exhibit boilerplate. Five event-reader and five focused browser checks, lint and build pass.
+   FOLLOW-UP 2026-10-09 Pacific: Form 144 notices now show the person, proposed shares, estimated
+   value and approximate sale date in a short description with important figures bold. Read once
+   and reuse up to 128 successful notices; unreadable notices are omitted with partial coverage.
+   Personal SEC names display first-name-first, including surname-first notices matched to the
+   same person's Form 4 identity; generated analysis also requests first-name-first names.
+   Live source check: Satya Nadella proposed 86,525 shares (~$43.9M) around Sep 1, 2026, not a deadline.
+   Live refreshed report verifies Amy Hood, Satya Nadella, Judson Althoff and Takeshi Numoto;
+   proposed-sale dates and figures are bold. Relevant Python checks: 98 passed; five focused browser
+   checks, lint and production build passed. Independent review clear; dashboard and bot services active.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other
-   test_operations tests run).
+   test_operations tests run). Also reproduced on unchanged live code 2026-10-09:
+   `tests/member_dashboard/test_analysis_collector.py::test_report_header_gets_quote_stats_and_chart_from_one_richer_quote_and_one_extra_history_call`
+   expects no display without a chart request, but the collector returns quote/daily-chart display.
+   That stale chart expectation was corrected 2026-10-09: daily quote/chart display is intentional;
+   the test still checks that no extra intraday call occurs without the chart flag.
+   Broader dashboard follow-up run: 756 passed, 7 skipped, 3 failed. Remaining failures were the
+   already-listed feed latency and synthetic-auth ordering tests plus
+   `test_accounts_backup_resets_track_cursors_when_alert_copies_are_removed`
+   (`private_permissions_required`, also reproduced in the live checkout; test fixture lacks private permissions).
+   No full-suite pass is claimed.

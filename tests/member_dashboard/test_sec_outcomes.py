@@ -380,12 +380,12 @@ async def test_real_form4_parse(sec_wire, body, status):
 
 
 @pytest.mark.asyncio
-async def test_mixed_details_and_eight_cap_keep_filings(sec_wire):
+async def test_mixed_details_fetch_every_displayed_form4(sec_wire):
     from consensus_engine.scanners.sec_edgar import fetch_filings_outcome, fetch_form4_outcome
     from consensus_engine.analysis.sec_research import collect_sec
     sec_wire.replies['/map'] = (200, {'0': {'ticker': 'SPY', 'cik_str': 1}}, {})
     sec_wire.replies['/CIK0000000001.json'] = (200, recent(*(['4'] * 10)), {})
-    for i in range(8):
+    for i in range(10):
         sec_wire.replies[f'/1/000000000126{i:06}/form4.xml'] = (200, form4('A') if i != 2 else b'<bad>', {})
     ctx, session, _, _ = await context(sec_wire)
     try:
@@ -394,8 +394,8 @@ async def test_mixed_details_and_eight_cap_keep_filings(sec_wire):
         assert result.coverage == 'partial'
         assert len(result.filings.data) == 10
         assert len(result.details) == 10
-        assert sum(d.outcome is None for d in result.details) == 2
-        assert sum(d.outcome is not None and d.outcome.status == 'ok' for d in result.details) == 7
+        assert sum(d.outcome is None for d in result.details) == 0
+        assert sum(d.outcome is not None and d.outcome.status == 'ok' for d in result.details) == 9
         assert result.filings.data[0].url == 'https://www.sec.gov/Archives/edgar/data/1/000000000126000000/form4.xml'
     finally: await session.close()
 
@@ -505,6 +505,7 @@ async def test_review_sec_relevant_51st_filing_is_not_empty(dashboard,sec_wire):
     from member_dashboard.research import MemberResearchProvider
     sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
     sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['S-8']*50+['8-K'])),{})
+    sec_wire.replies['/1/000000000126000050/form4.xml']=(200,b'<p>Item 2.02 Results of Operations and Financial Condition</p><p>The company announced quarterly revenue of $5 billion.</p>',{})
     ctx,session,_,_=await context(sec_wire)
     try:
         provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
@@ -531,6 +532,97 @@ async def test_review_unknown_form4_classification_not_routine(dashboard,sec_wir
         assert result.status=='completed' and result.payload.coverage=='partial'
         assert result.payload.insiders[0].conviction=='unknown'
         assert 'Routine' not in result.payload.insiders[0].summary
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('routine_code',['A','F','G','M','D'])
+async def test_routine_form4_hidden_and_successful_details_reused(dashboard,sec_wire,routine_code):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('4','4'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(200,form4(routine_code),{})
+    sec_wire.replies['/1/000000000126000001/form4.xml']=(200,form4('S'),{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        assert [f.accession for f in result.payload.filings]==['0000000001-26-000001']
+        insider=next(i for i in result.payload.insiders if i.conviction=='conviction')
+        assert insider.reporter_name and insider.sold_value.value>0
+        await provider.compute('SPY','sec',{})
+        assert sum('/form4.xml' in path for path in sec_wire.requests)==2
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+async def test_routine_filings_cannot_hide_older_company_event(dashboard,sec_wire):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent(*(['4']*15+['8-K'])),{})
+    for i in range(15):
+        sec_wire.replies[f'/1/000000000126{i:06}/form4.xml']=(200,form4('A'),{})
+    sec_wire.replies['/1/000000000126000015/form4.xml']=(200,b'<p>Item 2.02 Results of Operations and Financial Condition</p><p>The company announced quarterly revenue of $5 billion.</p>',{})
+    ctx,session,_,_=await context(sec_wire)
+    try:
+        result=await MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock)).compute('SPY','sec',{})
+        assert [f.form for f in result.payload.filings]==['8-K']
+        assert result.message is None
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status',[200,403])
+async def test_company_event_reads_document_without_generic_fallback(dashboard,sec_wire,status):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('8-K'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(status,b'<p>Item 7.01 Regulation FD Disclosure</p><p>The company announced new reportable segments: Agents and Infra and Devices and Consumer.</p><p>Item 9.01 Financial Statements and Exhibits</p>',{})
+    ctx,session,meter,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        if status==200:
+            assert result.payload.filings[0].title=='Reporting segment changes'
+            assert 'Agents and Infra' in result.payload.filings[0].summary
+            await provider.compute('SPY','sec',{})
+            assert sum('/form4.xml' in path for path in sec_wire.requests)==1
+        else:
+            assert not result.payload.filings and result.payload.coverage=='partial'
+            assert 'incomplete' in result.message
+        assert len(meter.reservations)==len(sec_wire.requests)
+    finally: await session.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status',[200,403])
+async def test_planned_sale_details_and_owner_names(dashboard,sec_wire,status):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('144','4'),{})
+    notice=b'<edgarSubmission><submissionType>144</submissionType><nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold>SATYA NADELLA</nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold><securitiesInformation><noOfUnitsSold>86525</noOfUnitsSold><approxSaleDate>09/01/2026</approxSaleDate></securitiesInformation></edgarSubmission>'
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(status,notice,{})
+    sec_wire.replies['/1/000000000126000001/form4.xml']=(200,form4('S').replace(b'Synthetic Owner',b'NADELLA SATYA'),{})
+    ctx,session,meter,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        sale=next(f for f in result.payload.filings if f.form=='4')
+        assert sale.summary.startswith('Satya Nadella (')
+        assert result.payload.insiders[0].reporter_name=='Satya Nadella'
+        if status==200:
+            planned=next(f for f in result.payload.filings if f.form=='144')
+            assert planned.summary=='Satya Nadella proposed selling **86,525 shares** around **Sep 1, 2026**.'
+            await provider.compute('SPY','sec',{})
+            assert sum('/form4.xml' in path for path in sec_wire.requests)==2
+        else:
+            assert all(f.form!='144' for f in result.payload.filings)
+            assert result.payload.coverage=='partial'
+        assert len(meter.reservations)==len(sec_wire.requests)
     finally: await session.close()
 
 

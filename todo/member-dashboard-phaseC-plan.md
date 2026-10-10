@@ -1,7 +1,7 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-07 Pacific):** Dashboard and approved cached-data screener are live. Screening, match explanations, inspection, watchlists and local saved workflows are verified; all 20 new tests pass. Existing browser/Python/lint failures remain documented. Next: verify missing previous-close/day-change coverage, repair regression checks, then assess reliable free broader-universe data. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-09 Pacific):** Dashboard and cached-data screener are live. SEC filings now show complete insider details, specific proposed sales and short company-event descriptions with important figures highlighted and personal names first-name-first. Routine transactions are hidden; latest news excludes options quote pages and covers 30 days. Desktop analysis allows five lines; mobile has Expand all. Changes are deployed and browser-verified. Next: investigate site/ticker response times, repair the remaining regression checks and assess broader actionable filing selection. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
@@ -162,3 +162,28 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   verifies daily changes across trading sessions and missing-data cases, repairs
   existing dashboard checks, then assesses dependable free broader stock coverage.
   Full evidence remains in `todo/member-dashboard-screener.md`. No paid additions.
+
+### Session notes — 2026-10-09 Pacific (SEC details, news and readability)
+
+- Fixed the Form 4 fetch/display mismatch: all displayed trades are checked, sorted newest first,
+  and labeled green Buy / red Sell. Scan up to 100 candidates, hide routine grants, withholding,
+  gifts and exercises before applying the 15-row limit; partial coverage is stated explicitly.
+- Distinct-person totals cover the checked 90-day list. Live MSFT: 4 sellers / $71.4M.
+  Share counts and amounts are bold; personal names display Amy Hood, Satya Nadella,
+  Judson Althoff and Takeshi Numoto. Form 144 name order is reconciled against Form 4 identities.
+- Form 144 descriptions show the person, proposed shares, estimated value and approximate date.
+  The linked Nadella notice is 86,525 shares (~$43.9M), around Sep 1, 2026; it is not a deadline.
+- 8-K documents are read for the actual event. MSFT shows Reporting segment changes:
+  FY2027, Agents and Infra / Devices and Consumer. Short descriptions replace form definitions;
+  important details are bold. No extra AI call; successful detail reads are reused while the worker runs.
+- Latest news searches the company name, covers 30 days and excludes call/put option activity
+  and quote pages. Desktop analysis permits five lines; mobile retains two plus per-group Expand all.
+- Relevant final Python checks: 98 passed; five focused browser checks, lint/build and independent
+  review passed. Live HTTPS MSFT reports verified after restart; dashboard and bot services active.
+- Broader dashboard checks: 756 passed, 7 skipped, 3 existing failures. Feed latency, synthetic-auth
+  ordering and the backup permission fixture remain open and are recorded in TODO #121.
+- Remaining requests: investigate site/ticker response time and decide which additional company
+  events are actionable. Paid-data restrictions were removed from the requested next-step list.
+- Code saved locally through 13fda9e; the bye command starts the background gate and branch PR merge.
+  No comm-check-fail entries were saved this session. The first bye was incorrectly treated as a farewell;
+  the user corrected it and the repository session-close procedure was then invoked.
