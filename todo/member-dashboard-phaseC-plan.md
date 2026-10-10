@@ -1,7 +1,7 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Deployed 2026-10-09 night (PR #37): pre-open 1-hour results no longer saved flat (32 refilled), off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up. Next: sync the live workspace, find the feed concurrency slowdown, worker egress allowlist, 17 browser-test failures, own Google Drive client id. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Live checkout synchronized while preserving the other session's options-flow work. Feed concurrency repair deployed: all 60 live HTTPS reads succeeded in a 20-member burst; authentication and permission checks remain enforced. Full dashboard backend suite: 803 passed, seven skipped, no failures. Next: worker egress allowlist, browser-test backlog, dedicated Drive client and owner-triggered end of testing mode. Outcome/calendar and insider-total repairs from PR #37 remain deployed. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
@@ -187,3 +187,19 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
 - Code saved locally through 13fda9e; the bye command starts the background gate and branch PR merge.
   No comm-check-fail entries were saved this session. The first bye was incorrectly treated as a farewell;
   the user corrected it and the repository session-close procedure was then invoked.
+
+### Session notes — 2026-10-10 Pacific (feed concurrency and checkout sync)
+
+- Synchronized the live checkout to merged PR #37 after matching stale dashboard
+  edits to committed versions and saving exact originals. The unrelated
+  options-flow files retained their original SHA256 hashes.
+- Repaired concurrent feed reading without caching or skipping permissions.
+  Authentication shares the admitted transaction; queued sessions are checked
+  at admission; temporary contention stays within the bounded request budget.
+- Deployed only two dashboard feed files, restarted API/worker, and verified
+  60/60 real HTTPS reads from 20 temporary members. Administration remained 403;
+  every temporary member was suspended and sessions revoked.
+- Six Linux isolation checks pass after fixing umask-dependent test fixtures;
+  one cgroup check skipped. Final full dashboard suite: 803 passed, seven skipped,
+  no failures in 296.74 seconds. Independent review found no actionable issue.
+- Evidence and limits: [feed repair report](member-dashboard-feed-concurrency.md).
