@@ -22,12 +22,14 @@ ALERT_SYMBOLS = 60    # Tickers of the newest alerts and setups, so Overview car
 INTERVAL = 60
 STALE = 1800          # A quote older than this is not served.
 ACTIVE = 600          # "Signed in" = a session seen in the last 10 minutes.
-# NYSE calendar from nyse.com (checked 2026-10-09); add the next year's dates before 2028.
+# NYSE calendar: https://www.nyse.com/trade/hours-calendars (checked 2026-10-10); covers through 2028.
 HOLIDAYS = frozenset((
     '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07',
     '2026-11-26', '2026-12-25', '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18',
-    '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24'))
-EARLY_CLOSE = frozenset(('2026-11-27', '2026-12-24', '2027-11-26'))  # Regular session ends 10:00 AM Pacific.
+    '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24',
+    '2028-01-17', '2028-02-21', '2028-04-14', '2028-05-29', '2028-06-19', '2028-07-04', '2028-09-04',
+    '2028-11-23', '2028-12-25'))  # January 1, 2028 is Saturday; December 31, 2027 stays open.
+EARLY_CLOSE = frozenset(('2026-11-27', '2026-12-24', '2027-11-26', '2028-07-03', '2028-11-24'))  # 10:00 AM Pacific.
 
 
 def open_day(t):

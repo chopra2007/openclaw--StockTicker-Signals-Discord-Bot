@@ -1,9 +1,34 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Deployed 2026-10-09 night (PR #37): pre-open 1-hour results no longer saved flat (32 refilled), off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up. Next: sync the live workspace, find the feed concurrency slowdown, worker egress allowlist, 17 browser-test failures, own Google Drive client id. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Next: worker egress allowlist and browser-test backlog. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
+
+### Session notes — 2026-10-10 Pacific: Drive, calendar and normal limits
+
+- Drive backup remote moved from rclone's quota-blocked shared app to the existing
+  owner-managed Google app. Original folder and permission scope retained;
+  upload/download SHA256 matched. Original private configuration preserved.
+- 2028 NYSE closures and early closes deployed; 33 calendar/outcome tests passed,
+  plus five outcome-semantics checks under private umask 077.
+- Owner delegated the testing-mode decision: normal member limits restored to
+  protect capacity; both designated test members suspended through the existing
+  audit/denial path and sessions removed. Real HTTPS login limit, feed and admin
+  separation checked. Authentication/research/assistant/admin tests: 249 passed,
+  one skipped. Seven services active and ownership checks passed.
+- [Evidence and rollback locations](member-dashboard-drive-calendar-normal-use.md).
+  Worker network restrictions and browser-test work remain open. No GitHub push.
+
+### Session notes — 2026-10-10 Pacific: session close
+
+- Saved the feed concurrency repair, Drive connection repair, 2028 calendar and
+  normal-limit verification in this session's branch. Independent review found
+  no actionable calendar/setup issue. Remaining work stays open.
+- Closing from a separate Linux checkout so the live checkout's uncommitted
+  work is preserved. The background branch script will run the regression gate,
+  open this branch's PR and merge only when its checks pass. A failed gate or
+  merge remains visible in the next session's notifications.
 
 ## What the code really has (found at start)
 
@@ -187,3 +212,19 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
 - Code saved locally through 13fda9e; the bye command starts the background gate and branch PR merge.
   No comm-check-fail entries were saved this session. The first bye was incorrectly treated as a farewell;
   the user corrected it and the repository session-close procedure was then invoked.
+
+### Session notes — 2026-10-10 Pacific (feed concurrency and checkout sync)
+
+- Synchronized the live checkout to merged PR #37 after matching stale dashboard
+  edits to committed versions and saving exact originals. The unrelated
+  options-flow files retained their original SHA256 hashes.
+- Repaired concurrent feed reading without caching or skipping permissions.
+  Authentication shares the admitted transaction; queued sessions are checked
+  at admission; temporary contention stays within the bounded request budget.
+- Deployed only two dashboard feed files, restarted API/worker, and verified
+  60/60 real HTTPS reads from 20 temporary members. Administration remained 403;
+  every temporary member was suspended and sessions revoked.
+- Six Linux isolation checks pass after fixing umask-dependent test fixtures;
+  one cgroup check skipped. Final full dashboard suite: 803 passed, seven skipped,
+  no failures in 296.74 seconds. Independent review found no actionable issue.
+- Evidence and limits: [feed repair report](member-dashboard-feed-concurrency.md).

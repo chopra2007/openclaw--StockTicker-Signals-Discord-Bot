@@ -1231,19 +1231,17 @@ alerts/setups with explained matches, inspection, watchlists and locally saved w
 This is a bounded signal shortlist, not whole-market coverage; details and test limits below.
 
 **Next session — highest-value improvements (in order):**
-1. Follow a new chart post through bot/dashboard, verify next-day outcomes, and
-   improve generic source explanations where actual evidence exists.
-2. Check consistent outcome periods, market holidays and missing-price handling,
-   then repair the existing test/lint backlog without weakening access/data checks.
-3. Assess reliable, genuinely free broader-market data before adding volume,
-   liquidity or market-cap filters. Keep the bounded screener if coverage is inadequate.
-[Latest repairs and next-session evidence](todo/member-dashboard-oct7-fixes.md).
+1. Add the worker egress allowlist without blocking its supported sources.
+2. Repair the separately recorded browser-test backlog without weakening checks.
+3. Drive connection, 2028 calendar and normal usage limits are now verified live:
+   [completed follow-ups](todo/member-dashboard-drive-calendar-normal-use.md).
+[Latest feed repairs and live evidence](todo/member-dashboard-feed-concurrency.md).
 
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Deployed 2026-10-09 night (PR #37): pre-open 1-hour results no longer saved flat (32 refilled), off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up. Next: sync the live workspace, find the feed concurrency slowdown, worker egress allowlist, 17 browser-test failures, own Google Drive client id. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Next: worker egress allowlist and browser-test backlog. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
@@ -1376,11 +1374,11 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
      checksums verified, then deleted; disk 80% -> 73% used. The rclone Drive login uses rclone's shared client id, which
      Google retires during 2026 — create an own client id to keep Drive backups working.
    - NEXT SESSION (in order):
-     1. Sync the live workspace (`/home/openclaw/.openclaw/workspace`): 8+ commits behind origin/master, CRLF-only noise in the
+     1. DONE 2026-10-10: Sync the live workspace (`/home/openclaw/.openclaw/workspace`): 8+ commits behind origin/master, CRLF-only noise in the
         #121 files, and another session's uncommitted options-flow edits (`consensus_engine/scanners/options.py`,
         `tests/test_options_flow.py`, `tests/test_display_honesty_todo98.py`) - keep those. Until synced, the 06:00 drift check
         keeps alerting on #121.
-     2. Feed slowdown: 20 concurrent `read_feed` calls take ~5 s each (one alone 0.04 s; 2/3 of the time in per-card
+     2. DONE 2026-10-10: Feed slowdown: 20 concurrent `read_feed` calls take ~5 s each (one alone 0.04 s; 2/3 of the time in per-card
         `_authorize` lookups). Find the cause without weakening permission checks; then the last failing dashboard test passes.
      3. Worker egress allowlist (the worker can still reach any host; now also news.google.com and sec.gov).
      4. 17 failing browser (Playwright) tests.

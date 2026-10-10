@@ -329,3 +329,30 @@ def test_holidays_and_early_closes_follow_the_nyse_calendar():
     assert track_record.in_session(at(2026, 11, 27, 9, 30)) and not track_record.in_session(early)
     assert track_record.can_trade(early, early + 3600) and not track_record.can_trade(at(2026, 11, 27, 14, 5), at(2026, 11, 27, 15, 5))
     assert track_record.in_session(at(2026, 10, 9, 12, 59)) and not track_record.in_session(at(2026, 10, 9, 13, 0))
+
+
+@pytest.mark.parametrize('month,day', [(1, 17), (2, 21), (4, 14), (5, 29), (6, 19), (7, 4),
+                                     (9, 4), (11, 23), (12, 25)])
+def test_2028_exchange_holidays_stop_quotes_and_outcome_sessions(month, day):
+    stamp = datetime(2028, month, day, 9, 0, tzinfo=PACIFIC).timestamp()
+    assert not market_board.market_hours(stamp)
+    assert not track_record.in_session(stamp)
+    assert not track_record.can_trade(stamp, stamp + 3600)
+
+
+@pytest.mark.parametrize('month,day', [(7, 3), (11, 24)])
+def test_2028_early_closes_apply_to_quotes_and_outcomes(month, day):
+    at = lambda hour, minute: datetime(2028, month, day, hour, minute, tzinfo=PACIFIC).timestamp()
+    assert track_record.in_session(at(9, 59))
+    assert not track_record.in_session(at(10, 0))
+    assert market_board.market_hours(at(10, 15))
+    assert not market_board.market_hours(at(10, 16))
+    assert track_record.can_trade(at(13, 59), at(14, 0))
+    assert not track_record.can_trade(at(14, 0), at(15, 0))
+
+
+@pytest.mark.parametrize('year,month,day', [(2027, 12, 31), (2028, 12, 22), (2028, 7, 5)])
+def test_2028_adjacent_days_keep_the_normal_session(year, month, day):
+    stamp = datetime(year, month, day, 12, 0, tzinfo=PACIFIC).timestamp()
+    assert market_board.market_hours(stamp)
+    assert track_record.in_session(stamp)

@@ -798,6 +798,96 @@ def test_twenty_member_local_projection_and_poll_latency(source_feed):
     print(f'20-member synthetic projection/poll: {elapsed:.3f}s wall; visible after 20s synthetic cadence')
 
 
+def test_overloaded_feed_reads_obey_deadline_and_recover(feed):
+    from concurrent.futures import ThreadPoolExecutor
+    import time
+    sync=service(feed)
+    publish(feed)
+    # One admitted read holds the lane. A second may wait only until its
+    # original deadline, without opening another database connection.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with sync._transaction(time.monotonic()+1):
+            def waiting_read():
+                with sync._transaction(time.monotonic()+.05):
+                    return 'opened'
+            future=pool.submit(waiting_read)
+            with pytest.raises(TimeoutError,match='feed_deadline'):
+                future.result(timeout=1)
+    assert sync.read_feed(feed.principal,'feed').records[0].operation=='upsert'
+
+
+@pytest.mark.parametrize('latest',[False,True])
+@pytest.mark.parametrize('token',[False,True])
+def test_queued_feed_read_checks_session_at_admission(feed,monkeypatch,latest,token):
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import contextmanager
+    import threading
+    from member_dashboard.auth import AuthError
+    sync=service(feed)
+    publish(feed)
+    waiting,release=threading.Event(),threading.Event()
+    original=sync._transaction
+    @contextmanager
+    def delayed(*args,**kwargs):
+        waiting.set()
+        assert release.wait(timeout=1)
+        with original(*args,**kwargs) as con: yield con
+    monkeypatch.setattr(sync,'_transaction',delayed)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future=pool.submit(sync.latest if latest else sync.read_feed,'feed-session' if token else feed.principal,'feed')
+        try:
+            assert waiting.wait(timeout=1)
+            feed.dashboard.clock.advance(7201)
+        finally: release.set()
+        with pytest.raises(AuthError): future.result(timeout=2)
+
+
+@pytest.mark.parametrize('endpoint',['/feed','/feed/latest'])
+def test_feed_overload_returns_retryable_unavailable(feed,monkeypatch,endpoint):
+    sync=service(feed)
+    def overloaded(*args,**kwargs): raise TimeoutError('feed_deadline')
+    monkeypatch.setattr(sync,'_transaction',overloaded)
+    response=feed.dashboard.client.get('/api/v1'+endpoint)
+    assert response.status_code==503
+    assert response.json()=={'error':'unavailable','message':'Request unavailable.'}
+
+
+@pytest.mark.parametrize('endpoint',['/feed','/setups','/feed/latest','/setups/latest','/alerts/latest'])
+def test_feed_authentication_shares_the_bounded_read_transaction(feed,monkeypatch,endpoint):
+    from member_dashboard.auth import AuthError
+    original=feed.dashboard.app.state.auth.principal
+    def bounded(token,now,*,con=None,touch=True):
+        # Independent authentication transactions can exhaust their lock wait
+        # before a feed read is admitted. Require the already admitted one.
+        if con is None: raise AuthError()
+        return original(token,now,con=con,touch=touch)
+    monkeypatch.setattr(feed.dashboard.app.state.auth,'principal',bounded)
+    assert feed.dashboard.client.get('/api/v1'+endpoint).status_code==200
+    feed.dashboard.client.cookies.clear()
+    assert feed.dashboard.client.get('/api/v1'+endpoint).status_code==401
+
+
+def test_browser_feed_waits_for_a_brief_writer_before_authentication(feed):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    import time
+    sync=service(feed)
+    publish(feed)
+    # Production reconciles authority inside BEGIN IMMEDIATE. A normal short
+    # supervisor write must not consume a browser's old 50ms read-only wait.
+    feed.dashboard.store.authority=SimpleNamespace(reconcile=lambda con:None)
+    started=threading.Event()
+    def read():
+        started.set()
+        return sync.read_feed('feed-session','feed')
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with feed.dashboard.store.transaction():
+            future=pool.submit(read)
+            assert started.wait(timeout=1)
+            time.sleep(.15)
+        assert future.result(timeout=3).records[0].operation=='upsert'
+
+
 def test_slow_permission_reconciliation_commits_bounded_fair_progress(source_feed):
     import time
     feed,sync=source_feed

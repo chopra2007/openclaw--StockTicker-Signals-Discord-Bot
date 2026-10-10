@@ -13,6 +13,7 @@ import json
 import logging
 import math
 import sqlite3
+import threading
 import time
 from uuid import NAMESPACE_URL,uuid5,uuid4
 
@@ -328,11 +329,20 @@ class FeedService:
         self.store=store; self.auth=auth; self.policy=policy; self.signing_key=signing_key
         self.clock=clock; self.reader=reader; self.lineage_resolver=lineage_resolver; self.sources=tuple(sources)
         self.publisher=Publisher(store,policy,retraction_clearance=retraction_clearance)
+        # Many tiny SQLite calls across concurrent Python threads contend far
+        # more than one bounded read. Queue reads, not permission decisions;
+        # writers keep their independent bounded reconciliation lane.
+        self._read_lock=threading.Lock()
 
     @contextmanager
     def _transaction(self,deadline, *, write=False, busy_ms=50):
-        conn=self.store._connect()
+        admitted=False
+        conn=None
         try:
+            if not write:
+                admitted=self._read_lock.acquire(timeout=max(0,deadline-time.monotonic()))
+                if not admitted: raise TimeoutError('feed_deadline')
+            conn=self.store._connect()
             remaining=deadline-time.monotonic()
             if remaining<=0: raise TimeoutError('feed_deadline')
             conn.execute('PRAGMA busy_timeout='+str(max(1,min(busy_ms,int(remaining*1000)))))
@@ -345,9 +355,11 @@ class FeedService:
             if time.monotonic()>=deadline: raise TimeoutError('feed_deadline')
             conn.commit()
         except BaseException:
-            conn.rollback()
+            if conn is not None: conn.rollback()
             raise
-        finally: conn.close()
+        finally:
+            if conn is not None: conn.close()
+            if admitted: self._read_lock.release()
 
     def _sign(self,body):
         raw=base64.urlsafe_b64encode(json.dumps(body,sort_keys=True,separators=(',',':')).encode()).rstrip(b'=')
@@ -395,8 +407,12 @@ class FeedService:
     def read_feed(self,principal,feature,cursor=None,limit=50) -> FeedPage:
         if feature not in {'feed','setups'} or type(limit) is not int or not 1<=limit<=100:
             raise FeedError('invalid_request',422)
-        now=self.clock()
-        with self._transaction(time.monotonic()+1) as conn:
+        # A browser read formerly had a separate 2-second authentication lock
+        # wait before its 1-second read. Keep that total budget in one lane.
+        browser=isinstance(principal,str)
+        with self._transaction(time.monotonic()+(3 if browser else 1),busy_ms=2000 if browser else 50) as conn:
+            now=self.clock()
+            if isinstance(principal,str): principal=self.auth.principal(principal,now,con=conn)
             self.auth.revalidate(principal,now,con=conn)
             feature_row=conn.execute('SELECT enabled,version FROM features WHERE name=?',(feature,)).fetchone()
             if not feature_row or not feature_row[0]: raise FeedError('forbidden',403)
@@ -444,18 +460,22 @@ class FeedService:
         setup cards need a computed trade plan (buy zone or stop, and a target).
         """
         from .contracts import LatestCard,LatestPage,TradePlan,Chart,group_alert
-        from .market_board import schwab_allowed
+        from .market_board import schwab_sources
         if feature not in {'feed','setups'} or type(limit) is not int or not 1<=limit<=50:
             raise FeedError('invalid_request',422)
-        now=self.clock()
-        chart_allowed=schwab_allowed(self.policy,'display_raw',now) and schwab_allowed(self.policy,'retain',now)
         # Group alerts (#alerts posts) have their own panel: the analyst-calls list leaves them out.
         names=(source.value,) if source else tuple(s.value for s in self.sources if s is not SourceName.SWARM)
         # Writers (copier, worker) hold the lock for milliseconds every second: wait for them.
-        with self._transaction(time.monotonic()+5,busy_ms=3000) as conn:
+        with self._transaction(time.monotonic()+(7 if isinstance(principal,str) else 5),busy_ms=3000) as conn:
+            now=self.clock()
+            if isinstance(principal,str): principal=self.auth.principal(principal,now,con=conn)
             self.auth.revalidate(principal,now,con=conn)
             feature_row=conn.execute('SELECT enabled FROM features WHERE name=?',(feature,)).fetchone()
             if not feature_row or not feature_row[0]: raise FeedError('forbidden',403)
+            try:
+                chart_allowed=all(self.policy._authorize(conn,schwab_sources(),use,now).allowed
+                                  for use in ('display_raw','retain'))
+            except Exception: chart_allowed=False
             sources=self._freshness(conn,now)
             rows=conn.execute('SELECT h.card_id,h.source_id,p.* FROM publication_heads h JOIN publications p ON p.id=h.publication_id '
                 'WHERE h.feature=? AND h.active=1 AND h.authority_blocked=0 AND p.observed_at>? AND h.source_id IN '
