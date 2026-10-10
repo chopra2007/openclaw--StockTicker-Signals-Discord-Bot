@@ -1,7 +1,7 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-09 late, Pacific):** Dashboard and cached-data screener are live, with the SEC filing improvements deployed earlier today. Committed on branch `todo121-outcomes-oct9` but NOT yet deployed (the deploy step was blocked by a permission check): pre-open 1-hour results no longer saved flat, off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up, two test fixes. Next: deploy, reset the flat rows, then the feed concurrency slowdown. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Deployed 2026-10-09 night (PR #37): pre-open 1-hour results no longer saved flat (32 refilled), off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up. Next: sync the live workspace, find the feed concurrency slowdown, worker egress allowlist, 17 browser-test failures, own Google Drive client id. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
