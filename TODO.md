@@ -1243,7 +1243,7 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-07 Pacific):** Dashboard fixes are live: Account dismissal, original analyst times/images, combined screening, inspection charts, recovered directions and direction-aware outcomes. Focused checks pass; 12 broad-suite failures match the existing research baseline. Lint is clean as of 10-08 (see redesign entry below). Missing historical data and ambiguous direction remain explicit. No paid service/dependency introduced. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-09 Pacific):** Dashboard and cached-data screener are live. SEC filings now show complete insider details, specific proposed sales and short company-event descriptions with important figures highlighted and personal names first-name-first. Routine transactions are hidden; latest news excludes options quote pages and covers 30 days. Desktop analysis allows five lines; mobile has Expand all. Changes are deployed and browser-verified. Next: investigate site/ticker response times, repair the remaining regression checks and assess broader actionable filing selection. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
