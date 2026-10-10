@@ -1,7 +1,7 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
-**Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Next: worker egress allowlist and browser-test backlog. Other launch follow-ups remain open.
+**Status:** OPEN — live dashboard; worker network plan agreed, implementation and other follow-ups remain
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Worker network-restriction plan independently agreed with Claude Opus 5.5 at medium effort; no implementation or deployment. Next: execute the saved plan only on a separate instruction, then address the browser-test backlog. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
@@ -228,3 +228,21 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
   one cgroup check skipped. Final full dashboard suite: 803 passed, seven skipped,
   no failures in 296.74 seconds. Independent review found no actionable issue.
 - Evidence and limits: [feed repair report](member-dashboard-feed-concurrency.md).
+
+### Session notes — 2026-10-10 Pacific (worker network restrictions: plan only)
+
+- Read project rules, current live TODO notes, loaded service units, deployed source,
+  compute identity/cgroup and live connection state. Existing work was preserved.
+- Codex wrote its own proposal before the independent local Claude CLI review.
+  Claude Opus 5.5, medium effort, examined the same evidence before seeing Codex's
+  proposal. Follow-up calls resolved the differences and accepted the final plan.
+- [Agreed implementation plan](../docs/superpowers/plans/2026-10-10-todo121-dashboard-network-restrictions.md)
+  and [proposal comparison](../docs/superpowers/plans/2026-10-10-todo121-network-review.md).
+- Plan: seven exact HTTPS provider hosts through a restricted local proxy; block
+  direct compute connections and other local ports; preserve quota/authority sockets
+  and bot services. Tests, staged observation, scoped rollout and exact rollback included.
+- No unresolved reviewer disagreement. Stronger encrypted-tunnel inspection and
+  containment of a compromised privileged supervisor remain outside this scope.
+- Expected size: 2–4 engineering days plus full trading-session observation.
+- No code/config implementation, runtime tests, firewall change or deployment.
+  Next: refresh current source and execute the plan only on a separate instruction.
