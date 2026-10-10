@@ -1,9 +1,24 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; data coverage, regression checks and launch follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Live checkout synchronized while preserving the other session's options-flow work. Feed concurrency repair deployed: all 60 live HTTPS reads succeeded in a 20-member burst; authentication and permission checks remain enforced. Full dashboard backend suite: 803 passed, seven skipped, no failures. Next: worker egress allowlist, browser-test backlog, dedicated Drive client and owner-triggered end of testing mode. Outcome/calendar and insider-total repairs from PR #37 remain deployed. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Next: worker egress allowlist and browser-test backlog. Other launch follow-ups remain open.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
+
+### Session notes — 2026-10-10 Pacific: Drive, calendar and normal limits
+
+- Drive backup remote moved from rclone's quota-blocked shared app to the existing
+  owner-managed Google app. Original folder and permission scope retained;
+  upload/download SHA256 matched. Original private configuration preserved.
+- 2028 NYSE closures and early closes deployed; 33 calendar/outcome tests passed,
+  plus five outcome-semantics checks under private umask 077.
+- Owner delegated the testing-mode decision: normal member limits restored to
+  protect capacity; both designated test members suspended through the existing
+  audit/denial path and sessions removed. Real HTTPS login limit, feed and admin
+  separation checked. Authentication/research/assistant/admin tests: 249 passed,
+  one skipped. Seven services active and ownership checks passed.
+- [Evidence and rollback locations](member-dashboard-drive-calendar-normal-use.md).
+  Worker network restrictions and browser-test work remain open. No GitHub push.
 
 ## What the code really has (found at start)
 

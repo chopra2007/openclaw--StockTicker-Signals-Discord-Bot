@@ -72,7 +72,8 @@ the required log check. Final checks and saved changes are in the Phase C log.
 
 ## Still open
 
-Worker egress restrictions, the separately recorded browser-test backlog, a
-dedicated Drive OAuth client and the owner-triggered end of testing mode remain.
-The calendar needs its next year added before current coverage ends. This work
-does not claim the whole TODO is complete or whole-market screening is available.
+Worker egress restrictions and the separately recorded browser-test backlog
+remain. The Drive connection, 2028 calendar and end of testing mode were handled
+in the [next repair round](member-dashboard-drive-calendar-normal-use.md).
+This work does not claim the whole TODO is complete or whole-market screening
+is available.

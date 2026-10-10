@@ -1233,14 +1233,15 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 **Next session — highest-value improvements (in order):**
 1. Add the worker egress allowlist without blocking its supported sources.
 2. Repair the separately recorded browser-test backlog without weakening checks.
-3. Establish a dedicated Drive client; end testing mode when the owner says ready.
+3. Drive connection, 2028 calendar and normal usage limits are now verified live:
+   [completed follow-ups](todo/member-dashboard-drive-calendar-normal-use.md).
 [Latest feed repairs and live evidence](todo/member-dashboard-feed-concurrency.md).
 
 **Details:** [Deployment runbook](deploy/member-dashboard/README.md),
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Live checkout synchronized while preserving the other session's options-flow work. Feed concurrency repair deployed: all 60 live HTTPS reads succeeded in a 20-member burst; authentication and permission checks remain enforced. Full dashboard backend suite: 803 passed, seven skipped, no failures. Next: worker egress allowlist, browser-test backlog, dedicated Drive client and owner-triggered end of testing mode. Outcome/calendar and insider-total repairs from PR #37 remain deployed. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Next: worker egress allowlist and browser-test backlog. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
