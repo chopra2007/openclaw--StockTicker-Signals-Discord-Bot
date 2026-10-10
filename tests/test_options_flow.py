@@ -61,8 +61,20 @@ def test_format_flow_alert_contents():
                   premium_usd=8_260_000.0, last_trade_ts=time.time(), spot=430.0,
                   flow_side="BUY", flow_side_note="at-ask")
     txt = format_flow_alert(hit)
-    assert "TSLA" in txt and "CALL-side" in txt and "17.1x" in txt and "$8.26M" in txt
+    assert "TSLA" in txt and "CALL-BUY" in txt and "17x" in txt and "$8.26M" in txt
     assert "BULLISH" not in txt and "BEARISH" not in txt
+
+
+def test_format_flow_alert_requested_asts_display(monkeypatch):
+    _side_flags(monkeypatch, collect=True, labels_live=True)
+    hit = FlowHit("ASTS", "CALL", 50.0, "2026-10-09", 26537, 110,
+                  241.2, 2_840_000.0, time.time(), 50.97,
+                  flow_side="BUY", flow_side_note="at-ask")
+    assert format_flow_alert(hit) == (
+        "UNUSUAL OPTIONS FLOW — $ASTS  CALL-BUY\n"
+        "**CALL** 2026-10-09 $50 strike | spot $50.97\n"
+        "Volume **26,537** vs OI **110** (241x) | premium **$2.84M**"
+    )
 
 
 @pytest.fixture
@@ -169,19 +181,19 @@ def _hit(side, flow_side, note=""):
 def test_format_flow_alert_appends_side_tag_when_collected(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "BUY", "at-ask"))
-    assert "side: BUY (at-ask)" in txt
+    assert "CALL-BUY" in txt and "side:" not in txt
 
 
 def test_format_flow_alert_ambiguous_side_tag_has_no_note(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "AMBIGUOUS"))
-    assert "side: AMBIGUOUS" in txt and "()" not in txt
+    assert "  CALL\n" in txt and "side:" not in txt
 
 
 def test_format_flow_alert_no_side_tag_when_collect_off(monkeypatch):
     _side_flags(monkeypatch, collect=False, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "BUY", "at-ask"))
-    assert "side:" not in txt
+    assert "CALL-BUY" in txt and "side:" not in txt
 
 
 def test_format_flow_alert_direction_unchanged_when_labels_live_off(monkeypatch):
@@ -190,15 +202,15 @@ def test_format_flow_alert_direction_unchanged_when_labels_live_off(monkeypatch)
     # still read "CALL-side activity", never a BULLISH/BEARISH stock call.
     _side_flags(monkeypatch, collect=True, labels_live=False)
     txt = format_flow_alert(_hit("CALL", "SELL", "at-bid"))
-    assert "CALL-side" in txt
+    assert "CALL-SELL" in txt
     assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
 @pytest.mark.parametrize("side,flow_side,expect", [
-    ("CALL", "BUY",  "CALL-side"),
-    ("PUT",  "SELL", "PUT-side"),
-    ("CALL", "SELL", "CALL-side"),
-    ("PUT",  "BUY",  "PUT-side"),
+    ("CALL", "BUY",  "CALL-BUY"),
+    ("PUT",  "SELL", "PUT-SELL"),
+    ("CALL", "SELL", "CALL-SELL"),
+    ("PUT",  "BUY",  "PUT-BUY"),
 ])
 def test_format_flow_alert_direction_from_side_flags_live(monkeypatch, side, flow_side, expect):
     # TODO #98: options_flow.side_labels_live no longer changes the direction
@@ -213,7 +225,7 @@ def test_format_flow_alert_direction_from_side_flags_live(monkeypatch, side, flo
 def test_format_flow_alert_ambiguous_direction_when_labels_live(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_hit("CALL", "AMBIGUOUS"))
-    assert "CALL-side" in txt
+    assert "  CALL\n" in txt
     assert "BULLISH" not in txt and "BEARISH" not in txt
 
 
@@ -285,11 +297,11 @@ def test_flow_tier_base_when_side_ambiguous():
 def test_format_flow_alert_sweep_tier_uses_sweep_header(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_flow_hit(60.0, "BUY", "AA"))
-    assert "🔥" in txt and "SWEEP" in txt
+    assert "SWEEP" in txt
     assert "UNUSUAL OPTIONS FLOW" not in txt
 
 
 def test_format_flow_alert_base_tier_uses_base_header(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
     txt = format_flow_alert(_flow_hit(25.0, "BUY", "at-ask"))
-    assert "UNUSUAL OPTIONS FLOW" in txt and "🔥" not in txt
+    assert "UNUSUAL OPTIONS FLOW" in txt

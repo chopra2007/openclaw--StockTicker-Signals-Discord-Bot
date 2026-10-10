@@ -552,37 +552,22 @@ async def scan_options_flow(
 def format_flow_alert(hit) -> str:
     """Render a FlowHit as an unusual-activity Discord alert (Alert Philosophy).
 
-    TODO #97/#98: this signal was measured at the next tradeable open —
-    profit factor 1.03, win rate 47.4%, on 2,281 events. It is NOT a proven
-    money-maker, so the wording below reports what was actually observed
-    (which option side traded, and how heavy the volume was against open
-    interest) rather than a stock-direction call. The real BUY/SELL/AMBIGUOUS
-    transaction-side tag (from classify_flow_side) is appended separately
-    when options_flow.side_collect is on (mirrors the [staleness unverified]
-    tag idiom) — that describes what actually printed and is unchanged.
-    The rare "sweep" tier (_flow_tier) gets a distinct 🔥 SWEEP header so the
-    two tiers are visually distinguishable at a glance; its option P&L is
-    equally unproven and gets no separate claim here.
+    Show the option type and measured transaction side in the header. Keep
+    unknown transaction sides unlabeled. The rare sweep tier keeps its own
+    header. This does not infer stock direction or trade profitability.
     """
     flow_side = getattr(hit, "flow_side", "") or ""
-    direction = "🟢 CALL-side activity" if hit.side == "CALL" else "🔴 PUT-side activity"
+    direction = f"{hit.side}-{flow_side}" if flow_side in ("BUY", "SELL") else hit.side
     prem_m = hit.premium_usd / 1_000_000.0
     spot_txt = f" | spot ${hit.spot:,.2f}" if hit.spot else ""
     # C12: be honest when we couldn't verify the contract's last-trade freshness.
     stale_txt = " _[staleness unverified]_" if getattr(hit, "staleness_unverified", False) else ""
-    side_txt = ""
-    if _cfg.get("options_flow.side_collect", False) and flow_side:
-        note = f" ({hit.flow_side_note})" if getattr(hit, "flow_side_note", "") else ""
-        side_txt = f" _[side: {flow_side}{note}]_"
-    # User's call (2026-08-09): keep the header "SWEEP", no disclaimer footer.
-    header = "🔥 **SWEEP**" if _flow_tier(hit) == "sweep" else "⚡ **UNUSUAL OPTIONS FLOW**"
+    header = "SWEEP" if _flow_tier(hit) == "sweep" else "UNUSUAL OPTIONS FLOW"
     return (
-        f"{header} — `${hit.ticker}` {direction}\n"
+        f"{header} — ${hit.ticker}  {direction}\n"
         f"**{hit.side}** {hit.expiry} ${hit.strike:g} strike{spot_txt}\n"
-        f"Volume **{hit.volume:,}** vs OI {hit.open_interest:,} "
-        f"(**{hit.vol_oi_ratio:.1f}x** — volume above open interest) | "
-        f"premium **${prem_m:.2f}M**{stale_txt}{side_txt}\n"
-        f"_Unusual option activity — not a confirmed trade signal._"
+        f"Volume **{hit.volume:,}** vs OI **{hit.open_interest:,}** "
+        f"({hit.vol_oi_ratio:.0f}x) | premium **${prem_m:.2f}M**{stale_txt}"
     )
 
 
