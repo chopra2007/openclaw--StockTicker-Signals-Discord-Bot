@@ -597,6 +597,35 @@ async def test_company_event_reads_document_without_generic_fallback(dashboard,s
     finally: await session.close()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('status',[200,403])
+async def test_planned_sale_details_and_owner_names(dashboard,sec_wire,status):
+    from dataclasses import replace
+    from member_dashboard.research import MemberResearchProvider
+    sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
+    sec_wire.replies['/CIK0000000001.json']=(200,recent('144','4'),{})
+    notice=b'<edgarSubmission><submissionType>144</submissionType><nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold>SATYA NADELLA</nameOfPersonForWhoseAccountTheSecuritiesAreToBeSold><securitiesInformation><noOfUnitsSold>86525</noOfUnitsSold><approxSaleDate>09/01/2026</approxSaleDate></securitiesInformation></edgarSubmission>'
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(status,notice,{})
+    sec_wire.replies['/1/000000000126000001/form4.xml']=(200,form4('S').replace(b'Synthetic Owner',b'NADELLA SATYA'),{})
+    ctx,session,meter,_=await context(sec_wire)
+    try:
+        provider=MemberResearchProvider(replace(member_context(dashboard,{}),sec_context=ctx,clock=ctx.clock))
+        result=await provider.compute('SPY','sec',{})
+        sale=next(f for f in result.payload.filings if f.form=='4')
+        assert sale.summary.startswith('Satya Nadella (')
+        assert result.payload.insiders[0].reporter_name=='Satya Nadella'
+        if status==200:
+            planned=next(f for f in result.payload.filings if f.form=='144')
+            assert planned.summary=='Satya Nadella proposed selling **86,525 shares** around **Sep 1, 2026**.'
+            await provider.compute('SPY','sec',{})
+            assert sum('/form4.xml' in path for path in sec_wire.requests)==2
+        else:
+            assert all(f.form!='144' for f in result.payload.filings)
+            assert result.payload.coverage=='partial'
+        assert len(meter.reservations)==len(sec_wire.requests)
+    finally: await session.close()
+
+
 @pytest.mark.parametrize('history_time',['fresh','missing','partial','future','permitted'])
 def test_review_history_observations_gate_chart_inputs(dashboard,history_time):
     import pandas as pd

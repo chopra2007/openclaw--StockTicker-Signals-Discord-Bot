@@ -5,6 +5,7 @@ from .contracts import (SectionResult, SecPayload, Filing, InsiderSummary, Metri
     OptionsPayload, OptionContract, MovePayload, MoveRange, QuoteTime, Evidence,
     AnalysisPayload, Level, ContextMetric, Horizon, Quote, Chart)
 from .providers import ProviderContext, ProviderSpec, ResearchCompletion
+from .sec_notices import notice_summary, person_name, canonical_notice_name
 
 
 def metric(value, unit, method):
@@ -27,7 +28,7 @@ def _insider_line(detail):
     rows=detail.data if detail is not None and detail.status in ('ok','partial') and detail.data else ()
     if not rows: return 'Insider transaction details unavailable.'
     first=rows[0]
-    name=first.reporter_name.title() if first.reporter_name.isupper() else first.reporter_name
+    name=person_name(first.reporter_name,last_first=True)
     trades=[r for r in rows if r.transaction_type in ('Open Market Purchase','Open Market Sale')]
     if trades:
         parts=[]
@@ -47,6 +48,7 @@ class MemberResearchProvider:
         self.context=context
         self._form4_details={}
         self._event_details={}
+        self._notice_details={}
 
     def register(self, registry):
         for section,lineage in self.context.lineage.items():
@@ -128,10 +130,26 @@ class MemberResearchProvider:
             return self._result('sec',message=outcome.reason_code,observed_at=outcome.observed_at)
         self._authorize('sec',observed_at=outcome.observed_at)
         details={item.accession:item.outcome for item in research.details}
+        owner_names=[tx.reporter_name for detail in details.values() if detail.status in ('ok','partial') for tx in (detail.data or ())]
         filings,insiders=[],[]
         coverage=research.coverage
         for row in outcome.data:
             event=None
+            notice=None
+            if row.form=='144':
+                self._authorize('sec','retain')
+                key=(row.cik,row.accession_number,row.primary_document)
+                notice=self._notice_details.get(key)
+                if notice is None:
+                    document=await fetch_filing_document_outcome(*key,context)
+                    notice=notice_summary(document.data) if document.status=='ok' else None
+                    if notice:
+                        if len(self._notice_details)>=128: self._notice_details.pop(next(iter(self._notice_details)))
+                        self._notice_details[key]=notice
+                if not notice:
+                    coverage='partial'
+                    continue
+                notice=canonical_notice_name(notice,owner_names)
             if row.form=='8-K':
                 self._authorize('sec','retain')
                 key=(row.cik,row.accession_number,row.primary_document)
@@ -148,7 +166,7 @@ class MemberResearchProvider:
             detail=details.get(row.accession_number)
             status='ok' if row.form != '4' or detail and detail.status == 'ok' else 'unavailable' if detail else 'not_requested'
             filings.append(Filing(accession=row.accession_number,form=row.form,filed_at=row.filed_at,
-                title=event[0] if event else FORM_TITLES.get(row.form,row.form),summary=event[1] if event else _insider_line(detail) if row.form=='4' else FORM_NOTES.get(row.form,''),
+                title=event[0] if event else FORM_TITLES.get(row.form,row.form),summary=notice or (event[1] if event else _insider_line(detail) if row.form=='4' else FORM_NOTES.get(row.form,'')),
                 url=row.url,detail_status=status))
             if row.form == '4':
                 transactions=detail.data if detail and detail.status in ('ok','partial') else ()
@@ -163,7 +181,7 @@ class MemberResearchProvider:
                     selected=[tx for tx in transactions if tx.transaction_type==kind]
                     return metric(sum(tx.shares*tx.price for tx in selected),'USD','verified open-market shares times price') if complete and selected else None
                 insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value,
-                    reporter_name=transactions[0].reporter_name if transactions else None,
+                    reporter_name=person_name(transactions[0].reporter_name,last_first=True) if transactions else None,
                     bought_value=side_value('Open Market Purchase'),sold_value=side_value('Open Market Sale')))
                 if routine:
                     filings.pop()

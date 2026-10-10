@@ -115,7 +115,7 @@ export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,s
  const side=(f:SecPayload['filings'][number])=>f.form==='4'&&f.detail_status==='ok'?
   /\) bought\b/.test(f.summary)?'buy':/\) sold\b/.test(f.summary)?'sell':null:null;
  return <><p className="rp-insider-line">{insiderLine(p)}</p>
- <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{f.form==='8-K'?eventSummary(f.summary):tradeSummary(f.summary)}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
+ <ul className="filings">{rows.map(f=>{const direction=side(f);return <li key={f.accession}><span><SafeLink url={f.url}>{formNames[f.form]||f.title}</SafeLink>{direction&&<span className={'filing-side '+direction}>{direction==='buy'?'Buy':'Sell'}</span>}</span>{f.summary&&<p>{f.form==='8-K'||f.form==='144'?eventSummary(f.summary):tradeSummary(f.summary)}</p>}<small>{formatShort(f.filed_at).split(',')[0]}</small></li>})}</ul>
  {hidden>0&&<button type="button" className="show-more" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Show fewer':`Show all ${sorted.length}`}</button>}</>}
 
 /** History's saved reports: the sections still show as panels, with the analysis split into the same groups. */

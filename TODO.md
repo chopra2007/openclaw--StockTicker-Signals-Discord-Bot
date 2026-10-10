@@ -1335,6 +1335,15 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    FOLLOW-UP 2026-10-09 Pacific: shorten company-event descriptions to the key announcement;
    reporting-segment changes show the start year and both segment names in bold. Remove website
    and exhibit boilerplate. Five event-reader and five focused browser checks, lint and build pass.
+   FOLLOW-UP 2026-10-09 Pacific: Form 144 notices now show the person, proposed shares, estimated
+   value and approximate sale date in a short description with important figures bold. Read once
+   and reuse up to 128 successful notices; unreadable notices are omitted with partial coverage.
+   Personal SEC names display first-name-first, including surname-first notices matched to the
+   same person's Form 4 identity; generated analysis also requests first-name-first names.
+   Live source check: Satya Nadella proposed 86,525 shares (~$43.9M) around Sep 1, 2026, not a deadline.
+   Live refreshed report verifies Amy Hood, Satya Nadella, Judson Althoff and Takeshi Numoto;
+   proposed-sale dates and figures are bold. Relevant Python checks: 98 passed; five focused browser
+   checks, lint and production build passed. Independent review clear; dashboard and bot services active.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other
