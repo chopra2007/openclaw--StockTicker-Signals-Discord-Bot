@@ -43,6 +43,14 @@ def _flush_narrator_cache():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _member_throttles_on(monkeypatch):
+    # Production startup reads /etc/member-dashboard/testing-phase; on the live host that file lifts the
+    # throttles for every later test in the run. Each test starts from the code default instead.
+    from member_dashboard import testing_phase
+    monkeypatch.setattr(testing_phase, 'THROTTLES_ON', True)
+
+
 @dataclass
 class FakeClock:
     now: float = 1_791_225_000.0
