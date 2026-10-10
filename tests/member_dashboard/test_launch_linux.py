@@ -33,7 +33,7 @@ def test_actual_readonly_wal_and_secret_denial():
     if os.getuid()!=0: pytest.skip('Isolated root runner required for numeric UID sandbox proof')
     with tempfile.TemporaryDirectory(prefix='member-launch-sandbox-') as directory:
         root=Path(directory);root.chmod(0o755)
-        market=root/'market';market.mkdir(mode=0o750);os.chown(market,0,65534)
+        market=root/'market';market.mkdir(mode=0o750);market.chmod(0o750);os.chown(market,0,65534)
         secret=root/'denied';secret.mkdir(mode=0o700)
         (secret/'synthetic-secret').write_text('synthetic-only')
         db=market/'source.sqlite3'
@@ -97,7 +97,7 @@ def test_gated_compute_actual_cgroup_registration_and_recovery(monkeypatch):
         journal_dir=run/'journal';journal_dir.mkdir(mode=0o700)
         highwater=run/'highwater';highwater.mkdir(mode=0o700)
         journal=DenialJournal.create(journal_dir/'journal',journal_dir/'anchor',checkpoint=CheckpointStore.create(highwater/'checkpoint'))
-        authority_dir=run/'authority';authority_dir.mkdir(mode=0o750);os.chown(authority_dir,0,65534)
+        authority_dir=run/'authority';authority_dir.mkdir(mode=0o750);authority_dir.chmod(0o750);os.chown(authority_dir,0,65534)
         authority=AuthorityServer(AuthorityService(journal,read_uids=[65534],write_uids=[]),str(authority_dir/'rpc'))
         os.chown(authority_dir/'rpc',0,65534)
         config=run/'compute.json'
@@ -250,7 +250,7 @@ print(json.dumps({'ambient_before':mask,'held_after':0,'identity_change_denied':
     from member_dashboard.exit_control import ExitRegistry,ExitControlServer
     with tempfile.TemporaryDirectory(prefix='ambient-',dir='/run') as directory:
         root=Path(directory);root.chmod(0o755)
-        socketdir=root/'control';socketdir.mkdir(mode=0o750);os.chown(socketdir,0,65534)
+        socketdir=root/'control';socketdir.mkdir(mode=0o750);socketdir.chmod(0o750);os.chown(socketdir,0,65534)
         store=WebStore(root/'quota');store.migrate()
         registry=ExitRegistry(QuotaBroker(store),supervisor_uid=65533,compute_uid=65534,cgroup_root=Path('/sys/fs/cgroup/synthetic'))
         server=ExitControlServer(registry,str(socketdir/'rpc'));os.chown(socketdir/'rpc',0,65534)
