@@ -20,6 +20,16 @@ Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file i
 - [Evidence and rollback locations](member-dashboard-drive-calendar-normal-use.md).
   Worker network restrictions and browser-test work remain open. No GitHub push.
 
+### Session notes — 2026-10-10 Pacific: session close
+
+- Saved the feed concurrency repair, Drive connection repair, 2028 calendar and
+  normal-limit verification in this session's branch. Independent review found
+  no actionable calendar/setup issue. Remaining work stays open.
+- Closing from a separate Linux checkout so the live checkout's uncommitted
+  work is preserved. The background branch script will run the regression gate,
+  open this branch's PR and merge only when its checks pass. A failed gate or
+  merge remains visible in the next session's notifications.
+
 ## What the code really has (found at start)
 
 - Production role code (`member_dashboard/operations.py`) is hard-wired closed: empty provider list,
