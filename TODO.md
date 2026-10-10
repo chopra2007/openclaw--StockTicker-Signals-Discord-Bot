@@ -1243,7 +1243,7 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
 [Phase C plan + log](todo/member-dashboard-phaseC-plan.md),
 [cached-data screener audit and implementation](todo/member-dashboard-screener.md).
 
-**CURRENT STATUS (2026-10-09 Pacific):** Dashboard and cached-data screener are live. SEC filings now show complete insider details, specific proposed sales and short company-event descriptions with important figures highlighted and personal names first-name-first. Routine transactions are hidden; latest news excludes options quote pages and covers 30 days. Desktop analysis allows five lines; mobile has Expand all. Changes are deployed and browser-verified. Next: investigate site/ticker response times, repair the remaining regression checks and assess broader actionable filing selection. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-09 late, Pacific):** Dashboard and cached-data screener are live, with the SEC filing improvements deployed earlier today. Committed on branch `todo121-outcomes-oct9` but NOT yet deployed (the deploy step was blocked by a permission check): pre-open 1-hour results no longer saved flat, off-hours alerts measured from the last real trade, NYSE holidays/early closes, insider totals in the analysis write-up, two test fixes. Next: deploy, reset the flat rows, then the feed concurrency slowdown. Other launch follow-ups remain open.
 
 **Done 2026-10-07/08 (owner-approved dark redesign + follow-ups, ALL LIVE, merged to master):**
 - Look: dark only (owner choice), "Gekko meets iOS": black page, one card colour (no grey nested in grey), green main
@@ -1266,7 +1266,7 @@ This is a bounded signal shortlist, not whole-market coverage; details and test 
   Track-record Python tests 22 passed (run with umask 077; the backup test needs private file permissions).
 - Deploy notes: web deploys were done by hand (rsync web/member-dashboard, `npm run build`, restart frontend) and the
   Python change by rsync of member_dashboard + restart of api/worker. `release.sh` was NOT used because it also copies
-  consensus_engine into the dashboard's copy. Rollback of the web part: `/opt/member-dashboard/rollback-redesign-20261007`.
+  consensus_engine into the dashboard's copy. Rollback of the web part: moved to Google Drive `BACKUP/member-dashboard-2026-10-09/rollback-redesign-20261007.tar.gz` (2026-10-09).
 - Possible next: longer sign-in (now 2 h idle / 12 h max; many sites use 7-30 days); light theme if wanted.
 
 **Done 2026-10-06 (owner decisions):** admin `akash` created; test member `phasec_probe` suspended.
@@ -1357,3 +1357,21 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    `test_accounts_backup_resets_track_cursors_when_alert_copies_are_removed`
    (`private_permissions_required`, also reproduced in the live checkout; test fixture lacks private permissions).
    No full-suite pass is claimed.
+
+8. Session 2026-10-09 late (Claude), branch `todo121-outcomes-oct9`, commits 23dfb66, e20398d, b84692b — NOT DEPLOYED:
+   - Bug found from live data: alerts before 6:30 AM got a "1-hour result" equal to the alert price (e.g. TSLA 6:01 AM
+     $375.00 -> $375.00 while it traded near $388). Cause: `fill_hours` wrote the alert price whenever its minute data had
+     no trade in the hour, without checking the data reached that far. Now it retries until the data covers the hour.
+   - Owner decision 2026-10-09: alerts outside regular hours start from the last real trade before the alert (the bot's
+     quote was yesterday's close). Dashboard only; the bot is unchanged.
+   - NYSE holidays and early closes 2026-2027 (nyse.com) in `market_board.py`; add 2028 before it starts.
+   - Item 6 done: the analysis write-up gets "N insiders sold $X on the open market in the last 90 days".
+   - Tests: isolation path guard and testing-phase flag leak fixed; dashboard suite 4 failed -> 1 failed
+     (`test_twenty_member_local_projection_and_poll_latency`: 20 concurrent feed reads take ~5 s each though one takes
+     0.04 s; ruled out host load, writes, the progress-handler interval and GIL switch interval; cause still unknown).
+   - To finish: copy the 5 changed `member_dashboard/*.py` files into `/opt/member-dashboard/current/member_dashboard/`,
+     restart api + worker, then set `price_1h=NULL` on track rows outside the regular session whose bot `price_1h_later` is
+     NULL, so the worker refills them; check TSLA 2026-10-09 06:01 reads ~$388 -> ~$384.
+   - Disk: 13 old rollback/stage/test folders (~7.4 GB) moved to Google Drive `BACKUP/member-dashboard-2026-10-09` with
+     checksums verified, then deleted; disk 80% -> 73% used. The rclone Drive login uses rclone's shared client id, which
+     Google retires during 2026 — create an own client id to keep Drive backups working.
