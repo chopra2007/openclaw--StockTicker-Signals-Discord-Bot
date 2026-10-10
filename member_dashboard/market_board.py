@@ -22,12 +22,28 @@ ALERT_SYMBOLS = 60    # Tickers of the newest alerts and setups, so Overview car
 INTERVAL = 60
 STALE = 1800          # A quote older than this is not served.
 ACTIVE = 600          # "Signed in" = a session seen in the last 10 minutes.
+# NYSE calendar from nyse.com (checked 2026-10-09); add the next year's dates before 2028.
+HOLIDAYS = frozenset((
+    '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07',
+    '2026-11-26', '2026-12-25', '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18',
+    '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24'))
+EARLY_CLOSE = frozenset(('2026-11-27', '2026-12-24', '2027-11-26'))  # Regular session ends 10:00 AM Pacific.
+
+
+def open_day(t):
+    """`t`: a Pacific datetime. Weekday and not an NYSE holiday."""
+    return t.weekday() < 5 and t.date().isoformat() not in HOLIDAYS
+
+
+def close_minute(t):
+    """Minute of the Pacific day the regular session ends: 1:00 PM, or 10:00 AM on an early close."""
+    return 10 * 60 if t.date().isoformat() in EARLY_CLOSE else 13 * 60
 
 
 def market_hours(now):
-    """Weekdays 6:00 AM - 1:15 PM Pacific (the regular session plus a little padding)."""
+    """Trading days 6:00 AM - 15 minutes after the close, Pacific (the regular session plus a little padding)."""
     t = datetime.fromtimestamp(now, PACIFIC)
-    return t.weekday() < 5 and 6 * 60 <= t.hour * 60 + t.minute <= 13 * 60 + 15
+    return open_day(t) and 6 * 60 <= t.hour * 60 + t.minute <= close_minute(t) + 15
 
 
 def recent_tickers(con, now, limit=ALERT_SYMBOLS):

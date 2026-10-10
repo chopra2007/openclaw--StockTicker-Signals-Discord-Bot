@@ -12,7 +12,7 @@ import sqlite3
 from statistics import median
 import time
 
-from .market_board import PACIFIC, TICKER, market_hours
+from .market_board import PACIFIC, TICKER, close_minute, market_hours, open_day
 
 WINDOW = 90 * 86400     # Alerts older than this are not counted.
 # Owner decision 2026-10-07: the live record starts fresh on 2026-10-04 00:00 Pacific and grows a day at a time up to WINDOW.
@@ -73,6 +73,7 @@ def _closes(history, now):
 HOURS_EVERY = 15 * 60    # Owner 2026-10-07: 1-hour prices outside regular hours are filled every 15 minutes...
 HOURS_GRACE = 30 * 60    # ...so a missing 1-hour price stays "pending" this long before it reads "unavailable".
 HOURS_TICKERS = 10       # Schwab calls per run (the dashboard shares the bot's Schwab login).
+LOOKBACK = 4 * 86400     # Owner 2026-10-09: an alert outside regular hours starts from the last trade before it (covers 3-day weekends).
 _hours_last = [0.0]
 
 
@@ -86,10 +87,13 @@ def _price_at(frame, start, end):
 
 
 async def fill_hours(store, client, allowed, clock=time.time):
-    """1-hour price for alerts the bot leaves blank (posted or ending outside 6:30 AM-1 PM Pacific).
+    """1-hour price for alerts the bot leaves blank (posted or ending outside the regular session).
 
     The bot fills regular-session hours itself. Here: the last trade at or before alert+1h, pre-market and after-hours
     included; when nothing traded in that hour (overnight, weekend) the price did not move, so it is the alert price.
+    "Nothing traded" needs minute data reaching past the hour: data that stops earlier (2026-10-09: the 6:01 AM
+    alerts were saved flat) is tried again next run. An alert posted outside the regular session also takes the last
+    trade before it as its price, instead of the bot's quote (yesterday's close before the pre-market).
     """
     now = clock()
     if now - _hours_last[0] < HOURS_EVERY or not allowed(): return 0
@@ -103,15 +107,20 @@ async def fill_hours(store, client, allowed, clock=time.time):
             todo.setdefault(ticker, []).append((alert_id, alerted_at, price))
     filled = 0
     for ticker, alerts in todo.items():
-        span = math.ceil((now - min(a[1] for a in alerts)) / 86400) + 1
+        span = math.ceil((now - min(a[1] for a in alerts) + LOOKBACK) / 86400) + 1
         period = '1d' if span <= 1 else '2d' if span <= 2 else '5d' if span <= 5 else '10d'
         try: frame = await asyncio.to_thread(client.get_price_history, ticker, period=period, interval='1m', extended_hours=True)
         except Exception: continue  # Tried again next run.
         if frame is None or not len(frame): continue  # No minute data at all: not a quiet hour; tried again next run.
+        last = frame.index[-1].timestamp() + 60
         with store.transaction() as con:
             for alert_id, alerted_at, price in alerts:
-                value = _price_at(frame, alerted_at, alerted_at + 3600) or price
-                filled += con.execute('UPDATE track_alerts SET price_1h=? WHERE alert_id=? AND price_1h IS NULL', (value, alert_id)).rowcount
+                end = alerted_at + 3600
+                value = _price_at(frame, alerted_at, end)
+                if value is None and last < end and can_trade(alerted_at, end): continue  # Data does not cover the hour yet.
+                start = price if in_session(alerted_at) else _price_at(frame, alerted_at - LOOKBACK, alerted_at) or price
+                filled += con.execute('UPDATE track_alerts SET price_1h=?,price=? WHERE alert_id=? AND price_1h IS NULL',
+                                      (value or start, start, alert_id)).rowcount
     return filled
 
 
@@ -143,9 +152,17 @@ def _spy_move(days, closes, alerted_at, steps):
 
 
 def in_session(stamp):
-    """Regular session: weekdays 6:30 AM - 1:00 PM Pacific."""
+    """Regular session: trading days 6:30 AM - 1:00 PM Pacific (10:00 AM on an early close)."""
     t = datetime.fromtimestamp(stamp, PACIFIC)
-    return t.weekday() < 5 and 6 * 60 + 30 <= t.hour * 60 + t.minute < 13 * 60
+    return open_day(t) and 6 * 60 + 30 <= t.hour * 60 + t.minute < close_minute(t)
+
+
+def can_trade(start, end):
+    """Any of [start, end] inside extended hours: trading days 4:00 AM until 4 hours after the close, Pacific."""
+    for stamp in range(int(start), int(end) + 1, 300):
+        t = datetime.fromtimestamp(stamp, PACIFIC)
+        if open_day(t) and 4 * 60 <= t.hour * 60 + t.minute < close_minute(t) + 4 * 60: return True
+    return False
 
 
 def open_for_1h(alerted_at):
