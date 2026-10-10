@@ -148,7 +148,7 @@ class MemberResearchProvider:
                 insiders.append(InsiderSummary(accession=row.accession_number,summary={'conviction':'Open-market transaction reported.','routine':'Routine transactions reported.','unknown':'Insider detail coverage incomplete.'}[label],conviction=label,transaction_value=value,
                     reporter_name=transactions[0].reporter_name if transactions else None,
                     bought_value=side_value('Open Market Purchase'),sold_value=side_value('Open Market Sale')))
-                if transactions and not conviction and all(tx.transaction_type in ('Award/Grant','Tax Withholding') for tx in transactions):
+                if routine:
                     filings.pop()
         warning='Filing or insider detail coverage is incomplete.' if research.coverage == 'partial' else None
         message='No non-routine filings in the last 90 days.' if not filings and research.coverage == 'complete' else warning if not filings else None

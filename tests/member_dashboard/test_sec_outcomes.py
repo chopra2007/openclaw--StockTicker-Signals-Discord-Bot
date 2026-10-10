@@ -535,12 +535,13 @@ async def test_review_unknown_form4_classification_not_routine(dashboard,sec_wir
 
 
 @pytest.mark.asyncio
-async def test_routine_form4_hidden_and_successful_details_reused(dashboard,sec_wire):
+@pytest.mark.parametrize('routine_code',['A','F','G','M','D'])
+async def test_routine_form4_hidden_and_successful_details_reused(dashboard,sec_wire,routine_code):
     from dataclasses import replace
     from member_dashboard.research import MemberResearchProvider
     sec_wire.replies['/map']=(200,{'0':{'ticker':'SPY','cik_str':1}},{})
     sec_wire.replies['/CIK0000000001.json']=(200,recent('4','4'),{})
-    sec_wire.replies['/1/000000000126000000/form4.xml']=(200,form4('A'),{})
+    sec_wire.replies['/1/000000000126000000/form4.xml']=(200,form4(routine_code),{})
     sec_wire.replies['/1/000000000126000001/form4.xml']=(200,form4('S'),{})
     ctx,session,_,_=await context(sec_wire)
     try:

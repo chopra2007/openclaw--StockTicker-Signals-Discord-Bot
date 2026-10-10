@@ -13,4 +13,4 @@ for(const extension of ['.ts','.tsx'])require.extensions[extension]=(module,file
 const React=load('react'),{renderToStaticMarkup}=load('react-dom/server');
 const {Sec,AnalysisPart}=load('../src/components/research-section.tsx');
 const input=JSON.parse(fs.readFileSync(0,'utf8'));
-process.stdout.write(renderToStaticMarkup(input.component==='news'?React.createElement(AnalysisPart,{result:input.result,part:'news',price:null}):React.createElement(Sec,{p:input,message:null})));
+process.stdout.write(renderToStaticMarkup(input.component==='news'||input.component==='call'?React.createElement(AnalysisPart,{result:input.result,part:input.component,price:null}):React.createElement(Sec,{p:input,message:null})));

@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {Evidence,Quote,SectionResult} from '@/lib/contracts';
 import {formatShort,formatDay} from '@/lib/time';
 import {compact,money,parseNote,signedPct,sourceLabel,timeAgo,type NotePoint} from '@/lib/format';
@@ -23,10 +23,11 @@ export function ReportGroup({result,title,className,children}:{result:SectionRes
  return <Group title={title} className={className}>{busy&&!p?<div className="skeleton-list"><span/><span/></div>:p?children(p):<p className="quiet">{result.section==='sec'&&result.message?result.message:unavailable[result.section]}</p>}</Group>}
 
 /** A catalyst or risk: two lines, tap to read the rest. */
-function ClampPoint({point}:{point:NotePoint}){const [open,setOpen]=useState(false);const long=point.text.length>110;
- const body=<span className={long&&!open?'rp-clamp':undefined}>{point.label&&<strong>{point.label}. </strong>}{point.text}</span>;
- return <li>{long?<button type="button" className="rp-point" aria-expanded={open} onClick={()=>setOpen(o=>!o)}>{body}<span className="rp-more">{open?'Show less':'More'}</span></button>:body}</li>}
-const Points=({points,className}:{points:NotePoint[];className?:string})=><ul className={'rp-points '+(className||'')}>{points.map((x,i)=><ClampPoint key={i} point={x}/>)}</ul>;
+function ClampPoint({point,expandAll}:{point:NotePoint;expandAll:boolean}){const [open,setOpen]=useState(false),[truncated,setTruncated]=useState(false);const body=useRef<HTMLSpanElement>(null);const expanded=expandAll||open;
+ useEffect(()=>{const element=body.current;if(!element)return;const observer=new ResizeObserver(()=>setTruncated(element.scrollHeight>element.clientHeight+1));observer.observe(element);return()=>observer.disconnect();},[point.text,point.label,expanded]);
+ return <li><span ref={body} className={expanded?'rp-point-text':'rp-point-text rp-clamp'}>{point.label&&<strong>{point.label}. </strong>}{point.text}</span>
+ {!expandAll&&(truncated||open)&&<button type="button" className="rp-point rp-more" aria-expanded={open} onClick={()=>setOpen(o=>!o)}>{open?'Show less':'More'}</button>}</li>}
+function Points({points,className}:{points:NotePoint[];className?:string}){const [all,setAll]=useState(false);return <><button type="button" className="rp-point rp-expand-all" aria-expanded={all} onClick={()=>setAll(a=>!a)}>{all?'Collapse all':'Expand all'}</button><ul className={'rp-points '+(className||'')}>{points.map((x,i)=><ClampPoint key={`${i}-${all}`} point={x} expandAll={all}/>)}</ul></>}
 
 function Call({p}:{p:AnalysisPayload}){const note=parseNote(p.summary);const year=(p.horizons??[]).find(h=>h.label==='year'&&h.low?.value!=null&&h.high?.value!=null);
  return <>{note.headline&&<p className="rp-headline">{note.headline}</p>}
@@ -108,7 +109,7 @@ function tradeSummary(text:string){return text.split(/(\$[\d,.]+[KMBT]?|[\d,]+(?
 const formNames:Record<string,string>={'144':'Planned sale'};
 export function Sec({p,message}:{p:SecPayload;message:string|null}){const [all,setAll]=useState(false);
  if(p.filings.length===0)return <p className="quiet">{message||'No filings in the last 90 days.'}</p>;
- const sorted=p.filings.filter(f=>!/: routine (?:award\/grant|tax withholding)(?:, (?:award\/grant|tax withholding))*, not an open-market trade\./i.test(f.summary)).sort((a,b)=>(b.filed_at??0)-(a.filed_at??0)),hidden=Math.max(0,sorted.length-8);
+ const sorted=p.filings.filter(f=>!/: routine\b/i.test(f.summary)).sort((a,b)=>(b.filed_at??0)-(a.filed_at??0)),hidden=Math.max(0,sorted.length-8);
  const rows=all?sorted:sorted.slice(0,8);
  const side=(f:SecPayload['filings'][number])=>f.form==='4'&&f.detail_status==='ok'?
   /\) bought\b/.test(f.summary)?'buy':/\) sold\b/.test(f.summary)?'sell':null:null;

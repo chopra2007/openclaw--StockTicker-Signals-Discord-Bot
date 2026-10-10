@@ -6,7 +6,7 @@ import type {SectionResult} from '../src/lib/contracts';
 type SecPayload=Extract<NonNullable<SectionResult['payload']>,{kind:'sec'}>;
 test('routine filings are hidden and distinct buyer/seller totals and trade numbers are clear',async({page})=>{
  const filings=Array.from({length:10},(_,i)=>({accession:`filing-${i}`,form:'4',filed_at:1700000000+i*86400,title:'Insider trade',
-  summary:i===8?'Buyer (Director) bought 100 shares for $2M on the open market.':i===7?'Seller (Director) sold 41,674 shares for $20.8M on the open market.':'Example (Director): routine award/grant, not an open-market trade.',
+  summary:i===8?'Buyer (Director) bought 100 shares for $2M on the open market.':i===7?'Seller (Director) sold 41,674 shares for $20.8M on the open market.':i===9?'Example (Director): routine gift, not an open-market trade.':'Example (Director): routine award/grant, not an open-market trade.',
   url:`https://www.sec.gov/Archives/example-${i}`,detail_status:'ok' as const}));
  const p:SecPayload={kind:'sec',coverage:'complete',filings,insiders:filings.map((f,i)=>({accession:f.accession,summary:'Reported.',
   conviction:i===8||i===7?'conviction':'routine',transaction_value:i===8||i===7?{value:i===8?2e6:20.8e6,unit:'USD',method:'shares times price'}:null})),warning:null};
@@ -21,6 +21,18 @@ test('routine filings are hidden and distinct buyer/seller totals and trade numb
  await expect(page.locator('.rp-insider-line')).toHaveText('1 insider bought $2M; 1 insider sold $20.8M in the last 90 days.');
  await expect(rows.nth(1).locator('strong')).toHaveText(['41,674','$20.8M']);
  await expect(page.getByRole('button')).toHaveCount(0);
+});
+
+test('desktop text permits five lines and mobile has an expand-all control',async({page})=>{
+ const result={payload:{kind:'analysis',summary:'**TL;DR:** Example.\n\n## Catalysts\n- **Event:** '+('Company announcement explains the event and its consequences. '.repeat(12))+'\n\n## Outlook\n- **Next year:** Example.'},evidence:[]};
+ await page.setViewportSize({width:1200,height:900});
+ await page.setContent(execFileSync(process.execPath,['e2e/render-sec.cjs'],{input:JSON.stringify({component:'call',result}),encoding:'utf8'}));
+ await page.addStyleTag({content:readFileSync('src/app/globals.css','utf8').replace('@import "tailwindcss";','')});
+ await expect(page.locator('.rp-clamp').first()).toHaveCSS('-webkit-line-clamp','5');
+ await expect(page.getByRole('button',{name:'Expand all'})).toBeHidden();
+ await page.setViewportSize({width:390,height:844});
+ await expect(page.locator('.rp-clamp').first()).toHaveCSS('-webkit-line-clamp','2');
+ await expect(page.getByRole('button',{name:'Expand all'})).toBeVisible();
 });
 
 test('repeat filings count one seller and mixed transactions preserve each amount',async({page})=>{

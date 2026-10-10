@@ -1321,6 +1321,12 @@ TESTING PHASE: member throttles lifted until the owner says "ready to ship" (lis
    quote pages in collection and display. Live MSFT shows AI-model, Surface and visa-program headlines.
    Final targeted SEC checks: 66 passed; collector/news checks: 14 passed; bot SEC: 11 passed;
    three focused browser checks, lint and production build passed; independent review clear.
+   FOLLOW-UP 2026-10-09 Pacific: all routine Form 4s (including gifts and option exercises) hidden;
+   saved-report filtering also hides routine rows. Analysis/risks allow five lines on desktop;
+   More appears only when text actually overflows. Mobile keeps two lines plus per-group Expand all /
+   Collapse all, including reset of individually expanded points. SEC tests: 70 passed; four focused
+   browser checks and frontend lint/build passed. Broader actionable company-event selection is a
+   recommendation pending the owner's decision, not implemented by treating every 8-K as important.
 7. Pre-existing test failures to fix (fail on the last commit too): test_migration_is_idempotent (expects 10
    migrations, there are 11), test_twenty_member_local_projection_and_poll_latency, two test_isolation tests
    (fail when the checkout path contains /.openclaw/), test_synthetic_auth_boundary (fails only after other
