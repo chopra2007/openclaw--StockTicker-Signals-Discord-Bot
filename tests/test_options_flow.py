@@ -71,15 +71,15 @@ def test_format_flow_alert_requested_asts_display(monkeypatch):
                   241.2, 2_840_000.0, time.time(), 50.97,
                   flow_side="BUY", flow_side_note="at-ask")
     assert format_flow_alert(hit) == (
-        "UNUSUAL OPTIONS FLOW — $ASTS 🟢 CALL-BUY\n"
+        "⚡ **UNUSUAL OPTIONS FLOW** — `$ASTS` 🟢 CALL-BUY\n"
         "**CALL** 2026-10-09 $50 strike | spot $50.97\n"
-        "Volume **26,537** vs OI **110** (241x) | premium **$2.84M**"
+        "Volume **26,537** vs OI **110** (**241x**) | premium **$2.84M**"
     )
 
 
 def test_format_flow_alert_put_keeps_red_marker(monkeypatch):
     _side_flags(monkeypatch, collect=True, labels_live=True)
-    assert "— $TSLA 🔴 PUT-SELL\n" in format_flow_alert(_hit("PUT", "SELL", "at-bid"))
+    assert "— `$TSLA` 🔴 PUT-SELL\n" in format_flow_alert(_hit("PUT", "SELL", "at-bid"))
 
 
 @pytest.fixture

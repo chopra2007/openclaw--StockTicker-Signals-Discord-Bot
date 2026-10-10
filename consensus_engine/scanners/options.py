@@ -563,12 +563,12 @@ def format_flow_alert(hit) -> str:
     spot_txt = f" | spot ${hit.spot:,.2f}" if hit.spot else ""
     # C12: be honest when we couldn't verify the contract's last-trade freshness.
     stale_txt = " _[staleness unverified]_" if getattr(hit, "staleness_unverified", False) else ""
-    header = "SWEEP" if _flow_tier(hit) == "sweep" else "UNUSUAL OPTIONS FLOW"
+    header = "🔥 **SWEEP**" if _flow_tier(hit) == "sweep" else "⚡ **UNUSUAL OPTIONS FLOW**"
     return (
-        f"{header} — ${hit.ticker} {marker} {direction}\n"
+        f"{header} — `${hit.ticker}` {marker} {direction}\n"
         f"**{hit.side}** {hit.expiry} ${hit.strike:g} strike{spot_txt}\n"
         f"Volume **{hit.volume:,}** vs OI **{hit.open_interest:,}** "
-        f"({hit.vol_oi_ratio:.0f}x) | premium **${prem_m:.2f}M**{stale_txt}"
+        f"(**{hit.vol_oi_ratio:.0f}x**) | premium **${prem_m:.2f}M**{stale_txt}"
     )
 
 
