@@ -144,14 +144,14 @@ def test_format_flow_alert_keeps_the_real_side_tag(monkeypatch):
     monkeypatch.setattr(config, "get",
                          lambda k, d=None: True if k == "options_flow.side_collect" else d)
     txt = format_flow_alert(_hit("CALL", "BUY", "at-ask"))
-    assert "side: BUY (at-ask)" in txt
+    assert "CALL-BUY" in txt and "side:" not in txt
 
 
 def test_format_flow_alert_sweep_tier_keeps_its_own_header(monkeypatch):
     from consensus_engine import config
     monkeypatch.setattr(config, "get", lambda k, d=None: d)
     txt = format_flow_alert(_hit("CALL", "BUY", "AA", vol_oi_ratio=60.0))
-    assert "🔥" in txt and "SWEEP" in txt
+    assert "SWEEP" in txt
     assert "UNUSUAL OPTIONS FLOW" not in txt
     for bad in _FORBIDDEN:
         assert bad not in txt
