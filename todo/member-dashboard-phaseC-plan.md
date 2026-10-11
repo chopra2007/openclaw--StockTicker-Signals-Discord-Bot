@@ -1,7 +1,7 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; worker network plan agreed, implementation and other follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Worker network-restriction plan independently agreed with Claude Opus 5.5 at medium effort; no implementation or deployment. Next: execute the saved plan only on a separate instruction, then address the browser-test backlog. Other launch follow-ups remain open.
+**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Worker network-restriction plan independently agreed with Claude Opus 5.5 at medium effort; no implementation or deployment. Next: execute the saved plan only on a separate instruction, then address the browser-test backlog. Other launch follow-ups remain open. Gekko-quality gameplan drafted 2026-10-10 (todo/member-dashboard-gekko-gameplan.md); awaiting Codex review and owner approval before any build.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
@@ -29,6 +29,12 @@ Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file i
   work is preserved. The background branch script will run the regression gate,
   open this branch's PR and merge only when its checks pass. A failed gate or
   merge remains visible in the next session's notifications.
+
+### Session notes — 2026-10-10 Pacific (Claude, planning only)
+
+- Read the Gekko audit package in /opt/research/gekko-audit-2026-10-10/ and inventoried features, data, subscriptions and in-flight work.
+- Wrote the phased gameplan: todo/member-dashboard-gekko-gameplan.md. Recommended first release: R1 Chart workspace (candles/volume/markers from OHLCV the report already fetches and discards).
+- No code, deploy or purchase. Next: Codex review, revise, owner decisions D1-D7, then build.
 
 ## What the code really has (found at start)
 
