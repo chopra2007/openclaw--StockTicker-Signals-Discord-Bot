@@ -20,4 +20,4 @@ export default function Page(){const {member}=useSession();const [picked,setTab]
   {setups&&<FeedPanel key={'setups'+member.features.setups.version} feature="setups" accessKey={member.id+member.features.setups.version}/>}
   {feed&&<FeedPanel key={'feed'+member.features.feed.version} feature="feed" accessKey={member.id+member.features.feed.version}/>}
  </div>}
- </div><HomeRail record={!!setups}/></div></main></AppShell>}
+ </div><HomeRail/></div></main></AppShell>}

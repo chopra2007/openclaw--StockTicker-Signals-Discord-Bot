@@ -1,2 +1,4 @@
-import {RecordPanel} from '@/components/record-panel';
-export default function Page(){return <RecordPanel/>;}
+import {redirect} from 'next/navigation';
+
+// Retired from the member UI; preserve stored outcomes for a future rework.
+export default function Page(){redirect('/');}
