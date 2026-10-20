@@ -1,7 +1,9 @@
 # Member dashboard Phase C: working plan (2026-10-05)
 
 **Status:** OPEN — live dashboard; worker network plan agreed, implementation and other follow-ups remain
-**CURRENT STATUS (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Worker network-restriction plan independently agreed with Claude Opus 5.5 at medium effort; no implementation or deployment. Next: execute the saved plan only on a separate instruction, then address the browser-test backlog. Other launch follow-ups remain open. Gekko-quality gameplan drafted 2026-10-10 (todo/member-dashboard-gekko-gameplan.md); awaiting Codex review and owner approval before any build.
+**CURRENT STATUS (2026-10-20 Pacific):** Redesign of the dash.groups.id preview: phases A–E built and saved (build repo /opt/member-dashboard/redesign-20261020, branch todo121-redesign, Phase E commit e5467d9; all checks pass). Codex ran out of usage (resets Oct 27, 12:07 AM PDT); Claude finished Phase E. Paused by owner. Left: Phase F (full check, screenshots, report, deploy/undo scripts) and the preview-only deploy. Next: follow todo/member-dashboard-redesign-resume.md. Preview still shows the old version; main site akash.ignorelist.com unchanged.
+
+**Previous status (2026-10-10 Pacific):** Dashboard and cached-data screener are live. Feed concurrency repair remains deployed and verified. Drive backups now use the existing owner-managed Google app; upload/download verified. The 2028 exchange calendar is deployed. Normal member limits restored and both designated test accounts suspended, with live authentication/feed checks passing. This round: 287 focused tests passed, one skipped; earlier full backend suite: 803 passed, seven skipped. Worker network-restriction plan independently agreed with Claude Opus 5.5 at medium effort; no implementation or deployment. Next: execute the saved plan only on a separate instruction, then address the browser-test backlog. Other launch follow-ups remain open. Gekko-quality gameplan drafted 2026-10-10 (todo/member-dashboard-gekko-gameplan.md); awaiting Codex review and owner approval before any build.
 
 Kickoff: `todo/member-dashboard-phaseC-kickoff.md` (user decisions). This file is the step list and progress log.
 
@@ -252,3 +254,33 @@ throttles lifted. Open: browser test suite not run (port 3444 is the live site),
 - Expected size: 2–4 engineering days plus full trading-session observation.
 - No code/config implementation, runtime tests, firewall change or deployment.
   Next: refresh current source and execute the plan only on a separate instruction.
+
+### Session notes — 2026-10-20 Pacific (redesign of the dash.groups.id preview, in progress)
+
+- dash.groups.id = the Phase 3 preview (snapshot data, preview-only services on ports 3454/3455). Its code
+  existed only on the Windows PC and in `/opt/member-dashboard/phase3-preview/current` (no git).
+- Imported that copy into a new build repo `/opt/member-dashboard/redesign-20261020`, branch
+  `todo121-redesign` (commit 97eac99); spec `docs/superpowers/plans/2026-10-20-dashboard-redesign.md`.
+  Codex can't read the 0700 workspace, so the build lives under /opt.
+- Owner decisions: build here; deploy to the preview ONLY; look free to change; fully automated.
+- Trap: browser tests (`e2e/serve.mjs`) bind 3444/3445 = live main site. Ports must be moved first.
+- Codex reviewed the spec (agreed with changes): `docs/superpowers/plans/2026-10-20-dashboard-redesign-{codex-review,decisions}.md`
+  in the build repo. Automated runner `.redesign/run-phases.sh` (Codex gpt-6-astra, medium; one run per phase
+  A2,B..F; runner commits; stops on BLOCKED). Progress: `.redesign/PROGRESS.md`, `.redesign/runner.log`.
+- Done: A (test ports 3463-3465, commit da2f238), A2 (baseline with pyarrow 26.0.0 added to testvenv, 9f0177c).
+  Phase B started 02:34 PDT. Resume a stopped run with `.redesign/run-phases.sh <phase>`.
+- Phase F only WRITES `.redesign/deploy-preview.sh`/`rollback-preview.sh`; Claude reviews and runs them, then verifies.
+- Box memory is tight (no swap, ~1.5 GB free during tests); build processes set to oom_score_adj 800 so the bot isn't the OOM victim.
+
+### Session notes — 2026-10-20 Pacific (Phase E closed, paused for owner)
+
+- Phases B (576c7fc), C (8524e85), D (192228b) committed by the runner. Codex hit its usage limit at 10:41 PDT
+  during Phase E ("try again at Oct 27th, 2026 12:07 AM").
+- Claude finished Phase E: fixed real regressions the checks found (Overview Setups tab removed; phone hid the
+  analyst panel; phone chart covered its value table; phone Smart Money list cut to 2 rows) and adjusted tests to
+  the new layout without weakening them. Committed e5467d9 with a "## Phase E" entry in `.redesign/PROGRESS.md`.
+- Final Phase E run (`.redesign/verify-phase-e-claude.sh`): lint, typecheck, build pass; unit 210/0; home 7/7,
+  ideas 6/6, smart-money 13/13 groups; funds 1/0, insiders 1/0, company 2/0, events 16/0, sec 5/0; default 434/0 (1 skipped).
+- Trap: Home, Ideas and Smart Money browser checks must run through `npm run test:<mode>` (fresh test data per
+  group); running their configs directly gives false failures. Rebuild before browser checks.
+- Owner will resume in a new session ("resume #121"); steps in `todo/member-dashboard-redesign-resume.md`.
