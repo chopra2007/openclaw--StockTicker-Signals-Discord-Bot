@@ -23,7 +23,8 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID
 AmbientCapabilities=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID
 Delegate=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-# Outbound internet stays open: the compute child calls OpenRouter/SEC/Schwab (no egress proxy yet).
+# Outbound: systemd cannot filter by host name, so the unit stays open to AF_INET/AF_INET6 and the compute child
+# enforces a per-host allowlist itself (member_dashboard/egress.py, installed in run_compute). See README "Worker egress allowlist".
 ReadWritePaths=/var/lib/member-dashboard/web /var/lib/member-dashboard/schwab -/run/member-dashboard-worker
 ReadOnlyPaths=/etc/member-dashboard/worker.json /etc/member-dashboard/compute.json /etc/member-dashboard/providers/openrouter.key -/etc/member-dashboard/providers/schwab.json
 # Reviewed delegated subtree only; parent/other cgroups remain read-only.
@@ -35,7 +36,7 @@ InaccessiblePaths=-/root -/home/openclaw -/var/lib/member-dashboard/quota
 # file bind would go stale). File ACLs let md-supervisor read only consensus.db* in it.
 BindReadOnlyPaths=/home/openclaw/.openclaw/workspace:/run/member-dashboard-market
 # Provider configuration belongs only to a distinct compute UID, not supervisor.
-# External provider traffic requires an explicitly reviewed local egress proxy.
+# External provider traffic is limited to the hosts listed in member_dashboard/egress.py.
 TasksMax=32
 MemoryMax=1G
 KillMode=control-group
