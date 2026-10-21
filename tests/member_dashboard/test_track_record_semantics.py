@@ -61,6 +61,7 @@ def test_accounts_backup_resets_track_cursors_when_alert_copies_are_removed(feed
     from member_dashboard.store import WebStore
     staging = tmp_path / 'snapshot.sqlite3'
     WebStore(staging).migrate()
+    staging.chmod(0o600)
     con = sqlite3.connect(staging)
     con.execute('UPDATE track_sync_state SET last_id=100,new_id=500'); con.commit(); con.close()
     def encrypted(source, *args, **kwargs):

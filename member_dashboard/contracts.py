@@ -77,6 +77,7 @@ class GroupCall(PublicModel):
     analyst: str = Field(max_length=40)
     view: Literal['bullish','bearish','unclear']
     reason: Text
+    post_text: Text | None = None
     observed_at: float | None = None
     url: str | None = Field(default=None, max_length=2048)
     image_urls: list[Annotated[str, Field(max_length=2048)]] = Field(default_factory=list, max_length=4)

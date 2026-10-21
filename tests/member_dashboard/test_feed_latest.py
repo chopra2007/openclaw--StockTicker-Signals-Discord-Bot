@@ -163,3 +163,31 @@ def test_group_alert_preserves_each_post_time_source_and_chart(feed, tmp_path):
     assert call['url'] == member['link']
     assert call['image_urls'] == member['image_urls']
     assert 'Chart attached' in call['reason']
+
+
+def test_group_alert_shows_original_text_without_a_classification_reason(feed, tmp_path):
+    import hashlib, sqlite3
+    from dataclasses import replace
+    from member_dashboard.market_reader import MarketReader, SourceCheckpoint, SourceName
+    from member_dashboard.publication import publishable
+    from test_source_policy import lineage
+    now = feed.dashboard.clock()
+    raw = '$META - Company rejects calls for slowdown'
+    member = dict(analyst='news_author', direction='unclear', reason='reason not stated',
+                  reason_kind='none', analyst_post_view_id=1, source_url='https://x.com/news_author/status/123')
+    path = tmp_path/'bot.db'
+    swarm_rows(path, now, [('META', 60, [member, dict(member, analyst='other_author', analyst_post_view_id=2),
+                                      dict(member, analyst='wrong_author')])])
+    with sqlite3.connect(path) as con:
+        con.execute('CREATE TABLE analyst_post_views(id INTEGER PRIMARY KEY,ticker TEXT,analyst TEXT,source_url TEXT,raw_text TEXT,raw_text_sha256 TEXT)')
+        con.execute('INSERT INTO analyst_post_views VALUES(?,?,?,?,?,?)', (1,'META','news_author',member['source_url'],raw,hashlib.sha256(raw.encode()).hexdigest()))
+        # A mismatched source reference must never expose another author's post.
+        con.execute('INSERT INTO analyst_post_views VALUES(?,?,?,?,?,?)', (2,'OTHER','other_author',member['source_url'],'Other private context',hashlib.sha256(b'Other private context').hexdigest()))
+    batch = MarketReader(path, clock=feed.dashboard.clock).read_batch(SourceName.SWARM, SourceCheckpoint())
+    sources = lineage(); sources.required_features = ['feed']
+    assert feed.publisher.save(publishable(replace(batch.records[0], lineage=sources)), now)
+    calls = latest(feed, 'alerts')[0]['group']['calls']
+    assert calls[0]['post_text'] == raw
+    assert calls[0]['view'] == 'unclear'
+    assert calls[1]['post_text'] is None
+    assert calls[2]['post_text'] is None

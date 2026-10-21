@@ -104,6 +104,8 @@ button,input,textarea,select{font:inherit;letter-spacing:inherit;color:inherit}
 .alert-calls .who{font-weight:600;font-size:15px;align-self:center}
 .alert-calls li p.no-reason{color:var(--secondary)}
 .alert-calls li p{grid-column:1/-1;font-size:15px;line-height:1.4;color:var(--label);overflow-wrap:anywhere}
+.alert-calls li p.screen-note{color:var(--secondary);font-size:12px}
+.alert-calls li p.post-text{white-space:pre-wrap}
 .view{font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;align-self:center}
 .view-bullish{background:var(--up-tint);color:var(--up)}.view-bearish{background:var(--down-tint);color:var(--down)}.view-unclear{background:var(--flat-tint);color:var(--secondary)}
 .card-list>li+li{border-top:.5px solid var(--separator)}

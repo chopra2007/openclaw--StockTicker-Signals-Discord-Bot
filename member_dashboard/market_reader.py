@@ -239,7 +239,8 @@ class MarketReader:
                 now=self.clock()
                 for row in rows:
                     try:
-                        records.append(self._project(source,row,now))
+                        post_texts=self._swarm_post_texts(conn,row) if source==SourceName.SWARM else {}
+                        records.append(self._project(source,row,now,post_texts))
                     except (ValueError,TypeError,KeyError,json.JSONDecodeError,RecursionError):
                         key=row['source_post_key'] if source==SourceName.ANALYST else self._key(spec,row)
                         ticker=row['ticker'] if 'ticker' in row.keys() and _TICKER.fullmatch(str(row['ticker'])) else ''
@@ -361,7 +362,34 @@ class MarketReader:
         next_cursor=self._key(spec,rows[-1]) if rows else checkpoint.reconciliation_cursor
         return rows,SourceCheckpoint(checkpoint.last_id,checkpoint.last_observed_at,next_cursor)
 
-    def _project(self,source,row,now):
+    def _swarm_post_texts(self,conn,row):
+        """Read exact linked public posts, never summaries or unrelated context."""
+        columns={r['name'] for r in conn.execute('PRAGMA table_info(analyst_post_views)')}
+        if not {'id','ticker','analyst','source_url','raw_text','raw_text_sha256'}<=columns:
+            return {}
+        value=row['members_json']
+        if not isinstance(value,str) or len(value)>32768: return {}
+        members=json.loads(value)
+        if not isinstance(members,list) or not 1<=len(members)<=20: return {}
+        ids=[m['analyst_post_view_id'] for m in members if isinstance(m,dict)
+             and type(m.get('analyst_post_view_id')) is int and m['analyst_post_view_id']>0]
+        if not ids: return {}
+        posts={p['id']:p for p in conn.execute('SELECT id,ticker,analyst,source_url,raw_text,raw_text_sha256 '
+            'FROM analyst_post_views WHERE id IN ('+','.join('?' for _ in ids)+')',ids)}
+        result={}
+        for member in members:
+            if not isinstance(member,dict): continue
+            post=posts.get(member.get('analyst_post_view_id'))
+            if post is None or post['ticker']!=row['ticker'] or post['analyst']!=member.get('analyst'): continue
+            url=safe_url(member.get('source_url'))
+            if not url or url!=safe_url(post['source_url']): continue
+            raw=post['raw_text']
+            _text(raw,16000)
+            if hashlib.sha256(raw.encode()).hexdigest()!=post['raw_text_sha256']: continue
+            result[(post['id'],post['analyst'],url)]=raw[:4000] if raw.strip() else None
+        return result
+
+    def _project(self,source,row,now,post_texts=None):
         if source in {SourceName.SOURCE_HEALTH,SourceName.ROUTINE_HEALTH}:
             # Health is a separate sanitized admin surface, never evidence.
             raise ValueError('operational source is not market content')
@@ -462,6 +490,7 @@ class MarketReader:
                 lines.append(f"@{handle} ({calls[member['direction']]}): {reason}")
                 stamp=member.get('observed_at')
                 group_calls.append(GroupCall(analyst=handle,view=calls[member['direction']],reason=reason,
+                    post_text=(post_texts or {}).get((member.get('analyst_post_view_id'),handle,safe_url(member.get('source_url')))),
                     observed_at=_timestamp(stamp,now,optional=True) if stamp is not None else None,
                     url=safe_url(member.get('source_url') or member.get('link')),image_urls=images,
                     posted_at=_timestamp(member.get('posted_at'),now,optional=True)))
