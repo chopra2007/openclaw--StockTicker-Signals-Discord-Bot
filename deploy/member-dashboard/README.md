@@ -26,7 +26,7 @@ The sections below this one are the original design notes; where they say "templ
   Backups: `member-dashboard-archive.timer` 02:30 nightly; root copies the DB (`web-snapshot.py`), md-archive strips
   feed cards, encrypts to `/var/lib/member-dashboard/archives/*.mdb` (14 days). A restore suspends every account;
   get back in with `manage recover-admin`. Certificate: `certbot-renew.timer` (opens port 80 only while renewing).
-  Still open: egress restriction for the compute child.
+  Egress restriction for the compute child: see "Worker egress allowlist" below (code in place; live check pending).
 
 **NOT READY for production.** These files are review templates. Every service has
 an unconditional false start condition, and fixed Linux role composition rejects
@@ -238,3 +238,39 @@ obligation in the actual snapshot. The hourly disabled maintenance template scan
 at most 30 canonical archives/128 MiB, authenticates at most two expired candidates
 per call, and fails closed on tampering. This proves logical expiry enforcement,
 not physical disk/WAL/media erasure or licensed-source deletion compliance.
+
+## Worker egress allowlist (TODO #121 follow-up 1)
+
+The compute child (the background worker) can now reach only these outside hosts. Everything
+else fails closed with an ordinary connection error (`egress_denied: <host>` in the error text).
+
+| Host | Used for |
+|---|---|
+| `api.schwabapi.com` | Schwab quotes, option chains, price history (worker never refreshes the token) |
+| `www.sec.gov`, `data.sec.gov` | SEC ticker map, filing lists, filing documents |
+| `openrouter.ai` | capped AI write-up (analysis + assistant) |
+| `news.google.com`, `www.bing.com` | news feeds |
+| `api.nasdaq.com` | analyst price targets, earnings date |
+
+Not called by the worker (read from the bot's database only): Yahoo/yfinance, FINRA, Finnhub.
+Local addresses (127.0.0.1) and Unix sockets are never filtered.
+
+How it works: `member_dashboard/egress.py` is switched on at the start of `run_compute`, before any
+provider code loads. It (1) refuses name lookups for unlisted hosts, (2) refuses to connect to any
+address that a listed name did not resolve to (so raw IPs fail), and (3) refuses listed names that
+resolve to private/metadata addresses. The list is in code, not `worker.json` (fixed role config
+rejects unknown fields). To add a source: add its host to `ALLOWED_HOSTS` and to the expected set in
+`tests/member_dashboard/test_egress.py` in the same reviewed change. systemd cannot filter by host
+name, so the unit is unchanged apart from comments. This is an in-process guard, not a firewall:
+it stops mistakes and a hijacked library call, not code that can run arbitrary native code as the
+worker. A network-level rule (nftables by resolved IP, or a proxy) would be the next layer.
+
+### Live-verify checklist (owner, on the VPS, after deploy and restarting the worker)
+
+1. `systemctl restart member-dashboard-worker` and confirm it is `active`; `journalctl --namespace=member-dashboard -u member-dashboard-worker -n 50` shows no `egress_denied` at start.
+2. Open a fresh ticker report (e.g. NVDA) as a member. Confirm every section fills: SEC filings, options/expected move (Schwab), analysis write-up (OpenRouter), news items, analyst targets/earnings date.
+3. Search the journal for `egress_denied` over the next market day. Any hit names a host: if it is a real supported source, add it to `ALLOWED_HOSTS`; if not, the block worked.
+4. Confirm the track-record 1-hour fill (every 15 min) and the market strip still update.
+5. Negative proof: from the worker's environment, a lookup of an unlisted host (e.g. `example.com`) must raise `egress_denied`.
+6. Check the aiohttp resolver override took effect (no `aiodns` bypass): `python -c "import aiodns"` fails or news/SEC still work with step 2.
+7. Rollback: `cd /opt/member-dashboard/current`, revert the `egress.install()` line in `run_compute`, restart the worker.

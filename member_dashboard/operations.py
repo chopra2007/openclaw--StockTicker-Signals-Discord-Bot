@@ -337,6 +337,8 @@ def api_app(config):
 async def run_compute(config,worker):
     from uuid import UUID
     if str(UUID(worker))!=worker or os.getpid()!=1: raise ValueError('gated_compute_required')
+    from . import egress
+    egress.install()  # Per-host outbound allowlist; everything else fails closed (see egress.py).
     from .providers import ProviderRegistry
     from .provider_runtime import ProviderRuntime
     from .jobs import JobService
