@@ -26,7 +26,7 @@ from .analyst_evidence import (
 
 log = logging.getLogger("consensus_engine.analysis.tweet_parser")
 
-ANALYST_VIEW_PARSER_VERSION = "analyst-view-v2"
+ANALYST_VIEW_PARSER_VERSION = "analyst-view-v3"
 _UNSAFE_VIEW_CODES = {
     "generic_activity", "neutral", "unsided_option", "multi_ticker_ambiguous",
     "missing", "invalid_span",
@@ -166,7 +166,16 @@ def _parse_ticker_views(payload: dict, tickers: list[str], original_text: str) -
             views.append(_unclear_view(ticker, code))
         else:
             item = candidates[0]
-            if item.get("decision_code") == "image_evidence":
+            if item.get("decision_code") == "feedback_example":
+                from .analyst_feedback import validate_learned_view
+                view = validate_learned_view(item,ticker,original_text,payload.get('_human_examples',[]))
+                opposite = 'short' if item.get('direction') == 'long' else 'long'
+                if view and any(safe_image_evidence(o,ticker,opposite) for o in payload.get('vision_outputs',[])):
+                    view = None
+                if view:
+                    view.feedback_vision_context = payload.get('vision_outputs',[])
+                views.append(view or _unclear_view(ticker))
+            elif item.get("decision_code") == "image_evidence":
                 outputs = payload.get("vision_outputs", [])
                 index = item.get("vision_index")
                 evidence = None

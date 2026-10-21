@@ -270,6 +270,9 @@ class TickerPostView:
     decision_code: str = "missing"
     parser_version: str = "analyst-view-v1"
     image_evidence: Optional[dict] = None
+    feedback_example_id: Optional[int] = None
+    feedback_confidence: Optional[float] = None
+    feedback_vision_context: Optional[list[dict]] = None
 
 
 @dataclass

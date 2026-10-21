@@ -30,8 +30,12 @@ _SHORT = re.compile(
     r"cut(?:s|ting)? (?:\w+ ){0,2}(?:guidance|estimates?|target)|"
     r"(?:down|fell|lost) (?:about |more than |over )?\d+(?:\.\d+)?%)(?!\w)", re.I,
 )
-_NEGATED = re.compile(r"\b(?:no|not|never|failed|without|isn't|isn’t)\s+(?:(?:longer|a|the|looking|really|very|yet|necessarily)\s+){0,3}$", re.I)
+_NEGATED = re.compile(r"\b(?:no|not|never|failed|without|cannot|(?:isn|can|doesn|won|don|didn)['’]t)\s+(?:(?:longer|a|the|looking|really|very|yet|necessarily)\s+){0,3}$", re.I)
 _FAILED_AFTER = re.compile(r"^\s*(?:has |had |is |was )?(?:failed|failure|did not|didn't|didn’t|never happened)\b", re.I)
+_PRODUCT_ADVANCE = re.compile(
+    r"\b(?:launch(?:es|ed)?|unveil(?:s|ed)?)\b[^.!?;]{0,180}\b(?:model|product|chip|system)\b"
+    r"[^.!?;]{0,180}\b(?:competes? with|challeng(?:e|es|ing)|outperforms?|surpasses?)\b", re.I,
+)
 _OPTION_ACTOR = re.compile(r"\b(calls?|puts?)\s+(buyers?|sellers?)\b", re.I)
 _NUMBER = r"\$?(-?\d[\d,]*(?:\.\d+)?)\s*([bmk%]?)"
 _METRIC = re.compile(
@@ -58,11 +62,26 @@ def _metric_bias(text: str) -> str | None:
     return next(iter(signs)) if len(signs) == 1 else None
 
 
+def _option_contracts(text: str):
+    """Keep option nouns; exclude ordinary news uses of call and put."""
+    for match in OPTION_RE.finditer(text):
+        before, after = text[:match.start()], text[match.end():]
+        if match.group().lower() in {"call", "calls"} and (
+            (re.search(r"\b(?:earnings|conference|phone|sales|video)\s+$", before, re.I)
+             and not re.match(r"\s+(?:buyers?|sellers?|expir\w*|strike|(?:up|down)\s+\d+|\$?\d+)\b", after, re.I))
+            or re.match(r"\s+(?:for|to)\s+(?:a\s+|an\s+|the\s+)?(?:slowdown|slow down|halt|pause|action|regulation|reform)\b", after, re.I)
+        ):
+            continue
+        if match.group().lower() in {"put", "puts"} and re.match(r"\s+(?:its|their|pressure)\b", after, re.I):
+            continue
+        yield match
+
+
 def _option_bias(text: str) -> str | None:
     if re.search(r"\b(?:spread|straddle|strangle|rolled?|rolling|closing)\b", text, re.I):
         return None
     signs = set()
-    for contract_match in OPTION_RE.finditer(text):
+    for contract_match in _option_contracts(text):
         before = text[:contract_match.start()]
         start = max((m.end() for m in re.finditer(r"[\n;!?]|\.(?!\d)", before)), default=0)
         actions = list(OPTION_SIDE_RE.finditer(text, start, contract_match.start()))
@@ -150,13 +169,22 @@ def comparison_direction(text: str, *, numeric_only: bool = False) -> str | None
 def direction_is_supported(direction: str, text: str) -> bool:
     if direction not in {"long", "short"}:
         return False
-    if OPTION_RE.search(text):
+    if any(_option_contracts(text)):
         return _option_bias(text) == direction
+    if direction == "long":
+        for match in _PRODUCT_ADVANCE.finditer(text):
+            claim = match.group()
+            if (not _NEGATED.search(text[max(0, match.start()-30):match.start()])
+                    and not re.search(r"\b(?:not|never|cannot|can['’]t|doesn['’]t|won['’]t|isn['’]t|failed|fails)\b", claim, re.I)
+                    and not _FAILED_AFTER.search(text[match.end():match.end()+40])):
+                return True
     targets = re.search(r"\b(?:through|above)\s+\$?(\d+(?:\.\d+)?)\+?[^\n;]{0,35}\b(?:see|run to|target)\s+\$?(\d+(?:\.\d+)?)", text, re.I)
     if targets and float(targets[1]) != float(targets[2]):
         return direction == ("long" if float(targets[2]) > float(targets[1]) else "short")
     pattern = _LONG if direction == "long" else _SHORT
     for match in pattern.finditer(text):
+        if direction == "short" and match.group().lower().startswith('reject') and re.match(r"\s+calls?\s+(?:for|to)\b", text[match.end():], re.I):
+            continue
         if (not _NEGATED.search(text[max(0, match.start() - 30):match.start()])
                 and not _FAILED_AFTER.search(text[match.end():match.end() + 40])):
             return True
@@ -164,7 +192,7 @@ def direction_is_supported(direction: str, text: str) -> bool:
 
 
 def unsided_option(text: str) -> bool:
-    return bool(OPTION_RE.search(text) and _option_bias(text) is None)
+    return bool(any(_option_contracts(text)) and _option_bias(text) is None)
 
 
 def safe_image_evidence(evidence: object, ticker: str, direction: str) -> dict | None:

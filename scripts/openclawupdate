@@ -21,6 +21,8 @@
 set -uo pipefail
 
 UNIT=openclaw-gateway.service
+WATCHDOG_TIMER=gateway-watchdog.timer
+WATCHDOG_SERVICE=gateway-watchdog.service
 ACCOUNT=openclaw
 STATE=/home/openclaw/.openclaw
 CONFIG="$STATE/openclaw.json"
@@ -46,6 +48,7 @@ before=$(md5sum < "$CONFIG")
 from=$(installed_version)
 
 started=0
+watchdog_was_active=0
 start_gateway() {
   [ "$started" -eq 1 ] && return
   started=1
@@ -54,10 +57,35 @@ start_gateway() {
   [ -f "$OWNERSHIP" ] && python3 "$OWNERSHIP" --fix --quiet
   systemctl start "$UNIT" || echo "openclawupdate: systemctl start failed." >&2
 }
+restore_watchdog() {
+  if [ "$watchdog_was_active" -eq 1 ]; then
+    if ! systemctl start "$WATCHDOG_TIMER"; then
+      echo "openclawupdate: could not restore gateway watchdog." >&2
+      return 1
+    fi
+    watchdog_was_active=0
+  fi
+}
+cleanup() {
+  local status=$?
+  start_gateway
+  # Resume monitoring only after the health check (or on an early failure).
+  restore_watchdog || { [ "$status" -ne 0 ] || status=1; }
+  exit "$status"
+}
 # Bring the gateway back even if the update dies or you press Ctrl-C.
-trap start_gateway EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-systemctl stop "$UNIT"
+# The watchdog otherwise interprets intentional update downtime as an outage
+# and restarts the gateway while Doctor owns its database maintenance lease.
+if systemctl is-active --quiet "$WATCHDOG_TIMER"; then
+  watchdog_was_active=1
+fi
+systemctl stop "$WATCHDOG_TIMER" "$WATCHDOG_SERVICE" || exit 1
+
+systemctl stop "$UNIT" || exit 1
 
 # `systemctl stop` returns as soon as the unit is inactive, but doctor's
 # session-store maintenance refuses to run while anything still holds the state
@@ -87,7 +115,6 @@ if [ "$rc" -eq 0 ]; then
 fi
 
 start_gateway
-trap - EXIT INT TERM
 
 healthy=0
 for _ in $(seq 1 30); do
@@ -116,6 +143,7 @@ if [ "$rc" -ne 0 ]; then
   exit "$rc"
 fi
 
+restore_watchdog || exit 1
 to=$(installed_version)
 if [ "$to" = "$from" ]; then
   echo "OK — already on $to; the gateway is healthy."

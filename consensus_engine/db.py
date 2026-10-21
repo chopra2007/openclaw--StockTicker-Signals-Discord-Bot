@@ -2223,6 +2223,7 @@ async def _run_column_migrations(conn) -> None:
         ("analyst_post_views", "image_evidence_json", "TEXT"),
         ("analyst_post_views", "image_urls_json", "TEXT DEFAULT '[]'"),
         ("analyst_post_views", "source_posted_at", "REAL"),
+        ("analyst_post_views", "feedback_evidence_json", "TEXT"),
         ("alert_history", "direction", "TEXT NOT NULL DEFAULT 'unclear'"),
         ("sec_form4_filings", "is_10b5_1", "INTEGER DEFAULT 0"),
         ("youtube_videos",    "description", "TEXT"),
@@ -2425,6 +2426,8 @@ async def init_db() -> AsyncConnection:
             (version, time.time(), note),
         )
     await _db.commit()
+    from consensus_engine.analysis.analyst_feedback import schema as feedback_schema
+    await feedback_schema(_db)
     await seed_youtube_channels()
     log.info("Database initialized at %s", db_path)
     return _db
@@ -2512,7 +2515,7 @@ def _view_direction_is_supported(direction: str, source_text: str) -> bool:
     return direction_is_supported(direction, source_text)
 
 
-def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> TickerPostView:
+def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView, feedback_examples=None) -> TickerPostView:
     """Recheck direction and exact source evidence independently before storage."""
     if view.ticker.upper() != signal.ticker.upper():
         return TickerPostView(
@@ -2521,6 +2524,18 @@ def _storage_safe_ticker_view(signal: TickerSignal, view: TickerPostView) -> Tic
         )
 
     code = view.decision_code
+    if code == 'feedback_example':
+        from consensus_engine.analysis.analyst_feedback import validate_learned_view
+        learned = validate_learned_view(dict(decision_code=code,direction=view.direction,
+            example_id=view.feedback_example_id,confidence=view.feedback_confidence,
+            reason_text=view.reason_text),signal.ticker,signal.raw_text,feedback_examples or [])
+        opposite = 'short' if view.direction == 'long' else 'long'
+        if learned and any(safe_image_evidence(o,signal.ticker,opposite) for o in view.feedback_vision_context or []):
+            learned = None
+        if learned:
+            learned.feedback_vision_context = view.feedback_vision_context
+        return learned or TickerPostView(ticker=signal.ticker,direction='unclear',
+            decision_code='invalid_span',parser_version=view.parser_version)
     if code == "image_evidence":
         evidence = safe_image_evidence(view.image_evidence, signal.ticker, view.direction)
         opposite = "short" if view.direction == "long" else "long"
@@ -2649,15 +2664,19 @@ async def insert_signal(
         view_lookup_sql = "NULL"
         view_lookup_params: tuple = ()
         if ticker_view is not None:
-            safe_view = _storage_safe_ticker_view(signal, ticker_view)
+            feedback_examples = []
+            if ticker_view.decision_code == 'feedback_example':
+                from consensus_engine.analysis.analyst_feedback import relevant_examples
+                feedback_examples = await relevant_examples(signal.raw_text,ticker_view.feedback_vision_context or [],before=signal.detected_at)
+            safe_view = _storage_safe_ticker_view(signal, ticker_view,feedback_examples)
             post_key = _source_post_key(signal, source_url)
             statements.append((
                 """INSERT OR IGNORE INTO analyst_post_views
                    (source_post_key, source_url, analyst, ticker, detected_at, raw_text,
                     raw_text_sha256, parsed_summary, display_direction, reason_text,
                     reason_start, reason_end, reason_kind, decision_code, parser_version, created_at,
-                    image_evidence_json, image_urls_json, source_posted_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    image_evidence_json, image_urls_json, source_posted_at, feedback_evidence_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     post_key, source_url, signal.source_detail, signal.ticker,
                     signal.detected_at, signal.raw_text,
@@ -2668,6 +2687,8 @@ async def insert_signal(
                     json.dumps(safe_view.image_evidence) if safe_view.image_evidence else None,
                     json.dumps(_public_chart_urls(image_urls)),
                     source_posted_at if isinstance(source_posted_at,(int,float)) and not isinstance(source_posted_at,bool) and math.isfinite(source_posted_at) and 0<source_posted_at<=time.time()+60 else None,
+                    json.dumps({'example_id':safe_view.feedback_example_id,'confidence':safe_view.feedback_confidence,
+                                'vision_context':safe_view.feedback_vision_context}) if safe_view.feedback_example_id else None,
                 ),
             ))
             view_lookup_sql = (

@@ -884,6 +884,8 @@ async def send_swarm_alert(swarm, current_price: float = 0.0) -> Optional[str]:
                             for d, direction in _swarm_details(swarm, links)[:20]]
             await _db.insert_swarm_alert(swarm.ticker, swarm.count or len(members), _human_span(
                 max(0.0, (swarm.now_ts or 0.0) - (swarm.opened_at or 0.0))), current_price, members_rows, msg_id)
+            from consensus_engine.analysis.analyst_feedback import register_group
+            await register_group(channel_id,msg_id,swarm.ticker,embed,members_rows)
         except Exception as e:
             log.warning("[A2] swarm alert save failed for $%s: %s", swarm.ticker, e)
         log.info("[A2] SWARM alert sent for $%s (%d analysts, %s, msg_id=%s)",

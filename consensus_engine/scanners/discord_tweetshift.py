@@ -239,6 +239,7 @@ class DiscordTweetShiftListener:
         # Malformed-frame rate-limiting: log at most once per minute
         self._malformed_frame_count: int = 0
         self._malformed_last_log: float = 0.0
+        self._feedback_tasks: set[asyncio.Task] = set()
 
     def _load_config(self):
         self._token = cfg.get_api_key("discord_bot_token") or ""
@@ -302,7 +303,12 @@ class DiscordTweetShiftListener:
         })
 
     async def _handle_dispatch(self, event: str, data: dict):
-        if event == "READY":
+        if event == 'INTERACTION_CREATE':
+            from consensus_engine.alerts.analyst_feedback import handle_interaction
+            task = asyncio.create_task(handle_interaction(data),name='analyst-feedback-click')
+            self._feedback_tasks.add(task)
+            task.add_done_callback(self._feedback_tasks.discard)
+        elif event == "READY":
             self._session_id = data.get("session_id")
             self._reconnect_count = 0  # Reset on successful connect
             self._tweet_count = 0  # Reset tweet counter on connect
@@ -804,6 +810,8 @@ class DiscordTweetShiftListener:
             return
 
         log.info("TweetShift listener starting (channel=%s)", self._feed_channel_id)
+        from consensus_engine.alerts.analyst_feedback import run_worker
+        feedback_worker = asyncio.create_task(run_worker(stop_event),name='analyst-feedback-worker')
 
         backoff = _RECONNECT_BACKOFF_START
         while not stop_event.is_set() and not self._stop:
@@ -846,6 +854,8 @@ class DiscordTweetShiftListener:
                 pass
             backoff = min(backoff * 2, _RECONNECT_BACKOFF_MAX)
 
+        feedback_worker.cancel()
+        await asyncio.gather(feedback_worker,*self._feedback_tasks,return_exceptions=True)
         log.info("TweetShift listener stopped.")
 
     def stop(self):

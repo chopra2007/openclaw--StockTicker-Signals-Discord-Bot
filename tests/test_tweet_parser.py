@@ -219,6 +219,46 @@ def test_unsided_option_clause_fails_closed_even_if_model_calls_it_explicit():
     assert tweet.ticker_views[0].decision_code == "unsided_option"
 
 
+@pytest.mark.parametrize("text,direction,expected", [
+    ("$META - MARK ZUCKERBERG SAYS META HAS REACHED AI FRONTIER AND REJECTS CALLS FOR SLOWDOWN - FT", "unclear", "unclear"),
+    ("META UNVEILS NEW AI MODEL TO CHALLENGE OPENAI AND ANTHROPIC\nMeta ($META) has launched Muse Wonder, a new AI model it claims competes with the world's most advanced systems\n$META - MARK ZUCKERBERG REJECTS CALLS FOR SLOWDOWN", "long", "long"),
+    ("$META launches a new AI model that cannot compete with advanced systems", "long", "unclear"),
+    ("$META launches a new AI model that doesn't compete with OpenAI", "long", "unclear"),
+    ("$META launches a new AI model that won't challenge OpenAI", "long", "unclear"),
+    ("$META won't launch a new AI model that competes with OpenAI", "long", "unclear"),
+    ("$META won’t launch a new AI model that competes with OpenAI", "long", "unclear"),
+])
+def test_company_news_calls_are_not_options_and_launch_claims_keep_evidence(text, direction, expected):
+    payload = {"type": "A", "tickers": ["META"], "direction": direction,
+               "options": {"present": False}, "conviction": "medium", "summary": "Company news",
+               "ticker_views": [{"ticker": "META", "direction": direction, "reason_text": text,
+                                 "reason_kind": "event_claim", "decision_code": "explicit_clause" if direction == "long" else "reason_only"}]}
+    view = _parse_llm_response(payload, "https://example.test/post", "analyst", text).ticker_views[0]
+    assert view.reason_text == text
+    assert view.direction == expected
+
+
+@pytest.mark.parametrize("text", ["$META rejects calls for slowdown", "$META earnings call tomorrow", "$META puts its new AI model into production"])
+def test_ordinary_news_words_do_not_trigger_options_or_bearish_evidence(text):
+    from consensus_engine.analysis.analyst_evidence import unsided_option, direction_is_supported
+    assert not unsided_option(text)
+    assert not direction_is_supported("short", text)
+
+
+def test_put_trade_followed_by_article_keeps_bearish_direction():
+    from consensus_engine.analysis.analyst_evidence import direction_is_supported
+    text = '$META bought puts the day before earnings'
+    assert direction_is_supported('short', text)
+    assert not direction_is_supported('long', text)
+
+
+def test_earnings_option_performance_without_trade_side_stays_unclear():
+    from consensus_engine.analysis.analyst_evidence import direction_is_supported, unsided_option
+    text = '$META earnings calls up 50%'
+    assert unsided_option(text)
+    assert not direction_is_supported('long', text)
+
+
 def test_unsided_option_elsewhere_in_source_discards_selected_reason():
     text = "$NVDA reports earnings tomorrow; 150 calls expire Friday"
     reason = "$NVDA reports earnings tomorrow"
