@@ -45,6 +45,12 @@ elif cmd == "sudo":
     elif "health" in args:
         s["health_checked_with_watchdog_paused"] = not s["gateway-watchdog.timer"]
         rc = 0 if s["openclaw-gateway.service"] else 1
+    elif "memory" in args:
+        if s["memory_identity"] == "invalid-json":
+            print("not json")
+        else:
+            print(json.dumps([{"status": {"dirty": True, "custom": {"indexIdentity": {"status": s["memory_identity"]}}}}]))
+        rc = s["memory_rc"]
 s["calls"].append([cmd, *args])
 p.write_text(json.dumps(s))
 sys.exit(rc)
@@ -61,7 +67,7 @@ def test_update_keeps_watchdog_paused_until_healthy_and_restores_it(
     run_update(tmp_path, watchdog_active, repair_rc, restore_fails)
 
 
-def run_update(tmp_path, watchdog_active=True, repair_rc=0, restore_fails=False, successful=False, force=False, registry_rc=0, pending=False):
+def run_update(tmp_path, watchdog_active=True, repair_rc=0, restore_fails=False, successful=False, force=False, registry_rc=0, pending=False, memory_identity="valid", memory_rc=0):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     stub = bin_dir / "stub"
@@ -91,6 +97,8 @@ def run_update(tmp_path, watchdog_active=True, repair_rc=0, restore_fails=False,
         "repair_rc": repair_rc,
         "restore_fails": restore_fails,
         "registry_rc": registry_rc,
+        "memory_identity": memory_identity,
+        "memory_rc": memory_rc,
         "calls": [],
     }))
     result = subprocess.run(
@@ -139,3 +147,22 @@ def test_failed_forced_repair_removes_previous_success_receipt(tmp_path):
     result, state = run_update(tmp_path, successful=True, force=True, repair_rc=7)
     assert result.returncode == 7, result.stdout + result.stderr
     assert not (tmp_path / "state/openclawupdate-success").exists()
+
+
+@pytest.mark.parametrize("identity,rc", [("mismatched", 0), ("missing", 0), ("invalid-json", 0), ("valid", 124)])
+@pytest.mark.parametrize("force", [False, True])
+def test_memory_verification_failure_keeps_finalize_receipt(tmp_path, identity, rc, force):
+    result, state = run_update(tmp_path, successful=True, force=force, memory_identity=identity, memory_rc=rc)
+    assert result.returncode != 0
+    assert "OK" not in result.stdout
+    assert "memory" in result.stderr.lower()
+    assert (tmp_path / "state/openclawupdate-success").exists()
+    repairs_before = sum("repair" in c for c in state["calls"])
+    again = subprocess.run(
+        [shutil.which("bash"), str(tmp_path / "openclawupdate")],
+        env={**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}", "UPDATER_TEST_STATE": str(tmp_path / "services.json")},
+        capture_output=True, text=True, timeout=20,
+    )
+    state = json.loads((tmp_path / "services.json").read_text())
+    assert again.returncode != 0
+    assert sum("repair" in c for c in state["calls"]) == repairs_before

@@ -64,6 +64,34 @@ except (OSError, sqlite3.Error):
 PY
 }
 
+check_memory_index() {
+  local report
+  if ! report=$(timeout --kill-after=3 30 sudo -u "$ACCOUNT" -H openclaw memory status --agent main --json); then
+    echo "FAILED: gateway is healthy, but memory index compatibility could not be verified (status failed or timed out)." >&2
+    echo "Check: sudo -u $ACCOUNT -H openclaw memory status --agent main --json" >&2
+    return 1
+  fi
+  # This checks index compatibility, not routine dirty/new-document queues.
+  # Keep the successful finalize receipt even if memory needs separate repair.
+  python3 -c '
+import json, sys
+try:
+    report = json.load(sys.stdin)
+    if not isinstance(report, list) or len(report) != 1:
+        raise ValueError("unexpected report")
+    status = report[0]["status"]
+    identity = status["custom"]["indexIdentity"]["status"]
+    if identity == "mismatched":
+        print("FAILED: gateway is healthy, but the memory index is incompatible. Run: sudo -u openclaw -H openclaw memory index --agent main", file=sys.stderr)
+        sys.exit(1)
+    if identity != "valid" or report[0].get("error") or status.get("lastSyncError"):
+        raise ValueError("index not verified")
+except (ValueError, KeyError, TypeError):
+    print("FAILED: gateway is healthy, but memory index compatibility could not be verified. Check: sudo -u openclaw -H openclaw memory status --agent main --json", file=sys.stderr)
+    sys.exit(1)
+' <<< "$report"
+}
+
 # Do network work before taking the bot offline. A successful previous repair
 # permits a healthy, unchanged installation to return without repeating Doctor.
 from=$(installed_version)
@@ -76,6 +104,7 @@ if [ "$force_repair" -eq 0 ] && [ "$latest" = "$from" ] \
    && [ -n "$fingerprint" ] && [ -f "$SUCCESS" ] && [ "$(cat "$SUCCESS")" = "$from $fingerprint" ] \
    && systemctl is-active --quiet "$UNIT" \
    && timeout --kill-after=5 15 sudo -u "$ACCOUNT" -H openclaw gateway health >/dev/null 2>&1; then
+  check_memory_index || exit 1
   echo "OK — already on $from; the gateway is healthy (${SECONDS}s, no restart)."
   exit 0
 fi
@@ -187,6 +216,7 @@ if fingerprint=$(installation_fingerprint); then
   printf '%s %s\n' "$to" "$fingerprint" > "$SUCCESS"
   chown "$ACCOUNT:$ACCOUNT" "$SUCCESS"
 fi
+check_memory_index || exit 1
 if [ "$to" = "$from" ]; then
   echo "OK — already on $to; the gateway is healthy (${SECONDS}s)."
 else
