@@ -29,6 +29,14 @@ CONFIG="$STATE/openclaw.json"
 OWNERSHIP="$STATE/workspace/scripts/check_ownership.py"
 PKG_ROOT=/usr/lib/node_modules/openclaw
 PORT=18789
+SUCCESS="$STATE/openclawupdate-success"
+force_repair=0
+case "${1:-}" in
+  "") ;;
+  --repair) force_repair=1 ;;
+  *) echo "Usage: openclawupdate [--repair]" >&2; exit 2 ;;
+esac
+SECONDS=0
 
 # Behave the same whether or not the caller's shell exports these.
 unset OPENCLAW_STATE_DIR OPENCLAW_CONFIG_PATH OPENCLAW_WORKSPACE_DIR
@@ -42,10 +50,40 @@ installed_version() {
   node -p "require('$PKG_ROOT/package.json').version" 2>/dev/null
 }
 
-backup="$CONFIG.bak-$(date +%Y%m%d-%H%M%S)"
-cp -p "$CONFIG" "$backup"
-before=$(md5sum < "$CONFIG")
+installation_fingerprint() {
+  # A later update/repair attempt invalidates the receipt even if it left the
+  # version and config unchanged. Unknown ledger schemas fail closed.
+  python3 - "$CONFIG" "$STATE/state/openclaw.sqlite" <<'PY'
+import hashlib, json, pathlib, sqlite3, sys
+try:
+    with sqlite3.connect(pathlib.Path(sys.argv[2]).as_uri() + '?mode=ro', uri=True) as db:
+        rows = db.execute('SELECT run_id, updated_at_ms, phase, status FROM update_runs ORDER BY run_id').fetchall()
+    print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes() + json.dumps(rows).encode()).hexdigest())
+except (OSError, sqlite3.Error):
+    sys.exit(1)
+PY
+}
+
+# Do network work before taking the bot offline. A successful previous repair
+# permits a healthy, unchanged installation to return without repeating Doctor.
 from=$(installed_version)
+if ! latest=$(timeout --kill-after=5 30 npm view openclaw version 2>/dev/null) || [ -z "$latest" ]; then
+  echo "openclawupdate: could not reach the npm registry; gateway left running." >&2
+  exit 1
+fi
+fingerprint=$(installation_fingerprint) || fingerprint=""
+if [ "$force_repair" -eq 0 ] && [ "$latest" = "$from" ] \
+   && [ -n "$fingerprint" ] && [ -f "$SUCCESS" ] && [ "$(cat "$SUCCESS")" = "$from $fingerprint" ] \
+   && systemctl is-active --quiet "$UNIT" \
+   && timeout --kill-after=5 15 sudo -u "$ACCOUNT" -H openclaw gateway health >/dev/null 2>&1; then
+  echo "OK — already on $from; the gateway is healthy (${SECONDS}s, no restart)."
+  exit 0
+fi
+# Never let an interrupted or failed repair reuse an earlier success receipt.
+rm -f "$SUCCESS"
+backup="$CONFIG.bak-$(date +%Y%m%d-%H%M%S)"
+cp -p "$CONFIG" "$backup" || exit 1
+before=$(md5sum < "$CONFIG")
 
 started=0
 watchdog_was_active=0
@@ -100,25 +138,25 @@ for _ in $(seq 1 30); do
 done
 
 rc=0
-latest=$(npm view openclaw version 2>/dev/null)
-if [ -z "$latest" ]; then
-  echo "openclawupdate: could not reach the npm registry; leaving program files alone." >&2
-  rc=1
-elif [ "$latest" != "$from" ]; then
-  echo "==> updating program files: $from -> $latest"
-  npm i -g "openclaw@$latest" --loglevel=error --no-fund --no-audit || rc=$?
+if [ "$latest" != "$from" ]; then
+  echo "==> updating program files: $from -> $latest (${SECONDS}s elapsed)"
+  timeout --kill-after=15 300 npm i -g "openclaw@$latest" --loglevel=error --no-fund --no-audit || rc=$?
 fi
 
 if [ "$rc" -eq 0 ]; then
-  # Runs while the gateway is stopped: doctor needs the agent database free.
-  sudo -u "$ACCOUNT" -H openclaw update repair --yes || rc=$?
+  echo "==> finalizing plugins and state (${SECONDS}s elapsed)"
+  # The system unit is restored below. Bound the whole subprocess, including
+  # upstream plugin scans, instead of multiplying per-phase timeout budgets.
+  timeout --kill-after=15 600 sudo -u "$ACCOUNT" -H openclaw update repair --yes --no-restart || rc=$?
 fi
 
+echo "==> starting gateway (${SECONDS}s elapsed)"
 start_gateway
 
 healthy=0
-for _ in $(seq 1 30); do
-  if sudo -u "$ACCOUNT" -H openclaw gateway health >/dev/null 2>&1; then healthy=1; break; fi
+deadline=$((SECONDS + 90))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  if timeout --kill-after=5 10 sudo -u "$ACCOUNT" -H openclaw gateway health >/dev/null 2>&1; then healthy=1; break; fi
   sleep 2
 done
 
@@ -145,8 +183,12 @@ fi
 
 restore_watchdog || exit 1
 to=$(installed_version)
+if fingerprint=$(installation_fingerprint); then
+  printf '%s %s\n' "$to" "$fingerprint" > "$SUCCESS"
+  chown "$ACCOUNT:$ACCOUNT" "$SUCCESS"
+fi
 if [ "$to" = "$from" ]; then
-  echo "OK — already on $to; the gateway is healthy."
+  echo "OK — already on $to; the gateway is healthy (${SECONDS}s)."
 else
-  echo "OK — updated $from -> $to; the gateway is healthy."
+  echo "OK — updated $from -> $to; the gateway is healthy (${SECONDS}s)."
 fi
