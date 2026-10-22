@@ -12,8 +12,8 @@ relying on a backup tarball or a hand-typed recreation.
 | `systemd/consensus-engine.service` | The signal-pipeline daemon. Runs `python3 -m consensus_engine --live` as the `openclaw` user. Sources `/home/openclaw/.openclaw/.env.service`. |
 | `systemd/openclaw-gateway.service` | The agent runtime / WebSocket gateway used by the `@-mention` Discord path and any other client-of-the-runtime. Listens on `127.0.0.1:18789`. |
 
-Both units are byte-identical to the live `/etc/systemd/system/` versions —
-the install commands below preserve that contract.
+The live host may also have operational drop-ins. Inspect `systemctl cat` before
+replacing an existing unit; preserve unrelated host-specific settings.
 
 ## Install (fresh host)
 
@@ -27,6 +27,9 @@ the install commands below preserve that contract.
 
 # Install both units:
 sudo cp infra/systemd/*.service /etc/systemd/system/
+sudo mkdir -p /etc/systemd/system/openclaw-gateway.service.d
+sudo cp infra/systemd/openclaw-gateway.service.d/30-memory-budget.conf \
+  /etc/systemd/system/openclaw-gateway.service.d/
 sudo systemctl daemon-reload
 sudo systemctl enable --now consensus-engine.service openclaw-gateway.service
 
@@ -41,6 +44,15 @@ These details were learned the hard way during the 2026-05-11 VPS
 consolidation. They're the actual reason this directory exists.
 
 ### Gateway unit
+
+- `openclaw-gateway.service.d/30-memory-budget.conf` bounds the complete gateway
+  process group, including local memory embeddings, to 3.5 GiB. The old 2 GiB
+  limit killed the runtime during chat tool calls. Apply the drop-in with
+  `systemctl daemon-reload` and restart the gateway in a quiet window. Verify
+  `systemctl show openclaw-gateway.service -p MemoryMax -p MemoryCurrent -p NRestarts`
+  plus a real tool-using chat request. Check host memory headroom before using
+  this budget on a smaller host. This does not change the embedding model,
+  context capacity, or Node heap settings.
 
 - `ExecStart=/usr/bin/openclaw gateway --port 18789 --bind loopback` —
   the entrypoint is `openclaw gateway`, NOT `openclaw gateway start`. The

@@ -444,3 +444,65 @@ def test_agent_argv_goes_through_gateway():
     """2026.9.6: --local refuses to run while the gateway is up."""
     import inspect
     assert '"--local"' not in inspect.getsource(main_mod._handle_mention)
+
+@pytest.mark.parametrize("failure", ["connection closed", "timed out"])
+async def test_gateway_disconnect_does_not_repeat_an_accepted_run(monkeypatch, failure):
+    factory = AsyncMock(return_value=_make_proc(
+        b"", f"Gateway agent call {failure}; the Gateway may still be running this turn (accepted run example).".encode()))
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
+    monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
+    reply = AsyncMock()
+    monkeypatch.setattr("consensus_engine.alerts.discord.send_command_reply", reply)
+    await main_mod._handle_mention("check the workspace", "chan", "msg")
+    assert factory.await_count == 1
+    text = reply.call_args.args[2]
+    assert "connection" in text.lower()
+    assert "empty" not in text
+    assert "narrower" not in text
+
+
+async def test_question_routing_ignores_history_tickers_and_rooms(monkeypatch):
+    factory = AsyncMock(return_value=_make_proc(b'{"payloads":[{"text":"answer"}]}', b""))
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
+    monkeypatch.setattr("consensus_engine.alerts.discord.send_command_reply", AsyncMock())
+    anchors = AsyncMock(return_value=[])
+    rooms = AsyncMock(return_value="")
+    monkeypatch.setattr("consensus_engine.utils.tickers.resolve_chat_ticker_anchors", anchors)
+    monkeypatch.setattr(main_mod, "_referenced_room_context", rooms)
+    await main_mod._handle_mention("what models do you use?", "chan", "msg",
+                                   history="old: NVDA in #errors")
+    anchors.assert_awaited_once_with("what models do you use?")
+    rooms.assert_awaited_once_with("what models do you use?", "chan")
+    argv = _argv_of(factory, 0)
+    prompt = argv[argv.index("--message") + 1]
+    assert "old: NVDA in #errors" in prompt
+    assert prompt.index("old: NVDA") < prompt.index("User message:")
+
+async def test_gateway_disconnect_on_retry_preserves_inflight_transcript(monkeypatch):
+    factory = AsyncMock(side_effect=[_make_proc(b"", b"upstream 503"), _make_proc(
+        b"", b"Gateway agent call connection closed; the Gateway may still be running this turn.")])
+    monkeypatch.setattr(main_mod.asyncio, "create_subprocess_exec", factory)
+    monkeypatch.setattr(main_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr("consensus_engine.alerts.discord.send_command_reply", AsyncMock())
+    reset = MagicMock()
+    monkeypatch.setattr(main_mod, "_reset_agent_session", reset)
+    await main_mod._handle_mention("hello", "chan", "msg")
+    assert factory.await_count == 2
+    reset.assert_called_once_with("channel-chan-retry")
+
+
+def test_agent_prompt_supports_conversation_and_grounded_actions():
+    prompt = main_mod._STEERING_TEMPLATE
+    assert "Assume EVERY question" not in prompt
+    assert "general conversation" in prompt
+    assert "Only claim a repair" in prompt
+    assert "fresh" in prompt
+
+
+def test_agent_prompt_requires_pacific_output():
+    assert "Use Pacific time only" in main_mod._STEERING_TEMPLATE
+
+
+def test_agent_prompt_distinguishes_historical_memory_from_live_state():
+    assert "Memory notes and search results describe past observations" in main_mod._STEERING_TEMPLATE
+    assert "current code and config take precedence" in main_mod._STEERING_TEMPLATE

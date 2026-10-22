@@ -308,7 +308,7 @@ async def _fetch_channel_history(channel_id: str, limit: int = 20) -> str:
 async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
     """Route !ask through the same OpenClaw agent as @-mention.
 
-    Prepends the last 10 channel messages as context so the agent can answer
+    Passes the last 10 channel messages separately as context so the agent can answer
     with awareness of the recent conversation flow. Otherwise relies on
     `_handle_mention`'s subprocess invocation, retry loop, and telemetry —
     so !ask and @mention now share one config, one prompt, one model chain.
@@ -327,17 +327,9 @@ async def _handle_ask(question: str, channel_id: str, message_id: str) -> None:
         return
 
     history = await _fetch_channel_history(channel_id, limit=10)
-    if history:
-        content = (
-            "Recent channel messages (oldest→newest, for context only):\n"
-            f"{history}\n\n"
-            f"Question: {question}"
-        )
-    else:
-        content = question
-
     from consensus_engine.main import _handle_mention
-    await _handle_mention(content, channel_id, message_id, allow_intercept=False)
+    await _handle_mention(question, channel_id, message_id,
+                          allow_intercept=False, history=history)
 
 def _build_help_embed() -> dict:
     """Build the !help embed — a sectioned command reference (slate accent),

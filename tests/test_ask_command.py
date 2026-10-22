@@ -1,9 +1,9 @@
 """!ask command — routes through the OpenClaw agent (same path as @-mention).
 
 Since the !ask/@-mention unification, `!ask` no longer calls the Python
-`call_with_fallback` chain directly. `_handle_ask` prepends the last 10
-channel messages as context and forwards to `_handle_mention`, which runs
-`openclaw agent --local` (workspace + tools + the openclaw model roulette).
+`call_with_fallback` chain directly. `_handle_ask` passes the last 10
+channel messages as separate context and forwards to `_handle_mention`, which runs
+`openclaw agent` (workspace + tools + the openclaw model roulette).
 """
 from __future__ import annotations
 
@@ -31,8 +31,9 @@ async def test_ask_routes_question_through_handle_mention(monkeypatch):
     """!ask forwards the question to _handle_mention (the openclaw agent path)."""
     captured: dict = {}
 
-    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True):
+    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True, history=""):
         captured["content"] = content
+        captured["history"] = history
         captured["channel_id"] = channel_id
         captured["message_id"] = message_id
 
@@ -52,13 +53,14 @@ async def test_ask_routes_question_through_handle_mention(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ask_prepends_channel_history_as_context(monkeypatch):
-    """When channel history exists, !ask prefixes it to the question so the
+async def test_ask_passes_channel_history_separately(monkeypatch):
+    """When channel history exists, !ask passes it separately so the
     agent can answer with awareness of the recent conversation."""
     captured: dict = {}
 
-    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True):
+    async def _fake_mention(content, channel_id, message_id, *, allow_intercept=True, history=""):
         captured["content"] = content
+        captured["history"] = history
 
     async def _fake_history(*_a, **_kw):
         return "user1: previous chatter\nuser2: more chatter"
@@ -71,8 +73,8 @@ async def test_ask_prepends_channel_history_as_context(monkeypatch):
     await commands.route_command("ask", ["what", "do", "you", "see"], "ch", "msg")
 
     content = captured["content"]
-    assert "previous chatter" in content            # history is included
-    assert "Question: what do you see" in content   # question is preserved
+    assert "previous chatter" in captured["history"]            # history is included
+    assert content == "what do you see"   # question is preserved
 
 
 @pytest.mark.asyncio
